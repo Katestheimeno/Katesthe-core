@@ -1,44 +1,80 @@
-# this file includes all the middlewares
-# and the installed apps
+"""
+Application & Middleware Configuration
 
-# Application definition
+This file centralizes the definition of:
+- Django’s built-in apps
+- Third-party packages
+- Project-specific apps
+- Middleware stack
+
+It also includes configuration for the Unfold admin package and 
+optional development-only apps.
+"""
+
+# ------------------------------------------------------------
+# Imports Collector
+# ------------------------------------------------------------
+# We collect all exported variables into `__all__` at the bottom.
 imports = []
 
+
+# ------------------------------------------------------------
+# Unfold (Admin UI Enhancements)
+# ------------------------------------------------------------
+# Unfold provides a modernized Django admin interface.
+# Each contrib submodule can be enabled/disabled as needed.
 UNFOLD_APP = [
-    "unfold",  # before django.contrib.admin
-    "unfold.contrib.filters",  # optional, if special filters are needed
-    "unfold.contrib.forms",  # optional, if special form elements are needed
-    "unfold.contrib.inlines",  # optional, if special inlines are needed
-    "unfold.contrib.import_export",  # optional, if django-import-export package is used
-    "unfold.contrib.guardian",  # optional, if django-guardian package is used
-    "unfold.contrib.simple_history",  # optional, if django-simple-history package is used
-    "unfold.contrib.location_field",  # optional, if django-location-field package is used
-    "unfold.contrib.constance",  # optional, if django-constance package is used
+    "unfold",                      # must come before django.contrib.admin
+    "unfold.contrib.filters",      # optional: advanced filters
+    "unfold.contrib.forms",        # optional: custom form widgets
+    "unfold.contrib.inlines",      # optional: inline enhancements
+    "unfold.contrib.import_export",  # optional: requires django-import-export
+    "unfold.contrib.guardian",     # optional: requires django-guardian
+    "unfold.contrib.simple_history",  # optional: requires django-simple-history
+    "unfold.contrib.location_field",  # optional: requires django-location-field
+    "unfold.contrib.constance",    # optional: requires django-constance
 ]
 
-# django's default apps
+
+# ------------------------------------------------------------
+# Django Default Apps
+# ------------------------------------------------------------
 DJANGO_APPS = [
     *UNFOLD_APP,
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
 ]
 
 
-# appas and packages installed
+# ------------------------------------------------------------
+# Third-Party Packages
+# ------------------------------------------------------------
+# These are external Django/DRF-related dependencies.
 THIRD_PARTY_PACKAGES = [
-    "rest_framework",       # DRF
-    "django_extensions",    # dev tools like shell_plus, graph_models
+    "rest_framework",     # Django REST Framework for APIs
+    # Developer utilities (shell_plus, graph_models, etc.)
+    "django_extensions",
+    "corsheaders",        # Handle CORS in APIs
+    'drf_spectacular',  # Auto Documentation for the APIs
 ]
 
-# main project apps
+
+# ------------------------------------------------------------
+# Project Apps
+# ------------------------------------------------------------
+# Internal apps developed as part of the project.
 PROJECT_APPS = [
-    'utils',
+    "utils",
 ]
 
+
+# ------------------------------------------------------------
+# Installed Apps (final composition)
+# ------------------------------------------------------------
 imports += ["INSTALLED_APPS"]
 
 INSTALLED_APPS = [
@@ -47,25 +83,42 @@ INSTALLED_APPS = [
     *PROJECT_APPS,
 ]
 
+
+# ------------------------------------------------------------
+# Development-only Apps
+# ------------------------------------------------------------
+# These should only be enabled in a dev environment.
 imports += ["DEV_APPS"]
 
-# apps that should only be accessable in the dev environment
 DEV_APPS = [
-    'rosetta',
-    'silk',
+    "rosetta",  # Translation management
+    "silk",     # Profiling & performance analysis
 ]
 
+
+# ------------------------------------------------------------
+# Middleware Configuration
+# ------------------------------------------------------------
+# The order of middleware is important.
+# Notes:
+# - `CorsMiddleware` must appear *before* `CommonMiddleware`.
+# - Security, session, CSRF, authentication, and message handling
+#   are included by default.
 imports += ["MIDDLEWARE"]
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",  # must come before CommonMiddleware
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
 
+# ------------------------------------------------------------
+# Explicit Exports
+# ------------------------------------------------------------
 __all__ = imports

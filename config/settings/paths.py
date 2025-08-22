@@ -1,46 +1,72 @@
 """
-This file configures paths for serving static and media files.
+This file configures paths for serving static and media files in Django.
 
-MEDIA_* is used for user-uploaded content.
-STATIC_* is used for serving CSS, JavaScript, and other static assets.
+MEDIA_* → Used for user-uploaded content (e.g., profile pictures, documents).
+STATIC_* → Used for serving CSS, JavaScript, and other static assets.
 
-Notes:
-- MEDIA_ROOT: Local directory where uploaded media will be stored.
-- STATICFILES_DIRS: Extra directories where static files will be collected from (during development).
-- STATIC_ROOT: Directory where all static files are collected to (used by collectstatic in production).
+Key Notes:
+- MEDIA_ROOT: Local directory where uploaded media files will be stored.
+- STATICFILES_DIRS: Extra directories where static files will be collected from (useful during development).
+- STATIC_ROOT: Directory where all static files are collected into when running `collectstatic` (mainly for production).
+- LOCALE_PATHS: Directories where Django will look for translation files.
+- SQLITE_DATABASE_PATH: Centralized location for the SQLite database file.
 
-Remember to run `python manage.py collectstatic` before deploying.
+Remember:
+- In production, always run `python manage.py collectstatic` so STATIC_ROOT is populated.
+- MEDIA files should be served via a dedicated storage service (e.g., S3, GCP, or mounted volume), not Django directly.
 """
 
 from pathlib import Path
 from config.env import BASE_DIR
 
 imports = []
-# media directory configuration
-imports += ["MEDIA_URL"]
-MEDIA_URL = "/media/"
-imports += ["MEDIA_ROOT"]
-MEDIA_ROOT = BASE_DIR / "media"
 
-# Static files (CSS, JavaScript, Images)
+# ---------------------------
+# Media configuration
+# ---------------------------
+imports += ["MEDIA_URL"]
+MEDIA_URL = "/media/"  # Public URL to access uploaded media
+
+imports += ["MEDIA_ROOT"]
+MEDIA_ROOT = BASE_DIR / "media"  # Local directory to store uploaded media
+
+
+# ---------------------------
+# Static files configuration
+# ---------------------------
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 imports += ["STATIC_URL"]
-STATIC_URL = "/static/"
+STATIC_URL = "/static/"  # Public URL to access static files
+
 imports += ["STATIC_ROOT"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
+# Directory where Django will copy all static files when running `collectstatic`
+
 imports += ["STATICFILES_DIRS"]
 STATICFILES_DIRS = [
-    BASE_DIR / "static",
+    BASE_DIR / "static",  # Additional static files during development
 ]
 
+
+# ---------------------------
+# Localization
+# ---------------------------
 imports += ["LOCALE_PATHS"]
 LOCALE_PATHS = [
-    BASE_DIR / "locale",
+    BASE_DIR / "locale",  # Directory for Django translation files
 ]
 
+
+# ---------------------------
+# Database path
+# ---------------------------
 imports += ["SQLITE_DATABASE_PATH"]
-SQLITE_DATABASE_PATH = BASE_DIR / 'database'
+SQLITE_DATABASE_PATH = BASE_DIR / "database"
+# Directory to store SQLite database file(s)
 
+
+# ---------------------------
+# Exported settings
+# ---------------------------
 __all__ = imports
-

@@ -1,15 +1,44 @@
+"""
+Unfold Admin UI Configuration
+
+This file customizes the appearance and behavior of the Django admin 
+using the `django-unfold` package. It provides branding, color palettes, 
+UI tweaks, and layout preferences.
+
+Key sections:
+- SITE_TITLE / SITE_HEADER: Branding for the admin interface.
+- COLORS: Base, primary, accent, and state (success/warning/danger) color palettes.
+- SIDEBAR: Navigation settings.
+- UI: Optional user interface tweaks.
+- FOOTER: Footer visibility and text.
+"""
+
+# ------------------------------------------------------------
+# Imports Collector
+# ------------------------------------------------------------
 imports = []
 
+
+# ------------------------------------------------------------
+# Unfold Configuration
+# ------------------------------------------------------------
 imports += ["UNFOLD"]
 
 UNFOLD = {
-    "SITE_TITLE": "DRF Starter Admin",
-    "SITE_HEADER": "DRF Starter",
-    
-    # Base and primary color palettes
+    # --------------------------------------------------------
+    # Branding
+    # --------------------------------------------------------
+    "SITE_TITLE": "DRF Starter Admin",  # Browser tab + login screen
+    "SITE_HEADER": "DRF Starter",       # Header displayed in the admin
+
+    # --------------------------------------------------------
+    # Color Palette
+    # Uses RGB values (e.g., "90 60 120") for consistency.
+    # Tailored for a professional purple/gray/blue theme.
+    # --------------------------------------------------------
     "COLORS": {
-        "base": {
-            "50": "245 245 245",  # Ice gray
+        "base": {   # Neutral grays
+            "50": "245 245 245",   # Ice gray
             "100": "225 225 225",
             "200": "190 190 190",
             "300": "150 150 150",
@@ -21,20 +50,20 @@ UNFOLD = {
             "900": "8 8 8",
             "950": "2 2 2",
         },
-        "primary": {
-            "50": "235 230 240",  # Light gray-purple
+        "primary": {  # Main branding purple
+            "50": "235 230 240",
             "100": "210 200 225",
             "200": "180 160 200",
             "300": "145 125 175",
             "400": "115 90 150",   # Balanced brand purple
             "500": "90 60 120",    # Rich dark purple
-            "600": "70 45 95",     # Deep
+            "600": "70 45 95",
             "700": "55 35 75",
             "800": "40 25 55",
             "900": "25 15 35",
             "950": "10 8 20",
         },
-        "accent": {
+        "accent": {  # Highlights / secondary actions
             "50": "245 250 255",   # Soft blue
             "100": "210 230 250",
             "200": "180 210 245",
@@ -46,37 +75,41 @@ UNFOLD = {
             "800": "25 50 80",
             "900": "15 30 50",
         },
-        "success": {
-            "500": "40 180 100",
-        },
-        "warning": {
-            "500": "240 180 40",
-        },
-        "danger": {
-            "500": "220 50 50",
-        },
+        "success": {"500": "40 180 100"},   # Green
+        "warning": {"500": "240 180 40"},   # Yellow/Orange
+        "danger": {"500": "220 50 50"},     # Red
     },
 
+    # --------------------------------------------------------
+    # Sidebar Navigation
+    # --------------------------------------------------------
     "SIDEBAR": {
-        "show_search": True,        # Search for apps/models
-        "collapse": False,          # Keep sidebar expanded by default
-        "highlight_current": True,  # Highlight the current page
+        "show_search": True,        # Allow search for apps/models
+        "collapse": False,          # Sidebar expanded by default
+        "highlight_current": True,  # Highlight the active menu item
     },
 
-    # Optional UI tweaks
+    # --------------------------------------------------------
+    # User Interface Tweaks
+    # --------------------------------------------------------
     "UI": {
-        # "logo_url": "/static/img/logo.png",  # Your logo
-        "dark_mode": True,                   # Default theme
+        # "logo_url": "/static/img/logo.png",  # Optional custom logo
+        "dark_mode": True,                    # Default dark theme
         "rounded_corners": True,              # Smooth card edges
-        "compact_tables": True,               # Reduce table row height
+        "compact_tables": True,               # Smaller row height for tables
     },
 
-    # Footer / extra info
+    # --------------------------------------------------------
+    # Footer
+    # --------------------------------------------------------
     "FOOTER": {
         "show": True,
         "text": "© 2025 DRF Starter",
     },
 }
 
-__all__ = imports
 
+# ------------------------------------------------------------
+# Explicit Exports
+# ------------------------------------------------------------
+__all__ = imports

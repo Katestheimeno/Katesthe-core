@@ -6,3 +6,5 @@ from config.settings.auth import *
 from config.settings.lang_time import *
 from config.settings.database import *
 from config.settings.unfold import *
+from config.settings.corsheaders import *
+from config.settings.restframework import *
