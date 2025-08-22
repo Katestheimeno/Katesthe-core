@@ -36,7 +36,7 @@ THIRD_PARTY_PACKAGES = [
 
 # main project apps
 PROJECT_APPS = [
-
+    'utils',
 ]
 
 imports += ["INSTALLED_APPS"]
@@ -45,7 +45,6 @@ INSTALLED_APPS = [
     *DJANGO_APPS,
     *THIRD_PARTY_PACKAGES,
     *PROJECT_APPS,
-
 ]
 
 imports += ["DEV_APPS"]
