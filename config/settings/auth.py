@@ -55,5 +55,10 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+
+# Point django to the custom user model
+imports += ["AUTH_USER_MODEL"]
+AUTH_USER_MODEL = "accounts.User"
+
 # Expose only the explicitly defined symbols
 __all__ = imports

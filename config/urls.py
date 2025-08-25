@@ -28,8 +28,9 @@ urlpatterns = [
     # Django Admin
     path("admin/", admin.site.urls),
 
-    # DRF's browsable API login/logout
     path("api/", include("rest_framework.urls")),
+
+    path('api/auth/', include('dj_rest_auth.urls')),
 ]
 
 if cfg.DEBUG:

@@ -37,6 +37,9 @@ DEBUG = env.bool('DJANGO_DEBUG', default=True)
 imports += ["SECRET_KEY"]
 SECRET_KEY = env("SECRET_KEY")
 
+imports +=["JWT_SECRET_KEY"]
+JWT_SECRET_KEY = env("JWT_SECRET_KEY")
+
 imports += ["ALLOWED_HOSTS"]
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=['*'])
 
