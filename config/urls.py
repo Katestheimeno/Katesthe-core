@@ -24,13 +24,11 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 
+
 urlpatterns = [
     # Django Admin
     path("admin/", admin.site.urls),
-
-    path("api/", include("rest_framework.urls")),
-
-    path('api/auth/', include('dj_rest_auth.urls')),
+    path("api/v1/", include("accounts.urls")),
 ]
 
 if cfg.DEBUG:
@@ -46,7 +44,7 @@ if cfg.DEBUG:
 
         # Swagger UI (interactive API docs)
         path(
-            "api/schema/swagger-ui/",
+            "api/schema/docs/",
             SpectacularSwaggerView.as_view(url_name="schema"),
             name="swagger-ui",
         ),
@@ -58,4 +56,3 @@ if cfg.DEBUG:
             name="redoc",
         ),
     ]
-

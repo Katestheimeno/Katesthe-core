@@ -1,5 +1,6 @@
 from config.env import JWT_SECRET_KEY
 from datetime import timedelta
+from config.settings.djoser import *
 
 # Keep track of which settings we’re exporting in __all__
 imports = []
@@ -7,21 +8,51 @@ imports = []
 # --- JWT CONFIGURATION ---
 imports += ["SIMPLE_JWT"]
 
+
 SIMPLE_JWT = {
-    # Access token lifetime (short-lived, to limit damage if leaked)
+    # --------------------------
+    # Token lifetimes
+    # --------------------------
+    # short-lived access token
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
-    # Refresh token lifetime (longer-lived, used to get new access tokens)
+    # longer-lived refresh token
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
-    # Whether a new refresh token is issued on refresh (stateless if False)
+
+    # --------------------------
+    # Rotation / Blacklisting
+    # --------------------------
+    # set True if you want new refresh tokens each time
     "ROTATE_REFRESH_TOKENS": False,
-    # If rotation is enabled, blacklist old refresh tokens
+    # needs django-rest-framework-simplejwt[token_blacklist]
     "BLACKLIST_AFTER_ROTATION": False,
-    # Update last_login field when a user logs in via JWT
-    "UPDATE_LAST_LOGIN": True,
-    # Secret key used for signing the JWTs (keep it out of VCS!)
-    "SIGNING_KEY": JWT_SECRET_KEY,
-    # Algorithm for signing tokens
+
+    # --------------------------
+    # User handling
+    # --------------------------
+    "UPDATE_LAST_LOGIN": True,          # keep track of last_login automatically
+    "USER_ID_FIELD": "id",              # default User model PK
+    "USER_ID_CLAIM": "user_id",         # how the claim appears in the JWT payload
+
+    # --------------------------
+    # JWT signing / validation
+    # --------------------------
     "ALGORITHM": "HS256",
+    "SIGNING_KEY": JWT_SECRET_KEY,  # or a dedicated JWT_SECRET_KEY
+    "VERIFYING_KEY": None,
+    "AUDIENCE": None,                    # set if you issue tokens to multiple clients
+    "ISSUER": None,                      # set if you want issuer validation
+
+    # --------------------------
+    # HTTP integration
+    # --------------------------
+    "AUTH_HEADER_TYPES": ("Bearer",),   # or ("JWT",) if you prefer
+    "AUTH_HEADER_NAME": "HTTP_AUTHORIZATION",
+
+    # --------------------------
+    # Token classes
+    # --------------------------
+    "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
+    "TOKEN_TYPE_CLAIM": "token_type",
 }
 
 # --- DRF CONFIGURATION ---
@@ -31,34 +62,20 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         # Default DRF auth classes (BasicAuth disabled here)
         'rest_framework_simplejwt.authentication.JWTAuthentication',  # <-- JWT via SimpleJWT
-        'rest_framework.authentication.SessionAuthentication',        # <-- For browsable API / dev
+        # <-- For browsable API / dev
+        'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         # By default, require authentication on all views
         'rest_framework.permissions.IsAuthenticated',
     ],
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',  # OpenAPI schema generator
+    # OpenAPI schema generator
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend',          # Enable query filtering
     ],
 }
 
-# --- OPENAPI / API DOCS CONFIGURATION ---
-imports += ["SPECTACULAR_SETTINGS"]
-
-SPECTACULAR_SETTINGS = {
-    'TITLE': 'DRF-Starter API',
-    'DESCRIPTION': 'serves as a django rest_framework starting point',
-    'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,  # Don’t include schema endpoint in docs
-}
-
-# --- DJ-REST-AUTH CONFIGURATION ---
-imports += ["REST_USE_JWT"]
-
-# Tell dj-rest-auth to use SimpleJWT instead of default TokenAuthentication
-REST_USE_JWT = True
 
 # Make all these settings importable if someone does: from settings import *
 __all__ = imports
-

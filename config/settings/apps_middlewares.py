@@ -60,11 +60,10 @@ THIRD_PARTY_PACKAGES = [
     "django_extensions",
     "corsheaders",        # Handle CORS in APIs
     'drf_spectacular',  # Auto Documentation for the APIs
-    'rest_framework.authtoken',  # Authentication package
-    'dj_rest_auth',  # Authentication package
     'django_filters',  # Django filters
-    'rest_framework_extensions',  # Django filters
-    'rest_framework_simplejwt',  # Django filters
+    'rest_framework_extensions',  # Models and fields tools
+    'rest_framework_simplejwt',  # JWT Auth
+    'djoser',  # Auth package
 ]
 
 

@@ -15,9 +15,9 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             "--type",
-            choices=["project", "third-party"],
+            choices=["project", "third-party", "dev"],
             default="project",
-            help="Type of app: 'project' for PROJECT_APPS or 'third-party' for THIRD_PARTY_PACKAGES (default: project)"
+            help="Type of app: 'project' for PROJECT_APPS, 'dev' for DEV_APPS or 'third-party' for THIRD_PARTY_PACKAGES (default: project)"
         )
         parser.add_argument(
             "--comment",
@@ -62,31 +62,41 @@ class Command(BaseCommand):
             raise CommandError(f"{apps_file} not found!")
 
         # Determine target list name
-        target_list = "PROJECT_APPS" if app_type == "project" else "THIRD_PARTY_PACKAGES"
-        
+        # target_list = "PROJECT_APPS" if app_type == "project" else "THIRD_PARTY_PACKAGES"
+        if app_type == 'project':
+            target_list = 'PROJECT_APPS'
+        elif app_type == 'dev':
+            target_list = 'DEV_APPS'
+        else:
+            target_list = 'THIRD_PARTY_PACKAGES'
+
         # Check app folder existence for project apps (unless forced or removing)
         if app_type == "project" and not remove and not force:
             if not app_path.exists() or not app_path.is_dir():
                 self.stdout.write(self.style.WARNING(
-                    f"App folder '{app_name}' does not exist. Use --force to add anyway."
+                    f"App folder '{
+                        app_name}' does not exist. Use --force to add anyway."
                 ))
                 return
 
         content = apps_file.read_text()
 
         if remove:
-            self._handle_remove(content, apps_file, app_name, target_list, soft_remove, dry_run)
+            self._handle_remove(content, apps_file, app_name,
+                                target_list, soft_remove, dry_run)
         else:
-            self._handle_add(content, apps_file, app_name, target_list, comment, dry_run)
+            self._handle_add(content, apps_file, app_name,
+                             target_list, comment, dry_run)
 
     def _handle_add(self, content, apps_file, app_name, target_list, comment, dry_run):
         """Handle adding an app to the target list"""
         # Match the target list
         pattern = rf"({target_list}\s*=\s*\[)(.*?)(\])"
         match = re.search(pattern, content, re.DOTALL)
-        
+
         if not match:
-            raise CommandError(f"Could not find {target_list} in apps_middlewares.py")
+            raise CommandError(f"Could not find {
+                               target_list} in apps_middlewares.py")
 
         start, apps_list, end = match.groups()
 
@@ -97,7 +107,7 @@ class Command(BaseCommand):
             f"# '{app_name}'",
             f'# "{app_name}"'
         ]
-        
+
         for pattern in app_patterns:
             if pattern in apps_list:
                 self.stdout.write(self.style.WARNING(
@@ -107,16 +117,18 @@ class Command(BaseCommand):
 
         # Prepare the new line with optional comment
         comment_str = f"  # {comment}" if comment else ""
-        
+
         # Find the best insertion point (before the closing bracket, maintaining formatting)
         if apps_list.strip():
             # Add after existing apps
-            new_apps_list = apps_list.rstrip() + f"\n    '{app_name}',{comment_str}\n"
+            new_apps_list = apps_list.rstrip(
+            ) + f"\n    '{app_name}',{comment_str}\n"
         else:
             # Empty list
             new_apps_list = f"\n    '{app_name}',{comment_str}\n"
 
-        new_content = content.replace(match.group(0), f"{start}{new_apps_list}{end}")
+        new_content = content.replace(
+            match.group(0), f"{start}{new_apps_list}{end}")
 
         if dry_run:
             self.stdout.write(self.style.WARNING("DRY RUN - No changes made"))
@@ -132,16 +144,17 @@ class Command(BaseCommand):
         # Match the target list
         pattern = rf"({target_list}\s*=\s*\[)(.*?)(\])"
         match = re.search(pattern, content, re.DOTALL)
-        
+
         if not match:
-            raise CommandError(f"Could not find {target_list} in apps_middlewares.py")
+            raise CommandError(f"Could not find {
+                               target_list} in apps_middlewares.py")
 
         start, apps_list, end = match.groups()
 
         # Find the app line to remove/comment
         app_patterns = [
             rf"(\s*)('{app_name}',.*?)(\n|$)",
-            rf"(\s*)(\"{ app_name}\",.*?)(\n|$)"
+            rf"(\s*)(\"{app_name}\",.*?)(\n|$)"
         ]
 
         found = False
@@ -152,24 +165,26 @@ class Command(BaseCommand):
             if app_match:
                 found = True
                 indent, app_line, newline = app_match.groups()
-                
+
                 if soft_remove:
                     # Comment out the line
                     if not app_line.strip().startswith('#'):
                         commented_line = f"# {app_line}"
                         new_apps_list = apps_list.replace(
-                            f"{indent}{app_line}{newline}", 
+                            f"{indent}{app_line}{newline}",
                             f"{indent}{commented_line}{newline}"
                         )
                         action = "commented out"
                     else:
                         self.stdout.write(self.style.WARNING(
-                            f"App '{app_name}' is already commented out in {target_list}"
+                            f"App '{app_name}' is already commented out in {
+                                target_list}"
                         ))
                         return
                 else:
                     # Hard remove - delete the entire line
-                    new_apps_list = apps_list.replace(f"{indent}{app_line}{newline}", "")
+                    new_apps_list = apps_list.replace(
+                        f"{indent}{app_line}{newline}", "")
                     action = "removed"
                 break
 
@@ -179,19 +194,21 @@ class Command(BaseCommand):
                 rf"(\s*)(#\s*'{app_name}',.*?)(\n|$)",
                 rf"(\s*)(#\s*\"{app_name}\",.*?)(\n|$)"
             ]
-            
+
             for pattern in commented_patterns:
                 app_match = re.search(pattern, apps_list)
                 if app_match:
                     if not soft_remove:
                         # Remove commented line
                         indent, app_line, newline = app_match.groups()
-                        new_apps_list = apps_list.replace(f"{indent}{app_line}{newline}", "")
+                        new_apps_list = apps_list.replace(
+                            f"{indent}{app_line}{newline}", "")
                         found = True
                         action = "removed"
                     else:
                         self.stdout.write(self.style.WARNING(
-                            f"App '{app_name}' is already commented out in {target_list}"
+                            f"App '{app_name}' is already commented out in {
+                                target_list}"
                         ))
                         return
                     break
@@ -202,11 +219,13 @@ class Command(BaseCommand):
             ))
             return
 
-        new_content = content.replace(match.group(0), f"{start}{new_apps_list}{end}")
+        new_content = content.replace(
+            match.group(0), f"{start}{new_apps_list}{end}")
 
         if dry_run:
             self.stdout.write(self.style.WARNING("DRY RUN - No changes made"))
-            self.stdout.write(f"Would {action} '{app_name}' from {target_list}")
+            self.stdout.write(f"Would {action} '{
+                              app_name}' from {target_list}")
         else:
             apps_file.write_text(new_content)
             self.stdout.write(self.style.SUCCESS(

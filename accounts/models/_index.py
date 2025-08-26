@@ -57,7 +57,8 @@ class CustomAccountManager(BaseUserManager):
         if other_fields.get("is_staff") is not True:
             raise ValueError(_("Superuser must be assigned to is_staff=True."))
         if other_fields.get("is_superuser") is not True:
-            raise ValueError(_("Superuser must be assigned to is_superuser=True."))
+            raise ValueError(
+                _("Superuser must be assigned to is_superuser=True."))
 
         return self.create_user(email, username, password, **other_fields)
 
@@ -93,8 +94,10 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     # === Status Flags ===
     is_active = models.BooleanField(_("active"), default=False)  # Can login?
-    is_staff = models.BooleanField(_("staff status"), default=False)  # Access admin site?
-    is_verified = models.BooleanField(_("email verified"), default=False)  # Email confirmation done?
+    is_staff = models.BooleanField(
+        _("staff status"), default=False)  # Access admin site?
+    is_verified = models.BooleanField(
+        _("email verified"), default=False)  # Email confirmation done?
 
     # === Tracking Fields ===
     date_joined = models.DateTimeField(_("date joined"), default=now)
@@ -105,17 +108,21 @@ class User(AbstractBaseUser, PermissionsMixin):
     objects = CustomAccountManager()
 
     # === Configuration ===
-    USERNAME_FIELD = "email"       # Email is used for authentication instead of username
-    REQUIRED_FIELDS = ["username"] # Required when creating a superuser via CLI
+    USERNAME_FIELD = "username"       # Field used for login
+    # Required when creating a superuser via CLI
+    REQUIRED_FIELDS = ["email"]
 
     class Meta:
         db_table = "users"  # Explicit table name
         verbose_name = _("User")
         verbose_name_plural = _("Users")
         indexes = [
-            models.Index(fields=["email"]),                # Speed up lookups by email
-            models.Index(fields=["username"]),             # Speed up lookups by username
-            models.Index(fields=["is_active", "is_verified"]), # For queries filtering active/verified users
+            # Speed up lookups by email
+            models.Index(fields=["email"]),
+            # Speed up lookups by username
+            models.Index(fields=["username"]),
+            # For queries filtering active/verified users
+            models.Index(fields=["is_active", "is_verified"]),
         ]
         ordering = ["-date_joined"]  # Newest users first
 
@@ -126,4 +133,3 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 # Export only the User model when using `from module import *`
 __all__ = imports
-
