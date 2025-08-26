@@ -64,6 +64,7 @@ THIRD_PARTY_PACKAGES = [
     'rest_framework_extensions',  # Models and fields tools
     'rest_framework_simplejwt',  # JWT Auth
     'djoser',  # Auth package
+    'django_celery_beat',  # Celery Schedules
 ]
 
 

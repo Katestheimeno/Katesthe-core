@@ -37,11 +37,29 @@ DEBUG = env.bool('DJANGO_DEBUG', default=True)
 imports += ["SECRET_KEY"]
 SECRET_KEY = env("SECRET_KEY")
 
-imports +=["JWT_SECRET_KEY"]
+imports += ["JWT_SECRET_KEY"]
 JWT_SECRET_KEY = env("JWT_SECRET_KEY")
 
 imports += ["ALLOWED_HOSTS"]
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=['*'])
 
+# ------------------------------------------------------------
+# Database URL construction
+# ------------------------------------------------------------
+POSTGRES_USER = env("POSTGRES_USER", default="postgres")
+POSTGRES_PASSWORD = env("POSTGRES_PASSWORD", default="postgres")
+POSTGRES_HOST = env("POSTGRES_HOST", default="db")
+POSTGRES_PORT = env("POSTGRES_PORT", default=5432)
+POSTGRES_DB = env("POSTGRES_DB", default="drf_starter")
+
+imports += ["DATABASE_URL"]
+DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{
+    POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
+
+imports += ["REDIS_URL"]
+REDIS_URL = env('REDIS_URL', default='redis://localhost:6379/0')
+
+imports += ["CELERY_BROKER_URL"]
+CELERY_BROKER_URL = REDIS_URL
 
 __all__ = imports
