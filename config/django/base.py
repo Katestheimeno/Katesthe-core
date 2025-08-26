@@ -23,12 +23,3 @@ TEMPLATES = [
         },
     },
 ]
-
-# Schedule Tasks
-CELERY_BEAT_SCHEDULE = {
-    # 'say-hello-every-minute': {
-    #     'task': 'appointments.tasks.my_task',
-    #     'schedule': 60.0,
-    #     'args': ("DevMozach",)
-    # },
-}

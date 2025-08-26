@@ -9,5 +9,4 @@ from config.settings.unfold import *
 from config.settings.corsheaders import *
 from config.settings.restframework import *
 from config.settings.spectacular import *
-from config.settings.ic import *
 from config.settings.celery import *
