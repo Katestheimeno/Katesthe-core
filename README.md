@@ -24,90 +24,86 @@ A production-ready Django REST Framework starter with an opinionated, domain-dri
     ```powershell
     iwr https://astral.sh/uv/install.ps1 -useb | iex
     ```
-  - See: [uv docs](https://astral.sh/uv)
+  - See: `https://astral.sh/uv`
 - For full stack locally (optional if you use SQLite):
   - **PostgreSQL** 15+
   - **Redis** 7+
 - Or use **Docker** and **docker compose** (ships with `Dockerfile` and `docker-compose.yml`).
 
 
-## Quickstart (uv, local)
+## Quickstart (Docker — default)
+Because this project is fully dockerized, run Django and management commands inside containers. Running them directly on your host will fail unless you reconfigure `.env` (see Host mode below).
+
 1) Clone and enter the project
 ```bash
 git clone <your-fork-or-origin> drf-starter && cd drf-starter
 ```
 
-2) Create and activate a virtual environment with uv
+2) Create `.env`
 ```bash
-uv venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+cp .env.example .env
+```
+Set secrets:
+```bash
+# generate a strong value; reuse for SECRET_KEY and JWT_SECRET_KEY (or generate two)
+openssl rand -base64 48 | tr -d '\n'
 ```
 
-3) Install dependencies
-- Install default deps:
-  ```bash
-  uv sync
-  ```
-- Install dev tools as well (formatting, tests, etc.):
-  ```bash
-  uv sync --group dev
-  ```
-
-4) Configure environment
-- Copy the example and update values:
-  ```bash
-  cp .env.example .env
-  ```
-- Required secrets:
-  - `SECRET_KEY` — generate one: `uv run python -c "import secrets;print(secrets.token_urlsafe(64))"`
-  - `JWT_SECRET_KEY` — generate a separate secret similarly
-- Debug flag:
-  - Django uses `DJANGO_DEBUG` (boolean). Keep it `True` for local.
-- Allowed hosts:
-  - Add `ALLOWED_HOSTS` to `.env` for production, e.g. `ALLOWED_HOSTS=example.com,api.example.com`
-- Database options:
-  - Postgres (default in `.env.example`):
-    ```env
-    DATABASE_URL=postgresql://postgres:postgres@localhost:5432/drf_starter
-    ```
-  - SQLite (no services needed):
-    ```env
-    DATABASE_URL=sqlite:///database/db.sqlite3
-    ```
-  - Redis (broker/cache):
-    ```env
-    REDIS_URL=redis://localhost:6379/0
-    ```
-
-5) Apply migrations and create a superuser
-```bash
-uv run python manage.py migrate
-uv run python manage.py createsuperuser
-```
-
-6) Run the server
-```bash
-uv run python manage.py runserver 0.0.0.0:8000
-```
-
-7) Open the app
-- Admin: `http://127.0.0.1:8000/admin/`
-- Swagger: `http://127.0.0.1:8000/api/schema/docs/`
-- Redoc: `http://127.0.0.1:8000/api/schema/redoc/`
-
-
-## Quickstart (Docker)
+3) Start the stack
 ```bash
 docker compose up --build
 ```
-Services:
-- `web` (Django): http://127.0.0.1:8000
-- `db` (Postgres): port 5432
-- `redis`: port 6379
-- `celery_worker`, `celery_beat`
-- `flower`: http://127.0.0.1:5555 (Celery dashboard)
 
-Compose reads `.env`. The web service will run `migrate` then start the dev server automatically.
+4) Run management commands inside the web container
+```bash
+# migrations
+docker compose exec web uv run python manage.py migrate
+
+# superuser
+docker compose exec web uv run python manage.py createsuperuser
+
+# makemigrations
+docker compose exec web uv run python manage.py makemigrations
+
+# shell
+docker compose exec web uv run python manage.py shell
+```
+
+5) Access services
+- Web: `http://127.0.0.1:8000`
+- Admin: `http://127.0.0.1:8000/admin/`
+- Swagger: `http://127.0.0.1:8000/api/schema/docs/`
+- Redoc: `http://127.0.0.1:8000/api/schema/redoc/`
+- Flower: `http://127.0.0.1:5555`
+
+
+## Alternative: Host mode (advanced)
+If you prefer running Django on your host (outside Docker), you must point your `.env` to services reachable from your host, not the Docker DNS names.
+
+Two options:
+- Use the Dockerized Postgres/Redis but connect via localhost (ports are published by compose):
+  ```env
+  # .env overrides for HOST MODE
+  DATABASE_URL=postgresql://postgres:postgres@localhost:5432/drf_starter
+  REDIS_URL=redis://localhost:6379/0
+  ```
+  Then:
+  ```bash
+  # Ensure db and redis are up
+  docker compose up -d db redis
+
+  # Host virtualenv using uv
+  uv venv .venv && source .venv/bin/activate  # Windows: .venv\Scripts\activate
+  uv sync && uv sync --group dev
+
+  uv run python manage.py migrate
+  uv run python manage.py runserver 0.0.0.0:8000
+  ```
+
+- Or install Postgres/Redis locally and set `DATABASE_URL`/`REDIS_URL` accordingly.
+
+Important:
+- Do not use `db` or `redis` hostnames from your host; those names only resolve inside Docker networks. Use `localhost` with the published ports.
 
 
 ## Configuration (Environment)
@@ -127,6 +123,7 @@ The project centralizes env handling in `config/env.py`. Key variables:
 Notes:
 - `manage.py` defaults to `config.django.local` settings; Production can use `DJANGO_SETTINGS_MODULE=config.django.production`.
 - Database configuration uses `dj-database-url`.
+- Use `DJANGO_DEBUG` (boolean) for Django’s debug toggle. The example `.env` includes `DEBUG` for Compose convenience; prefer `DJANGO_DEBUG`.
 
 
 ## API and Authentication
@@ -143,7 +140,7 @@ Notes:
   - Swagger UI: `/api/schema/docs/`
   - Redoc: `/api/schema/redoc/`
 
-Example auth flow (local):
+Example auth flow (host mode):
 ```bash
 # Register
 curl -X POST http://127.0.0.1:8000/api/v1/auth/users/ \
@@ -165,16 +162,18 @@ curl http://127.0.0.1:8000/api/v1/auth/users/me/ \
 - App: `config/celery.py`
 - Settings: `config/settings/celery.py` (beat schedule, queues, routes placeholders)
 
-Run locally:
+With Docker Compose, `celery_worker`, `celery_beat`, and `flower` run automatically.
+
+Useful commands:
 ```bash
-# worker
-uv run celery -A config.celery.app worker --loglevel=info
-# beat (schedules)
-uv run celery -A config.celery.app beat --loglevel=info
-# flower (dashboard)
-uv run celery -A config.celery.app flower --broker="$REDIS_URL"
+# Tail logs
+docker compose logs -f celery_worker
+docker compose logs -f celery_beat
+docker compose logs -f flower
+
+# (Advanced) run a one-off Celery command inside web
+docker compose exec web uv run celery -A config.celery.app inspect active
 ```
-With Docker Compose, services are provided for worker/beat/flower out-of-the-box.
 
 
 ## Project structure (opinionated)
@@ -237,25 +236,25 @@ Why this layout?
 
 
 ## Scaffolding and maintenance commands
-All commands run through uv:
+All commands run inside containers by default:
 
 - Create a new app from the template and add it to settings:
   ```bash
-  uv run python manage.py starttemplateapp blog --add-to-settings
+  docker compose exec web uv run python manage.py starttemplateapp blog --add-to-settings
   ```
 
 - Add an action/file to a section (e.g., a controller):
   ```bash
-  uv run python manage.py addfile blog --section controllers --action list
+  docker compose exec web uv run python manage.py addfile blog --section controllers --action list
   ```
 
 - Add/remove an app from settings lists:
   ```bash
   # add to project apps
-  uv run python manage.py manageprojectapp blog --type project
+  docker compose exec web uv run python manage.py manageprojectapp blog --type project
 
   # remove from third-party packages (soft-remove as a comment)
-  uv run python manage.py manageprojectapp somepackage --type third-party --remove --soft-remove
+  docker compose exec web uv run python manage.py manageprojectapp somepackage --type third-party --remove --soft-remove
   ```
 
 
@@ -273,23 +272,26 @@ Defined in `pyproject.toml` with Python `>=3.12`. Locked versions live in `uv.lo
 
 
 ## Running tests and quality tools
+Container-first:
 ```bash
-# install dev deps if not already
-uv sync --group dev
+# install dev deps (already installed in image; re-run if needed)
+ docker compose exec web uv sync --group dev
 
 # run tests
-uv run pytest -q
+ docker compose exec web uv run pytest -q
 
 # coverage
-uv run coverage run -m pytest && uv run coverage html
+ docker compose exec web uv run coverage run -m pytest && \
+ docker compose exec web uv run coverage html
 
 # format & lint
-uv run black .
-uv run isort .
+ docker compose exec web uv run black .
+ docker compose exec web uv run isort .
 
 # type check
-uv run mypy .
+ docker compose exec web uv run mypy .
 ```
+Host mode: use the same commands without `docker compose exec web`.
 
 
 ## CORS and security
@@ -301,17 +303,13 @@ uv run mypy .
 - Switch settings: `DJANGO_SETTINGS_MODULE=config.django.production`
 - Use a real DB and Redis service; run `collectstatic` when serving static assets:
   ```bash
-  uv run python manage.py collectstatic --noinput
+  docker compose exec web uv run python manage.py collectstatic --noinput
   ```
 - Configure a proper ASGI/WSGI server (e.g., `gunicorn`, `uvicorn`) behind a reverse proxy.
 
 
 ## Troubleshooting
-- Wrong debug var: ensure you set `DJANGO_DEBUG` (the example file also includes `DEBUG` for Docker convenience). Keep both aligned for local Docker.
-- Database connection errors: verify `DATABASE_URL`. For SQLite, prefer `sqlite:///database/db.sqlite3` and ensure the directory exists.
+- Commands failing on host: run them inside containers (`docker compose exec web ...`), or switch to Host mode with correct `DATABASE_URL`/`REDIS_URL`.
+- Database connection errors: verify `DATABASE_URL`. For SQLite, prefer `sqlite:///database/db.sqlite3` and ensure the directory exists (Host mode).
 - 401 Unauthorized: obtain/refresh JWT via Djoser endpoints and send `Authorization: Bearer <token>`.
 - Celery not picking tasks: ensure worker and beat are running and `REDIS_URL` is reachable. Check Flower at `:5555`.
-
-
-## License
-MIT (or your preferred license). Update this section to match your repository.
