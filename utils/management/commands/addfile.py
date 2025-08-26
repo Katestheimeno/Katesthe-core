@@ -1,3 +1,8 @@
+"""
+Management command: add action files to an app section and update imports.
+Path: utils/management/commands/addfile.py
+"""
+
 import re
 from pathlib import Path
 from django.core.management.base import BaseCommand, CommandError

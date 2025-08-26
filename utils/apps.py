@@ -1,3 +1,8 @@
+"""
+AppConfig for the utils application.
+Path: utils/apps.py
+"""
+
 from django.apps import AppConfig
 
 

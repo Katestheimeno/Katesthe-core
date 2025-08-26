@@ -1,18 +1,8 @@
 """
-URL configuration for the project.
+Project URL routing.
+Path: config/urls.py
 
-This module defines the URL routing for the Django project. It includes:
-- Core admin panel.
-- Authentication routes (via Django REST Framework).
-- Optional developer/debugging tools and API documentation when DEBUG is enabled.
-
-Conditional Routes (DEBUG only):
-- Silk: Profiling and query analysis UI.
-- Rosetta: Translation interface for managing i18n.
-- Spectacular: OpenAPI schema and documentation UIs (Swagger / ReDoc).
-
-Note:
-- Routes behind DEBUG should not be exposed in production for security reasons.
+Includes admin, app API routes, and dev-only docs/tools under DEBUG.
 """
 
 from django.conf import settings as cfg

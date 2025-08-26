@@ -1,3 +1,8 @@
+"""
+Celery application instance used by worker/beat/flower.
+Path: config/celery.py
+"""
+
 from celery import Celery
 from django.conf import settings
 import os

@@ -1,13 +1,6 @@
 """
-Time & Language Settings
-
-This file serves as a self-contained configuration for internationalization (i18n) 
-and localization (l10n) in the Django project.
-
-- LANGUAGE_CODE: Defines the default language for the project.
-- TIME_ZONE: Sets the default timezone.
-- USE_I18N: Enables Django’s internationalization system (translation, locale).
-- USE_TZ: Enables timezone-aware datetimes (recommended for most projects).
+Language, timezone, and i18n/l10n settings.
+Path: config/settings/lang_time.py
 """
 
 # ------------------------------------------------------------

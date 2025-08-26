@@ -1,3 +1,8 @@
+"""
+Celery configuration placeholders: beat schedule, queues, and routes.
+Path: config/settings/celery.py
+"""
+
 from celery.schedules import crontab
 
 # We'll collect all exported configs in `imports` 

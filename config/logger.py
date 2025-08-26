@@ -1,4 +1,8 @@
-# config/logger.py
+"""
+Loguru-based logging setup for Django and libraries.
+Path: config/logger.py
+"""
+
 import logging
 from loguru import logger
 import sys

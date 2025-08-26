@@ -1,12 +1,6 @@
 """
-Password validation configuration.
-
-Django provides built-in password validators to enforce stronger security 
-practices when users create or change their passwords. This configuration 
-defines which validators are active.
-
-Reference:
-https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
+Authentication and password validation settings.
+Path: config/settings/auth.py
 """
 
 imports = []

@@ -1,4 +1,7 @@
-# settings module
+"""
+Modular settings aggregator. Imports per-concern modules into Django settings.
+Path: config/settings/__init__.py
+"""
 
 from config.settings.apps_middlewares import *
 from config.settings.paths import *

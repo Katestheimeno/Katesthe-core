@@ -1,3 +1,8 @@
+"""
+AppConfig for the accounts application.
+Path: accounts/apps.py
+"""
+
 from django.apps import AppConfig
 
 

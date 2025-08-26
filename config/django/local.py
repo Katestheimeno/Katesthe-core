@@ -1,5 +1,8 @@
-# In this file we override the base django settings
-# if needed for the development environment
+"""
+Local development settings entry.
+Path: config/django/local.py
+Inherit from base and enable dev-only apps/middleware when DEBUG is True.
+"""
 from config.django.base import *
 
 

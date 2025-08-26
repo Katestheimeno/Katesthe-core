@@ -1,19 +1,6 @@
 """
-This file configures paths for serving static and media files in Django.
-
-MEDIA_* → Used for user-uploaded content (e.g., profile pictures, documents).
-STATIC_* → Used for serving CSS, JavaScript, and other static assets.
-
-Key Notes:
-- MEDIA_ROOT: Local directory where uploaded media files will be stored.
-- STATICFILES_DIRS: Extra directories where static files will be collected from (useful during development).
-- STATIC_ROOT: Directory where all static files are collected into when running `collectstatic` (mainly for production).
-- LOCALE_PATHS: Directories where Django will look for translation files.
-- SQLITE_DATABASE_PATH: Centralized location for the SQLite database file.
-
-Remember:
-- In production, always run `python manage.py collectstatic` so STATIC_ROOT is populated.
-- MEDIA files should be served via a dedicated storage service (e.g., S3, GCP, or mounted volume), not Django directly.
+Static, media, locale, and SQLite paths for the project.
+Path: config/settings/paths.py
 """
 
 from pathlib import Path

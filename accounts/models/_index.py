@@ -1,6 +1,6 @@
 """
-This is the custom user model for the DRF starter
-alongside its custom account manager.
+Custom User model and manager for the DRF starter.
+Path: accounts/models/_index.py
 """
 
 from django.apps import apps

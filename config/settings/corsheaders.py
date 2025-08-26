@@ -1,14 +1,10 @@
 
 """
 CORS (Cross-Origin Resource Sharing) configuration.
+Path: config/settings/corsheaders.py
 
-This module defines which headers, origins, and credentials are allowed 
-when the frontend (e.g., React, Vue, Flutter web) communicates with 
-the Django backend API.
-
-By default, Django blocks cross-origin requests. The `django-cors-headers`
-package makes it possible to safely configure which clients can access
-the API.
+Defines allowed headers, origins, and credentials for cross-origin API calls
+via django-cors-headers.
 """
 
 from corsheaders.defaults import default_headers

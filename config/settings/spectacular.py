@@ -1,3 +1,8 @@
+"""
+drf-spectacular settings for OpenAPI schema and UIs.
+Path: config/settings/spectacular.py
+"""
+
 imports = []
 
 imports += ["SPECTACULAR_SETTINGS"]

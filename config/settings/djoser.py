@@ -1,3 +1,8 @@
+"""
+Djoser configuration for authentication endpoints and serializers.
+Path: config/settings/djoser.py
+"""
+
 imports = []
 
 imports += ["DJOSER"]

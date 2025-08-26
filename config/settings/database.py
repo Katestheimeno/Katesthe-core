@@ -1,10 +1,8 @@
 """
-Database Configuration
+Database and cache configuration.
+Path: config/settings/database.py
 
-This file defines the database connection settings for the Django project.
-
-- Default database: SQLite (local development and testing)
-- Auto field: BigAutoField is set as the default primary key type
+Uses dj-database-url to parse DATABASE_URL and configures Redis cache.
 """
 
 from config.settings import SQLITE_DATABASE_PATH

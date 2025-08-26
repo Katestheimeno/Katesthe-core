@@ -1,3 +1,8 @@
+"""
+Reusable abstract model: auto-generate slug from `name` if present.
+Path: utils/models/slugger.py
+"""
+
 from django.utils.text import slugify
 from django.db import models
 

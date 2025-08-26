@@ -1,3 +1,8 @@
+"""
+Reusable abstract model: created_at/updated_at timestamps.
+Path: utils/models/timestamp.py
+"""
+
 from django.db import models
 
 # Track what should be exposed when using: `from module import *`

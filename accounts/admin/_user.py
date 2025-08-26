@@ -1,5 +1,6 @@
 """
-User action
+Admin registration for the custom User model using Unfold.
+Path: accounts/admin/_user.py
 """
 from django.contrib import admin
 from unfold.admin import ModelAdmin  # Unfold's enhanced ModelAdmin

@@ -1,3 +1,8 @@
+"""
+Custom IceCream setup and helper timer for debug printing.
+Path: utils/debug/ic.py
+"""
+
 from contextlib import contextmanager
 from django.conf import settings as cfg
 import time

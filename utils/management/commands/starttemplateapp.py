@@ -1,3 +1,8 @@
+"""
+Management command: scaffold a new app from the template in `static/exp_app`.
+Path: utils/management/commands/starttemplateapp.py
+"""
+
 import os
 import shutil
 from pathlib import Path

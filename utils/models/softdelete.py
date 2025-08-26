@@ -1,3 +1,8 @@
+"""
+Reusable abstract model: soft-delete via is_deleted flag.
+Path: utils/models/softdelete.py
+"""
+
 from django.db import models
 imports = []
 

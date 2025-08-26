@@ -1,16 +1,9 @@
 """
-env.py
--------------------------------------------------------------------------------
-This file handles environment variable configuration for the Django project.
+Environment variables loader using django-environ.
+Path: config/env.py
 
-- Sets the project's base directory
-- Loads variables from a `.env` file using `django-environ`
-- Exports `env` and `BASE_DIR` for use in other settings files
-
-Usage:
-    from config.env import env, BASE_DIR
--------------------------------------------------------------------------------
-
+Reads `.env` from project root and exposes commonly used settings variables.
+Usage: `from config.env import env, BASE_DIR`
 """
 from pathlib import Path
 import environ

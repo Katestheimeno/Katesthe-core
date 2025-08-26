@@ -1,6 +1,8 @@
-# accounts/urls/_auth.py
-# This file defines authentication-related URLs for the "accounts" app.
-# It delegates the routes to Djoser, which handles JWT and standard user endpoints.
+"""
+Authentication-related URLs for the accounts app.
+Path: accounts/urls/_auth.py
+Delegates routes to Djoser for JWT and standard endpoints.
+"""
 
 from django.urls import path, include
 

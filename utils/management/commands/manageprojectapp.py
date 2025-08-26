@@ -1,3 +1,8 @@
+"""
+Management command: add/remove apps to settings lists (PROJECT_APPS, etc.).
+Path: utils/management/commands/manageprojectapp.py
+"""
+
 import re
 from pathlib import Path
 from django.conf import settings as cfg

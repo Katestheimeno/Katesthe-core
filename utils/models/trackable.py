@@ -1,3 +1,8 @@
+"""
+Reusable abstract model: created_by/updated_by relations to user.
+Path: utils/models/trackable.py
+"""
+
 from django.db import models
 from django.conf import settings as cfg
 imports = []

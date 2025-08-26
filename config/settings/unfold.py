@@ -1,16 +1,6 @@
 """
-Unfold Admin UI Configuration
-
-This file customizes the appearance and behavior of the Django admin 
-using the `django-unfold` package. It provides branding, color palettes, 
-UI tweaks, and layout preferences.
-
-Key sections:
-- SITE_TITLE / SITE_HEADER: Branding for the admin interface.
-- COLORS: Base, primary, accent, and state (success/warning/danger) color palettes.
-- SIDEBAR: Navigation settings.
-- UI: Optional user interface tweaks.
-- FOOTER: Footer visibility and text.
+Unfold Admin UI configuration.
+Path: config/settings/unfold.py
 """
 
 # ------------------------------------------------------------

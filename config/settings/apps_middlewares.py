@@ -9,6 +9,8 @@ This file centralizes the definition of:
 
 It also includes configuration for the Unfold admin package and 
 optional development-only apps.
+
+Path: config/settings/apps_middlewares.py
 """
 
 # ------------------------------------------------------------

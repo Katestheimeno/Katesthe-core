@@ -1,3 +1,8 @@
+"""
+Reusable abstract model: UUID primary key.
+Path: utils/models/uuid.py
+"""
+
 import uuid
 from django.db import models
 

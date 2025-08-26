@@ -1,5 +1,8 @@
 #!/usr/bin/env python
-"""Django's command-line utility for administrative tasks."""
+"""
+Django management entry point.
+Path: manage.py
+"""
 import os
 import sys
 
