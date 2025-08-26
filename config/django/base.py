@@ -1,5 +1,8 @@
 from config.env import *
 from config.settings import *
+from config.logger import setup_django_logging
+
+setup_django_logging()
 
 
 ROOT_URLCONF = 'config.urls'

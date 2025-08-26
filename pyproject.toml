@@ -15,6 +15,7 @@ dependencies = [
     "djangorestframework-simplejwt>=5.5.1",
     "djoser>=2.3.3",
     "drf-extensions>=0.8.0",
+    "loguru>=0.7.3",
 ]
 
 [dependency-groups]
@@ -29,4 +30,9 @@ dev = [
     "pytest-django>=4.11.1",
     "black>=25.1.0",
     "isort>=6.0.1",
+    "factory-boy>=3.3.3",
+    "coverage>=7.10.5",
+    "pydantic>=2.11.7",
+    "icecream>=2.1.7",
+    "werkzeug>=3.1.3",
 ]
