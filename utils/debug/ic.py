@@ -8,6 +8,7 @@ from django.conf import settings as cfg
 import time
 from icecream import ic
 from pprint import pformat
+from config.logger import logger  # add project's logger
 
 # === Debugging Utilities with IceCream ===
 # This module customizes IceCream (ic) for styled, structured debug output.
@@ -30,13 +31,10 @@ GREY = "\033[90m"
 
 
 def styled_output(s: str) -> None:
-    """Custom printer for ic output with colors & framing."""
-    print(f"""
-{CYAN}{'='*100}
-{BOLD}📦 IC DEBUG OUTPUT{RESET}
-{YELLOW}{s}{RESET}
-{CYAN}{'='*100}{RESET}\n
-""")
+    """Custom logger-based output for ic with colors & framing."""
+    logger.debug(
+        f"\n{CYAN}{'='*100}\n{BOLD}📦 IC DEBUG OUTPUT{RESET}\n{YELLOW}{s}{RESET}\n{CYAN}{'='*100}{RESET}\n"
+    )
 
 
 # Configure IceCream behavior
