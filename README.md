@@ -321,32 +321,29 @@ accounts/tests/
 
 ### Running Tests
 
-#### Basic Test Commands
-
+#### Accounts App Tests
 ```bash
-# Run all tests
-uv run pytest
+# Run all accounts app tests with coverage
+uv run pytest accounts/tests/ --cov=accounts --cov-report=term-missing
 
-# Run tests for a specific app
-uv run pytest accounts/tests/
+# Run specific test files
+uv run pytest accounts/tests/controllers/test_auth.py
+uv run pytest accounts/tests/serializers/test_auth.py
 
-# Run tests with verbose output
-uv run pytest -v
+# Run specific test classes
+uv run pytest accounts/tests/controllers/test_auth.py::TestCustomUserViewSet
 
-# Run tests with coverage
-uv run pytest --cov=accounts --cov-report=term-missing
+# Run specific test methods
+uv run pytest accounts/tests/controllers/test_auth.py::TestCustomUserViewSet::test_user_profile_access
+```
+
+#### Full Project Tests
+```bash
+# Run all project tests with coverage
+uv run pytest --ds=config.django.test --cov=. --cov-report=term-missing
 
 # Run tests with HTML coverage report
-uv run pytest --cov=accounts --cov-report=html
-
-# Run a specific test file
-uv run pytest accounts/tests/models/test_user.py
-
-# Run a specific test function
-uv run pytest accounts/tests/models/test_user.py::test_user_creation
-
-# Run tests matching a pattern
-uv run pytest -k "user"
+uv run pytest --ds=config.django.test --cov=. --cov-report=html
 ```
 
 #### Docker Environment
