@@ -55,4 +55,7 @@ REDIS_URL = env('REDIS_URL', default='redis://localhost:6379/0')
 imports += ["CELERY_BROKER_URL"]
 CELERY_BROKER_URL = REDIS_URL
 
+imports += ["WEB_PORT"]
+WEB_PORT = env.int("WEB_PORT", default=8000)
+
 __all__ = imports

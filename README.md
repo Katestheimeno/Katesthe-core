@@ -70,10 +70,10 @@ docker compose exec web uv run python manage.py shell
 ```
 
 5) Access services
-- Web: `http://127.0.0.1:8000`
-- Admin: `http://127.0.0.1:8000/admin/`
-- Swagger: `http://127.0.0.1:8000/api/schema/docs/`
-- Redoc: `http://127.0.0.1:8000/api/schema/redoc/`
+- Web: `http://127.0.0.1:${WEB_PORT:-8000}`
+- Admin: `http://127.0.0.1:${WEB_PORT:-8000}/admin/`
+- Swagger: `http://127.0.0.1:${WEB_PORT:-8000}/api/schema/docs/`
+- Redoc: `http://127.0.0.1:${WEB_PORT:-8000}/api/schema/redoc/`
 - Flower: `http://127.0.0.1:5555`
 
 
@@ -97,7 +97,7 @@ Two options:
   uv sync && uv sync --group dev
 
   uv run python manage.py migrate
-  uv run python manage.py runserver 0.0.0.0:8000
+  uv run python manage.py runserver 0.0.0.0:${WEB_PORT:-8000}
   ```
 
 - Or install Postgres/Redis locally and set `DATABASE_URL`/`REDIS_URL` accordingly.
@@ -143,17 +143,17 @@ Notes:
 Example auth flow (host mode):
 ```bash
 # Register
-curl -X POST http://127.0.0.1:8000/api/v1/auth/users/ \
+curl -X POST http://127.0.0.1:${WEB_PORT:-8000}/api/v1/auth/users/ \
   -H 'Content-Type: application/json' \
   -d '{"username":"demo","email":"demo@example.com","password":"Passw0rd!"}'
 
 # Obtain JWT tokens
-curl -X POST http://127.0.0.1:8000/api/v1/auth/jwt/create \
+curl -X POST http://127.0.0.1:${WEB_PORT:-8000}/api/v1/auth/jwt/create \
   -H 'Content-Type: application/json' \
   -d '{"username":"demo","password":"Passw0rd!"}'
 
 # Authorized request
-curl http://127.0.0.1:8000/api/v1/auth/users/me/ \
+curl http://127.0.0.1:${WEB_PORT:-8000}/api/v1/auth/users/me/ \
   -H "Authorization: Bearer <ACCESS_TOKEN>"
 ```
 
@@ -432,7 +432,7 @@ class TestMyFeature:
 
 
 ## CORS and security
-- CORS defaults allow `http://localhost:8080` and `http://127.0.0.1:8000`. Update `config/settings/corsheaders.py` for your frontend origins.
+- CORS defaults allow `http://localhost:8080` and `http://127.0.0.1:${WEB_PORT:-8000}`. Update `config/settings/corsheaders.py` for your frontend origins.
 - Always set `ALLOWED_HOSTS` and secure secrets in production.
 
 

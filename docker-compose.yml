@@ -31,8 +31,8 @@ services:
 
   web:
     build: .
-    # command: uv run python manage.py runserver_plus 0.0.0.0:8000
-    command: sh -c "uv run manage.py migrate &&  uv run python manage.py runserver 0.0.0.0:8000"
+    # command: uv run python manage.py runserver_plus 0.0.0.0:${WEB_PORT:-8000}
+    command: sh -c "uv run manage.py migrate &&  uv run python manage.py runserver 0.0.0.0:${WEB_PORT:-8000}"
     volumes:
       - .:/app
     ports:
@@ -42,6 +42,7 @@ services:
     environment:
       DEBUG: ${DEBUG:-True}
       DJANGO_ENV: ${DJANGO_ENV:-local}
+      WEB_PORT: ${WEB_PORT:-8000}
       POSTGRES_DB: ${POSTGRES_DB:-django_db}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}

@@ -33,9 +33,9 @@ RUN useradd -m -u 1000 django && \
 
 USER django
 
-EXPOSE 8000
+EXPOSE ${WEB_PORT:-8000}
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s CMD curl -f http://localhost:8000/ || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s CMD curl -f http://localhost:${WEB_PORT:-8000}/ || exit 1
 
-CMD ["uv", "run", "python", "manage.py", "runserver_plus", "0.0.0.0:8000"]
+CMD ["uv", "run", "python", "manage.py", "runserver_plus", "0.0.0.0:${WEB_PORT:-8000}"]
 
