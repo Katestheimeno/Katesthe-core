@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Clone into a temp folder
-git clone https://github.com/Yeeloman/Katesthe-core.git tmp-core
+git clone https://github.com/Yeeloman/main/Katesthe-core.git tmp-core
 
 # Remove git history
 rm -rf tmp-core/.git
