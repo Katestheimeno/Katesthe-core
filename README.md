@@ -38,7 +38,7 @@ Because this project is fully dockerized, run Django and management commands ins
 
 1. You can set up the starter in one command:
 ```bash
-curl -LsSf https://raw.githubusercontent.com/Yeeloman/Katesthe-core/setup.sh | sh
+curl -LsSf https://raw.githubusercontent.com/Yeeloman/main/Katesthe-core/setup.sh | sh
 ```
 
 2) Create `.env`
