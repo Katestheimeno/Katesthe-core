@@ -10,6 +10,7 @@ from djoser.serializers import (
     UserDeleteSerializer as DjoserUserDeleteSerializer
 )
 from django.contrib.auth import get_user_model
+from config.logger import logger
 
 User = get_user_model()
 
@@ -34,11 +35,20 @@ class UserCreateSerializer(DjoserUserCreateSerializer):
 
     def validate_email(self, value):
         """Custom email validation if needed."""
+        logger.debug(f"Email validation: {value}")
         return value.lower()
 
     def validate_username(self, value):
         """Custom username validation if needed."""
+        logger.debug(f"Username validation: {value}")
         return value.lower()
+
+    def create(self, validated_data):
+        """Create user with logging."""
+        logger.info(f"Creating new user with username: {validated_data.get('username')}, email: {validated_data.get('email')}")
+        user = super().create(validated_data)
+        logger.info(f"User created successfully: user_id={user.id}, username={user.username}")
+        return user
 
 imports += ["UserDeleteSerializer"]
 class UserDeleteSerializer(DjoserUserDeleteSerializer):
@@ -56,6 +66,18 @@ class UserDeleteSerializer(DjoserUserDeleteSerializer):
     class Meta:
         model = User
         fields = ('current_password',)
+
+    def validate_current_password(self, value):
+        """Validate current password with logging."""
+        user = self.context['request'].user
+        logger.info(f"Password validation for user deletion: user_id={user.id}, username={user.username}")
+        
+        if not user.check_password(value):
+            logger.warning(f"Invalid password for user deletion: user_id={user.id}, username={user.username}")
+            raise serializers.ValidationError("Invalid password.")
+        
+        logger.debug(f"Password validation successful for user deletion: user_id={user.id}")
+        return value
 
 imports += ["UserSerializer"]
 class UserSerializer(DjoserUserSerializer):
@@ -77,6 +99,11 @@ class UserSerializer(DjoserUserSerializer):
             'updated_at'
         )
         read_only_fields = ('id', 'date_joined', 'last_login', 'updated_at')
+
+    def to_representation(self, instance):
+        """Log user data access."""
+        logger.debug(f"User data accessed: user_id={instance.id}, username={instance.username}")
+        return super().to_representation(instance)
 
 imports += ["CurrentUserSerializer"]
 class CurrentUserSerializer(DjoserUserSerializer):
@@ -100,13 +127,25 @@ class CurrentUserSerializer(DjoserUserSerializer):
         read_only_fields = ('id', 'is_active', 'date_joined',
                             'last_login', 'updated_at')
 
+    def to_representation(self, instance):
+        """Log current user profile access."""
+        logger.debug(f"Current user profile accessed: user_id={instance.id}, username={instance.username}")
+        return super().to_representation(instance)
+
     def update(self, instance, validated_data):
-        """Custom update logic for current user."""
+        """Custom update logic for current user with logging."""
+        logger.info(f"Current user profile update: user_id={instance.id}, username={instance.username}")
+        
         # Handle email changes - you might want to re-verify email
         if 'email' in validated_data and validated_data['email'] != instance.email:
+            old_email = instance.email
+            new_email = validated_data['email']
+            logger.info(f"Email change detected: user_id={instance.id}, old_email={old_email}, new_email={new_email}")
             instance.is_verified = False
 
-        return super().update(instance, validated_data)
+        updated_user = super().update(instance, validated_data)
+        logger.info(f"Current user profile updated successfully: user_id={updated_user.id}, username={updated_user.username}")
+        return updated_user
 
 
 __all__ = imports

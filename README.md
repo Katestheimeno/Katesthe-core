@@ -293,6 +293,146 @@ Container-first:
 ```
 Host mode: use the same commands without `docker compose exec web`.
 
+## Testing
+
+This project uses a comprehensive testing setup with **pytest**, **django-pytest**, **factory-boy**, and **coverage** for robust test coverage.
+
+### Test Structure
+
+Tests follow the same structure as the application code, mirroring the domain-driven architecture:
+
+```
+accounts/tests/
+├── factories/                 # Factory-boy factories for test data
+│   ├── __init__.py
+│   └── _user.py              # User model factories
+├── models/
+│   └── test_user.py          # User model tests
+├── admin/
+│   └── test_user_admin.py    # Admin interface tests
+├── serializers/
+│   └── test_auth.py          # Serializer tests
+├── controllers/
+│   └── test_auth.py          # View/controller tests
+├── test_emails.py            # Email functionality tests
+├── conftest.py               # Pytest fixtures
+└── README.md                 # Detailed test documentation
+```
+
+### Running Tests
+
+#### Basic Test Commands
+
+```bash
+# Run all tests
+uv run pytest
+
+# Run tests for a specific app
+uv run pytest accounts/tests/
+
+# Run tests with verbose output
+uv run pytest -v
+
+# Run tests with coverage
+uv run pytest --cov=accounts --cov-report=term-missing
+
+# Run tests with HTML coverage report
+uv run pytest --cov=accounts --cov-report=html
+
+# Run a specific test file
+uv run pytest accounts/tests/models/test_user.py
+
+# Run a specific test function
+uv run pytest accounts/tests/models/test_user.py::test_user_creation
+
+# Run tests matching a pattern
+uv run pytest -k "user"
+```
+
+#### Docker Environment
+
+```bash
+# Run tests inside Docker container
+docker compose exec web uv run pytest
+
+# Run tests with coverage in Docker
+docker compose exec web uv run pytest --cov=accounts --cov-report=term-missing
+```
+
+### Test Configuration
+
+- **Settings**: Tests use `config.django.test` settings with in-memory SQLite database
+- **Database**: SQLite in-memory for fast test execution
+- **Coverage**: Configured in `.coveragerc` to exclude test files and migrations
+- **Factories**: Located in `accounts/tests/factories/` for generating test data
+
+### Test Data with Factory-Boy
+
+The project uses Factory-Boy to create test data efficiently:
+
+```python
+from accounts.tests.factories import UserFactory, SuperUserFactory
+
+# Create a basic user
+user = UserFactory()
+
+# Create a superuser
+admin = SuperUserFactory()
+
+# Create user with specific attributes
+user = UserFactory(username="testuser", email="test@example.com")
+```
+
+Available factories:
+- `UserFactory`: Basic user with default values
+- `InactiveUserFactory`: User with `is_active=False`
+- `UnverifiedUserFactory`: User with `is_verified=False`
+- `StaffUserFactory`: Staff user
+- `SuperUserFactory`: Superuser
+
+### Test Coverage
+
+The test suite provides comprehensive coverage for:
+
+- **Models**: User model, custom manager, field validation
+- **Admin**: UserAdmin configuration, list views, search functionality
+- **Serializers**: Authentication, user creation, profile updates
+- **Controllers**: JWT authentication, user management endpoints
+- **Emails**: Custom email templates and integration
+
+### Writing New Tests
+
+When adding new functionality, follow these patterns:
+
+1. **Create factories** in `accounts/tests/factories/` for your models
+2. **Add model tests** in `accounts/tests/models/`
+3. **Add admin tests** in `accounts/tests/admin/`
+4. **Add serializer tests** in `accounts/tests/serializers/`
+5. **Add controller tests** in `accounts/tests/controllers/`
+6. **Use `@pytest.mark.django_db`** for tests requiring database access
+
+Example test structure:
+```python
+import pytest
+from accounts.tests.factories import UserFactory
+
+@pytest.mark.django_db
+class TestMyFeature:
+    def test_something(self):
+        user = UserFactory()
+        # Test logic here
+        assert True
+```
+
+### Test Best Practices
+
+- Use `@pytest.mark.django_db` for database tests
+- Leverage factories for consistent test data
+- Test both success and failure scenarios
+- Use descriptive test names and docstrings
+- Group related tests in classes
+- Mock external dependencies when appropriate
+
 
 ## CORS and security
 - CORS defaults allow `http://localhost:8080` and `http://127.0.0.1:8000`. Update `config/settings/corsheaders.py` for your frontend origins.
