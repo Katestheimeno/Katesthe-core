@@ -8,7 +8,7 @@ from django.conf import settings
 import os
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.django.local")
-app = Celery("drf-starter")
+app = Celery("drf_starter")
 
 # Using a string here means the worker doesn't have to serialize
 # the configuration object to child processes.

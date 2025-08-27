@@ -110,22 +110,49 @@ Important:
 
 ## Configuration (Environment)
 The project centralizes env handling in `config/env.py`. Key variables:
-- **Core**
-  - `SECRET_KEY`: Django secret
-  - `JWT_SECRET_KEY`: JWT signing key (used by SimpleJWT)
-  - `DJANGO_DEBUG`: `True|False` (Django’s `DEBUG`)
-  - `DJANGO_ENV`: `local|production` (informational)
-  - `ALLOWED_HOSTS`: CSV list; required in production
-- **Database**
-  - `DATABASE_URL`: e.g. `postgresql://user:pass@host:5432/dbname` or `sqlite:///database/db.sqlite3`
-  - `POSTGRES_*`: used to build `DATABASE_URL` if not set
-- **Cache/Broker**
-  - `REDIS_URL`: e.g. `redis://localhost:6379/0`
 
-Notes:
+### **Core Settings**
+- `SECRET_KEY`: Django secret key
+- `JWT_SECRET_KEY`: JWT signing key (used by SimpleJWT)
+- `DJANGO_DEBUG`: `True|False` (Django's `DEBUG`)
+- `DJANGO_ENV`: `local|production` (informational)
+- `ALLOWED_HOSTS`: CSV list; required in production
+- `WEB_PORT`: Django development server port (default: 8000)
+
+### **Project Branding**
+- `PROJECT_NAME`: Project name used in API docs, admin interface, etc. (default: "Katesthe-core")
+- `PROJECT_DESCRIPTION`: Project description for API documentation (default: "A Django REST Framework starter project...")
+- `PROJECT_VERSION`: API version (default: "1.0.0")
+
+### **Contact Information**
+- `CONTACT_NAME`: Contact name for API documentation (default: "Katesthe-core Dev Team")
+- `CONTACT_EMAIL`: Contact email for API documentation (default: "support@katesthe-core.com")
+- `CONTACT_URL`: Contact URL/GitHub repository (default: "https://github.com/katesthe-core")
+
+### **Email Configuration**
+- `EMAIL_HOST`: SMTP host (default: "localhost")
+- `EMAIL_PORT`: SMTP port (default: 1025)
+- `EMAIL_USE_TLS`: Use TLS for email (default: False)
+- `EMAIL_HOST_USER`: SMTP username (default: "")
+- `EMAIL_HOST_PASSWORD`: SMTP password (default: "")
+- `EMAIL_FRONTEND_DOMAIN`: Frontend domain for email links (default: "")
+
+### **Theme Colors**
+- `THEME_PRIMARY_COLOR`: Primary theme color in hex format (default: "#6a0dad")
+- `THEME_ACCENT_COLOR`: Accent theme color in hex format (default: "#4b0082")
+
+### **Database**
+- `DATABASE_URL`: e.g. `postgresql://user:pass@host:5432/dbname` or `sqlite:///database/db.sqlite3`
+- `POSTGRES_*`: used to build `DATABASE_URL` if not set
+
+### **Cache/Broker**
+- `REDIS_URL`: e.g. `redis://localhost:6379/0`
+
+**Notes:**
 - `manage.py` defaults to `config.django.local` settings; Production can use `DJANGO_SETTINGS_MODULE=config.django.production`.
 - Database configuration uses `dj-database-url`.
-- Use `DJANGO_DEBUG` (boolean) for Django’s debug toggle. The example `.env` includes `DEBUG` for Compose convenience; prefer `DJANGO_DEBUG`.
+- Use `DJANGO_DEBUG` (boolean) for Django's debug toggle. The example `.env` includes `DEBUG` for Compose convenience; prefer `DJANGO_DEBUG`.
+- All branding and theme variables can be customized via environment variables for easy project personalization.
 
 
 ## API and Authentication

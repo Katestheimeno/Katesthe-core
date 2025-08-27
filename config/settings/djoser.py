@@ -2,6 +2,8 @@
 Djoser configuration for authentication endpoints and serializers.
 Path: config/settings/djoser.py
 """
+from config.env import EMAIL_HOST, EMAIL_PORT, EMAIL_USE_TLS, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD, EMAIL_FRONTEND_DOMAIN
+
 imports = []
 imports += ["DJOSER"]
 DJOSER = {
@@ -79,7 +81,7 @@ DJOSER = {
     # Hide /users/ endpoint unless explicitly needed
     'HIDE_USERS': True,
     # Optional: domain used in email templates for frontend redirection
-    # "EMAIL_FRONTEND_DOMAIN": "test",
+    "EMAIL_FRONTEND_DOMAIN": EMAIL_FRONTEND_DOMAIN if EMAIL_FRONTEND_DOMAIN else None,
     # Delete behavior - IMPORTANT: Set these to False for JWT
     "LOGOUT_ON_PASSWORD_CHANGE": False,
     "LOGOUT_ON_USER_DELETE": False,      # This prevents the Token.objects error
@@ -92,11 +94,11 @@ EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # Email settings for development
 imports += ["EMAIL_HOST", "EMAIL_PORT", "EMAIL_USE_TLS", "EMAIL_HOST_USER", "EMAIL_HOST_PASSWORD"]
-EMAIL_HOST = 'localhost'
-EMAIL_PORT = 1025
-EMAIL_USE_TLS = False
-EMAIL_HOST_USER = ''
-EMAIL_HOST_PASSWORD = ''
+EMAIL_HOST = EMAIL_HOST
+EMAIL_PORT = EMAIL_PORT
+EMAIL_USE_TLS = EMAIL_USE_TLS
+EMAIL_HOST_USER = EMAIL_HOST_USER
+EMAIL_HOST_PASSWORD = EMAIL_HOST_PASSWORD
 
 
 __all__ = imports

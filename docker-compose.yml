@@ -43,6 +43,20 @@ services:
       DEBUG: ${DEBUG:-True}
       DJANGO_ENV: ${DJANGO_ENV:-local}
       WEB_PORT: ${WEB_PORT:-8000}
+      PROJECT_NAME: ${PROJECT_NAME:-Katesthe-core}
+      PROJECT_DESCRIPTION: ${PROJECT_DESCRIPTION:-A Django REST Framework starter project with ready-to-use authentication, custom user management, and modular app structure.}
+      PROJECT_VERSION: ${PROJECT_VERSION:-1.0.0}
+      CONTACT_NAME: ${CONTACT_NAME:-Katesthe-core Dev Team}
+      CONTACT_EMAIL: ${CONTACT_EMAIL:-support@katesthe-core.com}
+      CONTACT_URL: ${CONTACT_URL:-https://github.com/katesthe-core}
+      EMAIL_HOST: ${EMAIL_HOST:-localhost}
+      EMAIL_PORT: ${EMAIL_PORT:-1025}
+      EMAIL_USE_TLS: ${EMAIL_USE_TLS:-False}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      EMAIL_FRONTEND_DOMAIN: ${EMAIL_FRONTEND_DOMAIN:-}
+      THEME_PRIMARY_COLOR: ${THEME_PRIMARY_COLOR:-#6a0dad}
+      THEME_ACCENT_COLOR: ${THEME_ACCENT_COLOR:-#4b0082}
       POSTGRES_DB: ${POSTGRES_DB:-django_db}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
@@ -60,10 +74,14 @@ services:
     command: uv run celery -A config.celery.app worker --loglevel=info
     volumes:
       - .:/app
+    env_file:
+      - ./.env
     environment:
-      - DEBUG=1
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
+      DEBUG: ${DEBUG:-True}
+      DJANGO_ENV: ${DJANGO_ENV:-local}
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.django.local}
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
     depends_on:
       - db
       - redis
@@ -74,10 +92,14 @@ services:
     command: uv run celery -A config.celery.app beat --loglevel=info
     volumes:
       - .:/app
+    env_file:
+      - ./.env
     environment:
-      - DEBUG=1
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
+      DEBUG: ${DEBUG:-True}
+      DJANGO_ENV: ${DJANGO_ENV:-local}
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.django.local}
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
     depends_on:
       - db
       - redis
@@ -90,10 +112,14 @@ services:
       - .:/app
     ports:
       - "5555:5555"
+    env_file:
+      - ./.env
     environment:
-      - DEBUG=1
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=${REDIS_URL}
+      DEBUG: ${DEBUG:-True}
+      DJANGO_ENV: ${DJANGO_ENV:-local}
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.django.local}
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
     depends_on:
       - redis
     restart: unless-stopped

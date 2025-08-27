@@ -3,26 +3,27 @@ drf-spectacular settings for OpenAPI schema and UIs.
 Path: config/settings/spectacular.py
 """
 
+from config.env import PROJECT_NAME, PROJECT_DESCRIPTION, PROJECT_VERSION, CONTACT_NAME, CONTACT_EMAIL, CONTACT_URL, THEME_PRIMARY_COLOR, THEME_ACCENT_COLOR
+
 imports = []
 
 imports += ["SPECTACULAR_SETTINGS"]
 
 SPECTACULAR_SETTINGS = {
     # Basic info
-    'TITLE': 'DRF-Starter API',
-    'DESCRIPTION': '''
-    # DRF-Starter Backend API Documentation
+    'TITLE': f'{PROJECT_NAME} API',
+    'DESCRIPTION': f'''
+    # {PROJECT_NAME} Backend API Documentation
 
-    This is a **Django REST Framework starter project** with ready-to-use authentication,
-    custom user management, and modular app structure.
+    {PROJECT_DESCRIPTION}
 
     ## Features
     - JWT authentication
     - Custom User model
     - Modular app structure
-    - DRF-Starter conventions
+    - {PROJECT_NAME} conventions
     ''',
-    'VERSION': '1.0.0',
+    'VERSION': PROJECT_VERSION,
 
     # Serve settings
     'SERVE_INCLUDE_SCHEMA': False,  # do not expose /schema.json
@@ -56,13 +57,13 @@ SPECTACULAR_SETTINGS = {
         'showExtensions': True,
         'sortPropsAlphabetically': True,
         'suppressWarnings': False,
-        'theme': {
-            'colors': {
-                'primary': {'main': '#6a0dad'},       # purple
-                'accent': {'main': '#4b0082'},        # dark purple
-                'success': {'main': '#28a745'},
-                'error': {'main': '#dc3545'},
-            },
+                    'theme': {
+                'colors': {
+                    'primary': {'main': THEME_PRIMARY_COLOR},       # configurable primary color
+                    'accent': {'main': THEME_ACCENT_COLOR},        # configurable accent color
+                    'success': {'main': '#28a745'},
+                    'error': {'main': '#dc3545'},
+                },
             'typography': {
                 'fontSize': '14px',
                 'fontFamily': 'Roboto, sans-serif',
@@ -89,18 +90,18 @@ SPECTACULAR_SETTINGS = {
     ],
 
     # Contact and license info
-    # 'CONTACT': {
-    #     'name': 'DRF-Starter Dev Team',
-    #     'email': 'support@drf-starter.com',
-    #     'url': 'https://github.com/your-repo/drf-starter',
-    # },
-    # 'LICENSE': {
-    #     'name': 'MIT License',
-    #     'url': 'https://opensource.org/licenses/MIT',
-    # },
+    'CONTACT': {
+        'name': CONTACT_NAME,
+        'email': CONTACT_EMAIL,
+        'url': CONTACT_URL,
+    },
+    'LICENSE': {
+        'name': 'MIT License',
+        'url': 'https://opensource.org/licenses/MIT',
+    },
     # 'EXTERNAL_DOCS': {
-    #     'description': 'DRF-Starter Docs',
-    #     'url': 'https://drf-starter-docs.com',
+    #     'description': f'{PROJECT_NAME} Docs',
+    #     'url': f'{CONTACT_URL}/docs',
     # },
 }
 

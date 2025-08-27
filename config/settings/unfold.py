@@ -3,6 +3,20 @@ Unfold Admin UI configuration.
 Path: config/settings/unfold.py
 """
 
+from config.env import PROJECT_NAME, THEME_PRIMARY_COLOR, THEME_ACCENT_COLOR
+
+# ------------------------------------------------------------
+# Helper function to convert hex to RGB
+# ------------------------------------------------------------
+def hex_to_rgb(hex_color):
+    """Convert hex color to RGB format for Unfold."""
+    hex_color = hex_color.lstrip('#')
+    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+# Convert theme colors to RGB
+primary_rgb = hex_to_rgb(THEME_PRIMARY_COLOR)
+accent_rgb = hex_to_rgb(THEME_ACCENT_COLOR)
+
 # ------------------------------------------------------------
 # Imports Collector
 # ------------------------------------------------------------
@@ -18,8 +32,8 @@ UNFOLD = {
     # --------------------------------------------------------
     # Branding
     # --------------------------------------------------------
-    "SITE_TITLE": "DRF Starter Admin",  # Browser tab + login screen
-    "SITE_HEADER": "DRF Starter",       # Header displayed in the admin
+    "SITE_TITLE": f"{PROJECT_NAME} Admin",  # Browser tab + login screen
+    "SITE_HEADER": PROJECT_NAME,       # Header displayed in the admin
 
     # --------------------------------------------------------
     # Color Palette
@@ -40,30 +54,30 @@ UNFOLD = {
             "900": "8 8 8",
             "950": "2 2 2",
         },
-        "primary": {  # Main branding purple
-            "50": "235 230 240",
-            "100": "210 200 225",
-            "200": "180 160 200",
-            "300": "145 125 175",
-            "400": "115 90 150",   # Balanced brand purple
-            "500": "90 60 120",    # Rich dark purple
-            "600": "70 45 95",
-            "700": "55 35 75",
-            "800": "40 25 55",
-            "900": "25 15 35",
-            "950": "10 8 20",
+        "primary": {  # Main branding color (configurable)
+            "50": f"{primary_rgb[0] + 145} {primary_rgb[1] + 170} {primary_rgb[2] + 240}",
+            "100": f"{primary_rgb[0] + 120} {primary_rgb[1] + 140} {primary_rgb[2] + 225}",
+            "200": f"{primary_rgb[0] + 90} {primary_rgb[1] + 100} {primary_rgb[2] + 200}",
+            "300": f"{primary_rgb[0] + 55} {primary_rgb[1] + 65} {primary_rgb[2] + 175}",
+            "400": f"{primary_rgb[0] + 25} {primary_rgb[1] + 30} {primary_rgb[2] + 150}",
+            "500": f"{primary_rgb[0]} {primary_rgb[1]} {primary_rgb[2]}",    # Main color
+            "600": f"{max(0, primary_rgb[0] - 20)} {max(0, primary_rgb[1] - 15)} {max(0, primary_rgb[2] - 25)}",
+            "700": f"{max(0, primary_rgb[0] - 35)} {max(0, primary_rgb[1] - 25)} {max(0, primary_rgb[2] - 45)}",
+            "800": f"{max(0, primary_rgb[0] - 50)} {max(0, primary_rgb[1] - 35)} {max(0, primary_rgb[2] - 65)}",
+            "900": f"{max(0, primary_rgb[0] - 65)} {max(0, primary_rgb[1] - 45)} {max(0, primary_rgb[2] - 85)}",
+            "950": f"{max(0, primary_rgb[0] - 80)} {max(0, primary_rgb[1] - 52)} {max(0, primary_rgb[2] - 100)}",
         },
-        "accent": {  # Highlights / secondary actions
-            "50": "245 250 255",   # Soft blue
-            "100": "210 230 250",
-            "200": "180 210 245",
-            "300": "150 190 240",
-            "400": "120 165 230",
-            "500": "90 140 220",   # Primary accent
-            "600": "65 110 180",
-            "700": "45 80 130",
-            "800": "25 50 80",
-            "900": "15 30 50",
+        "accent": {  # Highlights / secondary actions (configurable)
+            "50": f"{accent_rgb[0] + 155} {accent_rgb[1] + 210} {accent_rgb[2] + 255}",
+            "100": f"{accent_rgb[0] + 120} {accent_rgb[1] + 190} {accent_rgb[2] + 250}",
+            "200": f"{accent_rgb[0] + 90} {accent_rgb[1] + 170} {accent_rgb[2] + 245}",
+            "300": f"{accent_rgb[0] + 60} {accent_rgb[1] + 150} {accent_rgb[2] + 240}",
+            "400": f"{accent_rgb[0] + 30} {accent_rgb[1] + 125} {accent_rgb[2] + 230}",
+            "500": f"{accent_rgb[0]} {accent_rgb[1]} {accent_rgb[2]}",   # Main accent color
+            "600": f"{max(0, accent_rgb[0] - 25)} {max(0, accent_rgb[1] - 30)} {max(0, accent_rgb[2] - 40)}",
+            "700": f"{max(0, accent_rgb[0] - 45)} {max(0, accent_rgb[1] - 60)} {max(0, accent_rgb[2] - 90)}",
+            "800": f"{max(0, accent_rgb[0] - 65)} {max(0, accent_rgb[1] - 90)} {max(0, accent_rgb[2] - 140)}",
+            "900": f"{max(0, accent_rgb[0] - 85)} {max(0, accent_rgb[1] - 120)} {max(0, accent_rgb[2] - 190)}",
         },
         "success": {"500": "40 180 100"},   # Green
         "warning": {"500": "240 180 40"},   # Yellow/Orange
@@ -94,7 +108,7 @@ UNFOLD = {
     # --------------------------------------------------------
     "FOOTER": {
         "show": True,
-        "text": "© 2025 DRF Starter",
+        "text": f"© 2025 {PROJECT_NAME}",
     },
 }
 

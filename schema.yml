@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: DRF-Starter API
-  version: 1.0.0
-  description: serves as a django rest_framework starting point
+  title: ${PROJECT_NAME:-Katesthe-core} API
+  version: ${PROJECT_VERSION:-1.0.0}
+  description: ${PROJECT_DESCRIPTION:-serves as a django rest_framework starting point}
 paths: {}
 components: {}

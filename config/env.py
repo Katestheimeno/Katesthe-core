@@ -58,4 +58,50 @@ CELERY_BROKER_URL = REDIS_URL
 imports += ["WEB_PORT"]
 WEB_PORT = env.int("WEB_PORT", default=8000)
 
+# Project branding and configuration
+imports += ["PROJECT_NAME"]
+PROJECT_NAME = env("PROJECT_NAME", default="Katesthe-core")
+
+imports += ["PROJECT_DESCRIPTION"]
+PROJECT_DESCRIPTION = env("PROJECT_DESCRIPTION", default="A Django REST Framework starter project with ready-to-use authentication, custom user management, and modular app structure.")
+
+imports += ["PROJECT_VERSION"]
+PROJECT_VERSION = env("PROJECT_VERSION", default="1.0.0")
+
+# Contact information
+imports += ["CONTACT_NAME"]
+CONTACT_NAME = env("CONTACT_NAME", default="Katesthe-core Dev Team")
+
+imports += ["CONTACT_EMAIL"]
+CONTACT_EMAIL = env("CONTACT_EMAIL", default="support@katesthe-core.com")
+
+imports += ["CONTACT_URL"]
+CONTACT_URL = env("CONTACT_URL", default="https://github.com/katesthe-core")
+
+# Email configuration
+imports += ["EMAIL_HOST"]
+EMAIL_HOST = env("EMAIL_HOST", default="localhost")
+
+imports += ["EMAIL_PORT"]
+EMAIL_PORT = env.int("EMAIL_PORT", default=1025)
+
+imports += ["EMAIL_USE_TLS"]
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=False)
+
+imports += ["EMAIL_HOST_USER"]
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+
+imports += ["EMAIL_HOST_PASSWORD"]
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+
+imports += ["EMAIL_FRONTEND_DOMAIN"]
+EMAIL_FRONTEND_DOMAIN = env("EMAIL_FRONTEND_DOMAIN", default="")
+
+# Theme colors (primary color in hex format)
+imports += ["THEME_PRIMARY_COLOR"]
+THEME_PRIMARY_COLOR = env("THEME_PRIMARY_COLOR", default="#6a0dad")
+
+imports += ["THEME_ACCENT_COLOR"]
+THEME_ACCENT_COLOR = env("THEME_ACCENT_COLOR", default="#4b0082")
+
 __all__ = imports
