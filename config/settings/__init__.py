@@ -11,5 +11,6 @@ from config.settings.database import *
 from config.settings.unfold import *
 from config.settings.corsheaders import *
 from config.settings.restframework import *
+from config.settings.djoser import *
 from config.settings.spectacular import *
 from config.settings.celery import *

@@ -5,7 +5,6 @@ Path: config/settings/restframework.py
 
 from config.env import JWT_SECRET_KEY
 from datetime import timedelta
-from config.settings.djoser import *
 
 # Keep track of which settings we’re exporting in __all__
 imports = []

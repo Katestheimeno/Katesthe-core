@@ -1,0 +1,12 @@
+Welcome to Our Platform, {{ user.first_name }}!
+
+Thank you for registering with us. To complete your registration, please activate your account by clicking the link below:
+
+{{ protocol }}://{{ domain }}/{{ url }}
+
+This link will expire in 24 hours for security reasons.
+
+If you didn't create an account with us, please ignore this email.
+
+Best regards,
+Your Platform Team
