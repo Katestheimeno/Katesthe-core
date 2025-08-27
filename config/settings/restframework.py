@@ -26,9 +26,9 @@ SIMPLE_JWT = {
     # Rotation / Blacklisting
     # --------------------------
     # set True if you want new refresh tokens each time
-    "ROTATE_REFRESH_TOKENS": False,
+    "ROTATE_REFRESH_TOKENS": True,
     # needs django-rest-framework-simplejwt[token_blacklist]
-    "BLACKLIST_AFTER_ROTATION": False,
+    "BLACKLIST_AFTER_ROTATION": True,
 
     # --------------------------
     # User handling

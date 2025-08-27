@@ -10,6 +10,10 @@ from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
+imports = []
+
+
+imports += ["CustomTokenObtainPairSerializer"]
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """
@@ -72,28 +76,31 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             raise serializers.ValidationError('User account is disabled.')
 
         # Authenticate with the found user's username (since that's what Django expects)
-        user = authenticate(
+        authenticated_user = authenticate(
             request=self.context.get('request'),
             username=user.username,  # Use the actual username for authentication
             password=password
         )
 
-        if user is None:
+        if authenticated_user is None:
             raise serializers.ValidationError('Invalid credentials.')
 
         # Set the user for token generation
-        attrs['user'] = user
+        attrs['user'] = authenticated_user
 
         # Get the token pair
-        refresh = self.get_token(user)
+        refresh = self.get_token(authenticated_user)
 
         return {
             'refresh': str(refresh),
             'access': str(refresh.access_token),
             'user': {
-                'id': user.id,
-                'username': user.username,
-                'email': user.email,
-                'is_verified': user.is_verified,
+                'id': authenticated_user.id,
+                'username': authenticated_user.username,
+                'email': authenticated_user.email,
+                'is_verified': authenticated_user.is_verified,
             }
         }
+
+
+__all__ = imports

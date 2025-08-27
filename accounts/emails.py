@@ -13,7 +13,7 @@ class CustomActivationEmail(email.ActivationEmail):
     """
     Custom activation email template.
     """
-    template_name = "accounts/emails/activation.html"
+    template_name = "email/activation.html"
 
     def get_context_data(self):
         context = super().get_context_data()
@@ -29,7 +29,7 @@ class CustomPasswordResetEmail(email.PasswordResetEmail):
     """
     Custom password reset email template.
     """
-    template_name = "accounts/emails/password_reset.html"
+    template_name = "email/password_reset.html"
 
     def get_context_data(self):
         context = super().get_context_data()
@@ -45,7 +45,7 @@ class CustomPasswordChangedConfirmationEmail(email.PasswordChangedConfirmationEm
     """
     Custom password changed confirmation email.
     """
-    template_name = "accounts/emails/password_changed_confirmation.html"
+    template_name = "email/password_changed_confirmation.html"
 
     def get_context_data(self):
         context = super().get_context_data()

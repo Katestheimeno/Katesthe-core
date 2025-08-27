@@ -65,6 +65,7 @@ THIRD_PARTY_PACKAGES = [
     'django_filters',  # Django filters
     'rest_framework_extensions',  # Models and fields tools
     'rest_framework_simplejwt',  # JWT Auth
+    'rest_framework_simplejwt.token_blacklist',  # JWT Token Blacklist
     'djoser',  # Auth package
     'django_celery_beat',  # Celery Schedules
 ]

@@ -11,12 +11,12 @@ DJOSER = {
     # Require password retyping on registration
     'USER_CREATE_PASSWORD_RETYPE': False,
     # Send an activation email after registration
-    'SEND_ACTIVATION_EMAIL': False,
+    'SEND_ACTIVATION_EMAIL': True,
     # Send confirmation email after successful activation
-    'SEND_CONFIRMATION_EMAIL': False,
+    'SEND_CONFIRMATION_EMAIL': True,
     # URL that the user clicks in the activation email
     # Note: {uid} and {token} are placeholders replaced by Djoser
-    'ACTIVATION_URL': 'api/auth/activate/{uid}/{token}',
+    'ACTIVATION_URL': 'api/v1/auth/users/activation/{uid}/{token}/',
     # URL used in password reset emails
     # Commonly links to frontend reset password form
     "PASSWORD_RESET_CONFIRM_URL": "reset-password?uid={uid}&token={token}",
@@ -38,24 +38,22 @@ DJOSER = {
     # ──────────────────────────────────────────────
     'SERIALIZERS': {
         # Used when creating a new user
-        'user_create': 'accounts.serializers.UserCreateSerializer',
+        'user_create': 'accounts.serializers.auth.UserCreateSerializer',
 
         # Used when fetching user data (admin views / general use)
-        'user': 'accounts.serializers.UserSerializer',
+        'user': 'accounts.serializers.auth.UserSerializer',
 
         # Used for /me endpoint (current user)
-        'current_user': 'accounts.serializers.CurrentUserSerializer',
+        'current_user': 'accounts.serializers.auth.CurrentUserSerializer',
 
-        # Custom token serializer for JWT handling
-        # Both endpoints (token & token_create) point to the same class
-        'token': 'accounts.serializers.CustomTokenObtainPairSerializer',
-        'token_create': 'accounts.serializers.CustomTokenObtainPairSerializer',
+        # Used for user deletion
+        'user_delete': 'accounts.serializers.auth.UserDeleteSerializer',
     },
     # ──────────────────────────────────────────────
     # VIEWS (Custom views to handle JWT properly)
     # ──────────────────────────────────────────────
     'VIEWS': {
-        'user': 'accounts.views.auth.CustomUserViewSet',
+        'user': 'accounts.controllers.CustomUserViewSet',
         'token_create': 'accounts.controllers.CustomTokenCreateView',
         'token_destroy': 'accounts.controllers.CustomTokenDestroyView',
     },
@@ -91,6 +89,14 @@ DJOSER = {
 # Email Backend (for development)
 imports += ["EMAIL_BACKEND"]
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# Email settings for development
+imports += ["EMAIL_HOST", "EMAIL_PORT", "EMAIL_USE_TLS", "EMAIL_HOST_USER", "EMAIL_HOST_PASSWORD"]
+EMAIL_HOST = 'localhost'
+EMAIL_PORT = 1025
+EMAIL_USE_TLS = False
+EMAIL_HOST_USER = ''
+EMAIL_HOST_PASSWORD = ''
 
 
 __all__ = imports
