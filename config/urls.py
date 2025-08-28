@@ -8,7 +8,6 @@ Includes admin, app API routes, and dev-only docs/tools under DEBUG.
 from django.conf import settings as cfg
 from django.contrib import admin
 from django.urls import path, include
-from config.urls_dev import urlpatterns as dev_urlpatterns
 from django.views.generic.base import RedirectView
 
 
@@ -30,4 +29,5 @@ urlpatterns = [
 ]
 
 if cfg.DEBUG:
+    from config.urls_dev import urlpatterns as dev_urlpatterns
     urlpatterns += dev_urlpatterns
