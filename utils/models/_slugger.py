@@ -11,7 +11,6 @@ imports = []
 imports += ["SluggedModel"]
 
 
-__all__ = imports
 
 class SluggedModel(models.Model):
     """
@@ -28,3 +27,6 @@ class SluggedModel(models.Model):
 
     class Meta:
         abstract = True
+
+
+__all__ = imports
