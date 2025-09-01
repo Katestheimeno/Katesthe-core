@@ -14,7 +14,7 @@ class Command(BaseCommand):
 
     VALID_SECTIONS = [
         'admin', 'controllers', 'handlers', 'models', 'permissions',
-        'selectors', 'serializers', 'services', 'urls'
+        'selectors', 'serializers', 'services', 'urls', 'filters',
     ]
 
     def add_arguments(self, parser):
