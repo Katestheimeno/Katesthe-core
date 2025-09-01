@@ -7,6 +7,7 @@ A production-ready Django REST Framework starter with an opinionated, domain-dri
 - **API**: DRF with sensible defaults, filtering (`django-filter`), extensions
 - **Docs**: OpenAPI schema + Swagger/Redoc UIs
 - **Background jobs**: Celery worker + beat; Flower dashboard
+- **Realtime**: Django Channels + Redis (WebSockets)
 - **Storage**: Postgres via `dj-database-url` (SQLite supported via `DATABASE_URL`)
 - **Cache/Broker**: Redis
 - **Admin**: Unfold (modern UI) + structured logging via Loguru
