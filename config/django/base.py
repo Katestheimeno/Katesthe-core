@@ -9,7 +9,6 @@ from config.logger import setup_django_logging
 
 setup_django_logging()
 
-
 ROOT_URLCONF = 'config.urls'
 
 WSGI_APPLICATION = 'config.wsgi.application'

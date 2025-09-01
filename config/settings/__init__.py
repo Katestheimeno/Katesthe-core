@@ -14,3 +14,4 @@ from config.settings.restframework import *
 from config.settings.djoser import *
 from config.settings.spectacular import *
 from config.settings.celery import *
+from config.settings.channels import *

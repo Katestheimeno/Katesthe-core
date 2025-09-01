@@ -32,7 +32,7 @@ services:
   web:
     build: .
     # command: uv run python manage.py runserver_plus 0.0.0.0:${WEB_PORT:-8000}
-    command: sh -c "uv run manage.py migrate &&  uv run python manage.py runserver 0.0.0.0:${WEB_PORT:-8000}"
+    command: ["/app/entrypoint.sh"]
     volumes:
       - .:/app
     ports:
@@ -63,6 +63,7 @@ services:
       POSTGRES_HOST: ${POSTGRES_HOST:-db}
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CHANNELS_REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
     depends_on:
       db:
         condition: service_healthy

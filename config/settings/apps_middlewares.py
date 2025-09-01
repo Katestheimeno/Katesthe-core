@@ -68,6 +68,7 @@ THIRD_PARTY_PACKAGES = [
     'rest_framework_simplejwt.token_blacklist',  # JWT Token Blacklist
     'djoser',  # Auth package
     'django_celery_beat',  # Celery Schedules
+    'channels',  # Django Channels for WebSocket support
 ]
 
 
