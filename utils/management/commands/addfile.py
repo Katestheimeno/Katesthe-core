@@ -10,6 +10,9 @@ from django.conf import settings as cfg
 import argparse
 
 
+
+
+
 class Command(BaseCommand):
     help = """Adds files to app layers with automatic import management
 and nested scope support.
@@ -17,12 +20,86 @@ and nested scope support.
 Usage:
   manage.py addfile <app_name> --layer LAYER --suffix SUFFIX [options]
 
+
+Layer-specific default imports:
+  Some layers (urls, controllers, models, admin, serializers) have default
+  imports automatically added to the new file. You can customize these imports
+  globally by defining the `ADDFILE_LAYER_IMPORTS` dictionary in your Django settings,
+  for example:
+
+      ADDFILE_LAYER_IMPORTS = {
+          "controllers": [
+              "from rest_framework import viewsets, status",
+              "from rest_framework.response import Response",
+              "from rest_framework.decorators import action",
+              "from myproject.common.permissions import IsOwnerOrReadOnly"
+          ]
+      }
+
 Examples:
-  manage.py addfile accounts --layer controllers --suffix create --scope user
-  manage.py addfile shops --layer serializers --suffix review --scope shop
-  manage.py addfile bookings --layer handlers --suffix cancel --disable
+  Create a controller for user creation:
+    manage.py addfile accounts --layer controllers --suffix create --scope user
+
+  Add a review serializer inside the shop feature:
+    manage.py addfile shops --layer serializers --suffix review --scope shop
+
+  Disable an existing handler:
+    manage.py addfile bookings --layer handlers --suffix cancel --disable
 """
 
+    DEFAULT_LAYER_IMPORTS = {
+        "urls": [
+            "from django.urls import path, include",
+            "from django.conf import settings as cfg",
+            "from django.conf.urls.static import static",
+        ],
+        "controllers": [
+            "from rest_framework import viewsets, status, mixins",
+            "from rest_framework.response import Response",
+            "from rest_framework.decorators import action",
+            "from rest_framework import permissions",
+            "from django.shortcuts import get_object_or_404",
+        ],
+        "models": [
+            "from django.db import models",
+            "from django.utils import timezone",
+            "from django.conf import settings as cfg",
+            "from django.db.models import Q, F",
+        ],
+        "admin": [
+            "from django.contrib import admin",
+            "from django.utils.html import format_html",
+        ],
+        "serializers": [
+            "from rest_framework import serializers",
+            "from django.contrib.auth import get_user_model",
+            "from rest_framework.validators import UniqueValidator",
+        ],
+        "services": [
+            "# Place common service imports here (e.g., logging, datetime)",
+            "import logging",
+            "from django.db import transaction",
+            "from django.core.exceptions import ObjectDoesNotExist",
+        ],
+        "permissions": [
+            "from rest_framework import permissions",
+        ],
+        "selectors": [
+            "from django.db.models import Q",
+        ],
+        "handlers": [
+            "from django.dispatch import receiver",
+            "from django.db.models.signals import post_save, pre_save, post_delete",
+        ],
+        "filters": [
+            "from django_filters import rest_framework as filters",
+            "from django.db.models import Q",
+        ],
+    }
+
+
+    # Extendable imports: take from settings if provided, else use defaults
+    LAYER_IMPORTS = getattr(cfg, "ADDFILE_LAYER_IMPORTS", DEFAULT_LAYER_IMPORTS)
     DEFAULT_VALID_LAYERS = [
         'admin', 'controllers', 'handlers', 'models', 'permissions',
         'selectors', 'serializers', 'services', 'urls', 'filters',
@@ -200,9 +277,16 @@ Examples:
         )
 
     def _create_suffix_file(self, file_path, suffix, scope, description=None):
-        """Create the suffix file with a standard header and optional description"""
+        """Create the suffix file with a standard header, optional description, and default imports"""
         header = f'"""\n{file_path.name}: {description or "TODO: Implement this file"}\n'
         header += f"Path: {file_path}\n\"\"\"\n\n"
+
+        # Add default imports if any
+        layer = file_path.parent.name  # get layer name
+        imports = self.LAYER_IMPORTS.get(layer, [])
+        if imports:
+            header += "\n".join(imports) + "\n\n"
+
         header += "# Your code starts here\n"
         file_path.write_text(header)
 
