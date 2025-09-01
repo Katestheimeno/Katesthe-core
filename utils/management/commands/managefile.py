@@ -102,7 +102,7 @@ Examples:
     LAYER_IMPORTS = getattr(cfg, "ADDFILE_LAYER_IMPORTS", DEFAULT_LAYER_IMPORTS)
     DEFAULT_VALID_LAYERS = [
         'admin', 'controllers', 'handlers', 'models', 'permissions',
-        'selectors', 'serializers', 'services', 'urls', 'filters',
+        'selectors', 'serializers', 'services', 'urls', 'filters', 'management', 
     ]
 
     VALID_LAYERS = getattr(
@@ -132,16 +132,22 @@ Examples:
         )
 
         parser.add_argument(
-            "--suffix", "-s",
-            type=str,
-            help="File identifier (suffix) used in naming."
-        )
-
-        parser.add_argument(
             "--scope", "-c",
             type=str,
             default=None,
             help="Optional nested scope path for subdirectories."
+        )
+
+        parser.add_argument(
+            "--suffix", "-s",
+            type=str,
+            help="File identifier (suffix) used in naming default is ''. This is the default suffix used in naming."
+        )
+        parser.add_argument(
+            "--prefix", "-p",
+            type=str,
+            default='_',
+            help="More refined file identifier (prefix) used in naming default is '_'."
         )
 
         parser.add_argument(
@@ -187,6 +193,7 @@ Examples:
         app_name = options.get('app_name')
         layer = options.get('layer')
         suffix = options.get('suffix')
+        prefix = options.get('prefix')
         scope = options.get('scope')
         disable = options.get('disable')
         enable = options.get('enable')
@@ -233,24 +240,24 @@ Examples:
             for part in scope_parts:
                 scope_path = scope_path / part
             
-            file_path = scope_path / f"_{suffix}.py"
+            file_path = scope_path / f"{prefix}{suffix}.py"
             target_init_path = scope_path / "__init__.py"
         else:
             scope_path = None
-            file_path = layer_dir / f"_{suffix}.py"
+            file_path = layer_dir / f"{prefix}{suffix}.py"
             target_init_path = layer_dir / "__init__.py"
 
         if dry_run:
             self._dry_run_preview(
                 file_path, scope_path, layer_dir, suffix, 
-                scope_parts, disable, enable
+                scope_parts, disable, enable, prefix
             )
             return
 
         # Handle disable/enable operations
         if disable or enable:
             self._handle_toggle_import(
-                layer_dir, suffix, scope_parts, disable
+                layer_dir, suffix, scope_parts, disable, prefix
             )
             return
 
@@ -280,7 +287,7 @@ Examples:
                 f"File already exists: {file_path}"))
 
         # Update imports through the nested structure
-        self._update_nested_imports(layer_dir, suffix, scope_parts)
+        self._update_nested_imports(layer_dir, suffix, scope_parts, prefix)
 
     def _is_valid_suffix_name(self, suffix):
         """Validate suffix name is a valid Python identifier"""
@@ -308,12 +315,12 @@ Examples:
         header += "# Your code starts here\n"
         file_path.write_text(header)
 
-    def _update_nested_imports(self, layer_dir, suffix, scope_parts):
+    def _update_nested_imports(self, layer_dir, suffix, scope_parts, prefix):
         """Update __init__.py files through nested scope structure"""
         if not scope_parts:
             # Direct import to layer __init__.py
             layer_init = layer_dir / "__init__.py"
-            self._add_import_to_init(layer_init, f"from ._{suffix} import *")
+            self._add_import_to_init(layer_init, f"from .{prefix}{suffix} import *")
             return
 
         # Handle nested imports
@@ -324,7 +331,7 @@ Examples:
             current_path = current_path / part
         
         deepest_init = current_path / "__init__.py"
-        self._add_import_to_init(deepest_init, f"from ._{suffix} import *")
+        self._add_import_to_init(deepest_init, f"from .{prefix}{suffix} import *")
 
         # Then, propagate imports up the chain
         current_path = layer_dir
@@ -383,19 +390,19 @@ Examples:
         self.stdout.write(self.style.SUCCESS(
             f"Added import to {init_path}: {import_statement}"))
 
-    def _handle_toggle_import(self, layer_dir, suffix, scope_parts, disable):
+    def _handle_toggle_import(self, layer_dir, suffix, scope_parts, disable, prefix):
         """Enable or disable imports by commenting/uncommenting"""
         if not scope_parts:
             # Direct layer import
             target_init = layer_dir / "__init__.py"
-            import_pattern = f"from ._{suffix} import *"
+            import_pattern = f"from .{prefix}{suffix} import *"
         else:
             # Nested scope import - target the deepest level
             target_path = layer_dir
             for part in scope_parts:
                 target_path = target_path / part
             target_init = target_path / "__init__.py"
-            import_pattern = f"from ._{suffix} import *"
+            import_pattern = f"from .{prefix}{suffix} import *"
 
         if not target_init.exists():
             raise CommandError(f"__init__.py file not found: {target_init}")
@@ -438,7 +445,7 @@ Examples:
                     f"Import not found or already enabled: {import_pattern}"
                 ))
 
-    def _dry_run_preview(self, file_path, scope_path, layer_dir, suffix, scope_parts, disable, enable):
+    def _dry_run_preview(self, file_path, scope_path, layer_dir, suffix, scope_parts, disable, enable, prefix):
         """Show what would be created/modified in dry-run mode"""
         self.stdout.write(self.style.WARNING("DRY RUN - No changes will be made"))
 
@@ -467,7 +474,7 @@ Examples:
             
             # Deepest level
             deepest_init = scope_path / "__init__.py"
-            self.stdout.write(f"  {deepest_init}: from ._{suffix} import *")
+            self.stdout.write(f"  {deepest_init}: from .{prefix}{suffix} import *")
             
             # Intermediate levels
             current_path = layer_dir
@@ -483,7 +490,7 @@ Examples:
                     self.stdout.write(f"  {parent_init}: from .{part} import *")
         else:
             layer_init = layer_dir / "__init__.py"
-            self.stdout.write(f"Would add to {layer_init}: from ._{suffix} import *")
+            self.stdout.write(f"Would add to {layer_init}: from .{prefix}{suffix} import *")
 
     def _is_effectively_empty_dir(self, path: Path) -> bool:
         """Return True if the directory has nothing but __init__.py or __pycache__/"""
@@ -495,7 +502,7 @@ Examples:
             return False
         return True
     
-    def _cleanup_layer(self, layer_dir: Path, suffix: str = None, dry_run=False):
+    def _cleanup_layer(self, layer_dir: Path, suffix: str = None, dry_run=False, prefix='_'):
         """Clean empty directories and optionally delete a specific suffix file with import removal."""
         import shutil
 
@@ -505,10 +512,11 @@ Examples:
 
         # Handle suffix deletion first if provided
         if suffix:
-            target_file = next(layer_dir.rglob(f"_{suffix}.py"), None)
+            target_file = next(layer_dir.rglob(f"{prefix}{suffix}.py"), None)
+            import shutil
             if target_file and target_file.exists():
                 target_init = target_file.parent / "__init__.py"
-                import_stmt = f"from ._{suffix} import *"
+                import_stmt = f"from .{prefix}{suffix} import *"
 
                 confirm = input(
                     f"Do you want to delete '{target_file}' and remove its import? [y/N]: "
