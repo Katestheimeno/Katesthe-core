@@ -43,46 +43,46 @@ Examples:
             help="Name of the app to add/remove"
         )
         parser.add_argument(
-            "--type",
+            "--type", "-t",
             choices=["project", "third-party", "dev"],
             default="project",
             help="Type of app: 'project' for PROJECT_APPS, 'dev' for DEV_APPS or 'third-party' for THIRD_PARTY_PACKAGES (default: project)"
         )
         parser.add_argument(
-            "--comment",
+            "--comment", "-c",
             type=str,
             default=None,
             help="Optional comment to add next to the app"
         )
         parser.add_argument(
-            "--remove",
+            "--remove", "-r",
             action="store_true",
             help="Remove the app instead of adding it"
         )
         parser.add_argument(
-            "--soft-remove",
+            "--soft-remove", "-s",
             action="store_true",
             help="Soft remove by commenting out the app (only works with --remove)"
         )
         parser.add_argument(
-            "--force",
+            "--force", "-f",
             action="store_true",
             help="Force add even if app folder doesn't exist (useful for third-party packages)"
         )
         parser.add_argument(
-            "--dry-run",
+            "--dry-run", "-n",
             action="store_true",
             help="Show what would be changed without actually modifying the file"
         )
 
     def handle(self, *args, **options):
-        app_name = options["app_name"]
-        app_type = options["type"]
+        app_name = options.get("app_name")
+        app_type = options.get("type")
         comment = options.get("comment")
-        remove = options["remove"]
-        soft_remove = options["soft_remove"]
-        force = options["force"]
-        dry_run = options["dry_run"]
+        remove = options.get("remove")
+        soft_remove = options.get("soft_remove")
+        force = options.get("force")
+        dry_run = options.get("dry_run")
 
         apps_file = cfg.BASE_DIR / "config/settings/apps_middlewares.py"
         app_path = cfg.BASE_DIR / app_name

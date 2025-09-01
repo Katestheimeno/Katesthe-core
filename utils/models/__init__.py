@@ -17,3 +17,4 @@ from ._cache import *
 from ._configuration import *
 from ._geolocation import *
 from ._tag import *
+from .hi import *

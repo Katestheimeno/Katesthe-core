@@ -1,6 +1,6 @@
 """
 Management command: add suffix files to an app layer with nested scope support.
-Path: utils/management/commands/addfile.py
+Path: utils/management/commands/managefile.py
 """
 
 import re
@@ -14,11 +14,11 @@ import argparse
 
 
 class Command(BaseCommand):
-    help = """Adds files to app layers with automatic import management
+    help = """Manages files to app layers with automatic import management
 and nested scope support.
 
 Usage:
-  manage.py addfile <app_name> --layer LAYER --suffix SUFFIX [options]
+  manage.py managefile <app_name> --layer LAYER --suffix SUFFIX [options]
 
 
 Layer-specific default imports:
@@ -38,13 +38,13 @@ Layer-specific default imports:
 
 Examples:
   Create a controller for user creation:
-    manage.py addfile accounts --layer controllers --suffix create --scope user
+    manage.py managefile accounts --layer controllers --suffix create --scope user
 
   Add a review serializer inside the shop feature:
-    manage.py addfile shops --layer serializers --suffix review --scope shop
+    manage.py managefile shops --layer serializers --suffix review --scope shop
 
   Disable an existing handler:
-    manage.py addfile bookings --layer handlers --suffix cancel --disable
+    manage.py managefile bookings --layer handlers --suffix cancel --disable
 """
 
     DEFAULT_LAYER_IMPORTS = {
@@ -118,60 +118,66 @@ Examples:
 
     def add_arguments(self, parser):
         parser.add_argument(
-            'app_name',
+            "app_name",
             type=str,
-            help="Django app name where the file should be added"
+            help="Name of the app to add the file to."
         )
         parser.add_argument(
-            "--layer",
+            "--layer", "-l",
             type=str,
             required=True,
             choices=self.VALID_LAYERS,
             metavar="LAYER",
-            help=(
-                "Target layer/module to add the file to.\n"
-                "Examples: controllers, models, services.\n"
-                f"Default layers: {', '.join(self.DEFAULT_VALID_LAYERS)}.\n"
-                "Override with ADDFILE_VALID_LAYERS in config/django/base.py."
-            ),
+            help="Target layer/module to add the file to."
         )
+
         parser.add_argument(
-            '--suffix',
+            "--suffix", "-s",
             type=str,
-            required=True,
-            help=(
-                "File identifier (suffix) used in naming.\n"
-                "Examples: create, update, delete, detail, review.\n"
-                "Final filename combines scope + suffix (e.g. 'user_create.py')."
-            )
+            help="File identifier (suffix) used in naming."
         )
+
         parser.add_argument(
-            '--scope',
+            "--scope", "-c",
             type=str,
             default=None,
-            help=(
-                "Optional nested scope path for subdirectories.\n"
-                "Examples: 'user', 'user/profile', 'auth/permissions/admin'."
-            )
+            help="Optional nested scope path for subdirectories."
         )
+
         parser.add_argument(
-            '--disable',
+            "--disable", "-d",
             action='store_true',
             help="Comment out the import in __init__.py to disable the file"
         )
+
         parser.add_argument(
-            '--enable',
+            "--enable", "-e",
             action='store_true',
             help="Uncomment the import in __init__.py to re-enable the file"
         )
+
         parser.add_argument(
-            '--description',
+            "--description", "-x",
             type=str,
             default=None,
             help='Optional description for the file (appears in the file header)'
         )
+
         parser.add_argument(
-            '--dry-run',
+            "--cleanup", "-k",
+            nargs='?',
+            const=True,
+            default=False,
+            metavar='SUFFIX',
+            help=(
+                "Clean empty nested directories and remove imports in the specified layer.\n"
+                "Optionally, provide a SUFFIX to delete a specific file and remove its import, "
+                "prompting for confirmation."
+            )
+        )
+
+        parser.add_argument(
+            "--dry-run", "-n",
             action='store_true',
             help="Preview actions without actually creating files"
         )
@@ -185,11 +191,23 @@ Examples:
         disable = options.get('disable')
         enable = options.get('enable')
         description = options.get('description')
+        cleanup = options.get('cleanup', False)
         dry_run = options.get('dry_run')
 
-        # Validate suffix name
-        if not self._is_valid_suffix_name(suffix):
-            raise CommandError(f"'{suffix}' is not a valid suffix name")
+        if cleanup:
+            if not layer:
+                raise CommandError("You must specify --layer to cleanup")
+            app_dir = cfg.BASE_DIR / app_name
+            layer_dir = app_dir / layer
+            if not layer_dir.exists():
+                raise CommandError(f"Layer directory '{layer_dir}' does not exist")
+            self._cleanup_layer(layer_dir=layer_dir, suffix=suffix, dry_run=dry_run)
+            return
+        else:
+            if not suffix:
+                raise CommandError("--suffix is required unless --cleanup is used")
+            if not self._is_valid_suffix_name(suffix):
+                raise CommandError(f"'{suffix}' is not a valid suffix name")
 
         # Validate scope path if provided
         if scope and not self._is_valid_scope_path(scope):
@@ -466,3 +484,84 @@ Examples:
         else:
             layer_init = layer_dir / "__init__.py"
             self.stdout.write(f"Would add to {layer_init}: from ._{suffix} import *")
+
+    def _is_effectively_empty_dir(self, path: Path) -> bool:
+        """Return True if the directory has nothing but __init__.py or __pycache__/"""
+        for item in path.iterdir():
+            if item.name == "__pycache__":
+                continue
+            if item.name == "__init__.py":
+                continue
+            return False
+        return True
+    
+    def _cleanup_layer(self, layer_dir: Path, suffix: str = None, dry_run=False):
+        """Clean empty directories and optionally delete a specific suffix file with import removal."""
+        import shutil
+
+        self.stdout.write(self.style.WARNING(
+            f"{'DRY RUN: ' if dry_run else ''}Cleaning layer: {layer_dir}"
+        ))
+
+        # Handle suffix deletion first if provided
+        if suffix:
+            target_file = next(layer_dir.rglob(f"_{suffix}.py"), None)
+            if target_file and target_file.exists():
+                target_init = target_file.parent / "__init__.py"
+                import_stmt = f"from ._{suffix} import *"
+
+                confirm = input(
+                    f"Do you want to delete '{target_file}' and remove its import? [y/N]: "
+                ).strip().lower()
+
+                if confirm == 'y':
+                    # Remove import from init
+                    if target_init.exists():
+                        content = target_init.read_text()
+                        if import_stmt in content:
+                            self.stdout.write(self.style.SUCCESS(
+                                f"Removing import from {target_init}: {import_stmt}"
+                            ))
+                            if not dry_run:
+                                target_init.write_text(content.replace(import_stmt + '\n', ''))
+
+                    # Delete the file
+                    self.stdout.write(self.style.SUCCESS(f"Deleting file: {target_file}"))
+                    if not dry_run:
+                        target_file.unlink()
+                else:
+                    self.stdout.write(self.style.WARNING(f"Skipped deleting {target_file}"))
+
+        # Walk directories bottom-up to remove empty ones
+        for path in sorted(layer_dir.rglob('*'), key=lambda x: len(str(x)), reverse=True):
+            if not path.is_dir():
+                continue
+
+            # Check if directory is effectively empty (only __init__.py and/or __pycache__)
+            if self._is_effectively_empty_dir(path):
+                self.stdout.write(self.style.SUCCESS(f"Removing empty directory: {path}"))
+
+                if not dry_run:
+                    # Remove __init__.py
+                    init_file = path / "__init__.py"
+                    if init_file.exists():
+                        init_file.unlink()
+
+                    # Remove __pycache__ if exists
+                    pycache_dir = path / "__pycache__"
+                    if pycache_dir.exists() and pycache_dir.is_dir():
+                        shutil.rmtree(pycache_dir)
+
+                    # Remove directory itself
+                    path.rmdir()
+
+                    # Remove import from parent __init__.py
+                    parent_init = path.parent / "__init__.py"
+                    if parent_init.exists():
+                        import_stmt = f"from .{path.name} import *"
+                        content = parent_init.read_text()
+                        if import_stmt in content:
+                            self.stdout.write(self.style.SUCCESS(
+                                f"Removing import from parent __init__.py: {import_stmt}"
+                            ))
+                            parent_init.write_text(content.replace(import_stmt + '\n', ''))

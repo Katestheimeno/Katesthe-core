@@ -47,42 +47,48 @@ Examples:
             help='Name of the new app'
         )
         parser.add_argument(
-            '--dir',
+            '--dir', '-d',
             type=str,
             default=None,
             help='Directory to create the app in (default: current directory or BASE_DIR)'
         )
         parser.add_argument(
-            '--template',
+            '--template', '-t',
             type=str,
             default='exp_app',
             help='Template directory name to use (default: exp_app)'
         )
         parser.add_argument(
-            '--template-path',
+            '--template-path', '-p',
             type=str,
             default=None,
             help='Full path to template directory (overrides --template)'
         )
         parser.add_argument(
-            '--force',
+            '--force', '-f',
             action='store_true',
             help='Overwrite existing app directory if it exists'
         )
         parser.add_argument(
-            '--dry-run',
+            '--dry-run', '-n',
             action='store_true',
             help='Show what would be created without actually creating files'
         )
         parser.add_argument(
-            '--add-to-settings',
+            '--add-to-settings', '-a',
             action='store_true',
             help='Automatically add the app to PROJECT_APPS in settings'
         )
 
 
     def handle(self, *args, **options):
-        app_name = options['app_name']
+        app_name = options.get('app_name')
+        dir = options.get('dir')
+        template = options.get('template')
+        template_path = options.get('template_path')
+        force = options.get('force')
+        dry_run = options.get('dry_run')
+        add_to_settings = options.get('add_to_settings')
 
         # Validate app name
         if not app_name.isidentifier():
@@ -94,7 +100,7 @@ Examples:
         class_name = "".join(word.capitalize() for word in app_name.split("_"))
 
         # Determine target directory
-        if options['dir']:
+        if dir:
             base_dir = Path(options['dir'])
         else:
             base_dir = getattr(
@@ -103,12 +109,12 @@ Examples:
         target_dir = base_dir / app_name
 
         # Determine template directory
-        if options['template_path']:
-            template_dir = Path(options['template_path'])
+        if template_path:
+            template_dir = Path(template_path)
         else:
             template_dir = (
                 Path(__file__).resolve().parent.parent.parent.parent /
-                'static' / options['template']
+                'static' / template
             )
 
         # Validate template directory
@@ -118,18 +124,18 @@ Examples:
 
         # Check if target exists
         if target_dir.exists():
-            if not options['force']:
+            if not force:
                 raise CommandError(
                     f"The target directory '{target_dir}' already exists! "
                     "Use --force to overwrite."
                 )
-            elif not options['dry_run']:
+            elif not dry_run:
                 shutil.rmtree(target_dir)
                 self.stdout.write(self.style.WARNING(
                     f"Removed existing directory '{target_dir}'"
                 ))
 
-        if options['dry_run']:
+        if dry_run:
             self.stdout.write(self.style.WARNING(
                 "DRY RUN - No files will be created"))
             self.stdout.write(f"Template: {template_dir}")
@@ -152,7 +158,7 @@ Examples:
                 continue
 
         # Add to settings if requested
-        if options['add_to_settings']:
+        if add_to_settings:
             try:
                 from django.core.management import call_command
                 call_command('manageprojectapp', app_name, verbosity=0)
