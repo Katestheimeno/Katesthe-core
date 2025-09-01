@@ -13,3 +13,7 @@ from ._dynamicenum import *
 from ._status import *
 from ._audit import *
 from ._history import *
+from ._cache import *
+from ._configuration import *
+from ._geolocation import *
+from ._tag import *

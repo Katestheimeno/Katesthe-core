@@ -88,6 +88,12 @@ Examples:
             help="Uncomment the import in __init__.py to re-enable the file"
         )
         parser.add_argument(
+            '--description',
+            type=str,
+            default=None,
+            help='Optional description for the file (appears in the file header)'
+        )
+        parser.add_argument(
             '--dry-run',
             action='store_true',
             help="Preview actions without actually creating files"
@@ -95,13 +101,14 @@ Examples:
 
 
     def handle(self, *args, **options):
-        app_name = options['app_name']
-        layer = options['layer']
-        suffix = options['suffix']
-        scope = options['scope']
-        disable = options['disable']
-        enable = options['enable']
-        dry_run = options['dry_run']
+        app_name = options.get('app_name')
+        layer = options.get('layer')
+        suffix = options.get('suffix')
+        scope = options.get('scope')
+        disable = options.get('disable')
+        enable = options.get('enable')
+        description = options.get('description')
+        dry_run = options.get('dry_run')
 
         # Validate suffix name
         if not self._is_valid_suffix_name(suffix):
@@ -171,7 +178,7 @@ Examples:
 
         # Create the suffix file
         if not file_path.exists():
-            self._create_suffix_file(file_path, suffix, scope)
+            self._create_suffix_file(file_path, suffix, scope, description)
             self.stdout.write(self.style.SUCCESS(f"Created file: {file_path}"))
         else:
             self.stdout.write(self.style.WARNING(
@@ -192,13 +199,12 @@ Examples:
             for part in parts
         )
 
-    def _create_suffix_file(self, file_path, suffix, scope):
-        """Create the suffix file with basic content"""
-        content = f'"""\n{suffix.title()} suffix'
-        if scope:
-            content += f' for {scope} scope'
-        content += '\n"""\n\n# TODO: Implement your logic here\n'
-        file_path.write_text(content)
+    def _create_suffix_file(self, file_path, suffix, scope, description=None):
+        """Create the suffix file with a standard header and optional description"""
+        header = f'"""\n{file_path.name}: {description or "TODO: Implement this file"}\n'
+        header += f"Path: {file_path}\n\"\"\"\n\n"
+        header += "# Your code starts here\n"
+        file_path.write_text(header)
 
     def _update_nested_imports(self, layer_dir, suffix, scope_parts):
         """Update __init__.py files through nested scope structure"""

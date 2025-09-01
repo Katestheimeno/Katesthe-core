@@ -1,6 +1,6 @@
-from utils.models.timestamp import TimeStampedModel
-from utils.models.trackable import TrackableModel
-from utils.models.softdelete import SoftDeleteModel
+from utils.models._timestamp import TimeStampedModel
+from utils.models._trackable import TrackableModel
+from utils.models._softdelete import SoftDeleteModel
 
 imports = []
 
