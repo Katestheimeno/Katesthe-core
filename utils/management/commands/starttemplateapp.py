@@ -8,10 +8,37 @@ import shutil
 from pathlib import Path
 from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings as cfg
-
+import argparse
 
 class Command(BaseCommand):
-    help = "Creates a new app from templates with placeholder replacement"
+    help = """Create a new Django app from templates with placeholder replacement.
+
+Usage:
+  manage.py createapp <app_name> [options]
+
+Examples:
+  Create a new app in the current directory:
+    manage.py createapp blog
+
+  Create a new app in a specific directory:
+    manage.py createapp blog --dir apps
+
+  Use a custom template:
+    manage.py createapp blog --template custom_template
+
+  Force overwrite if the directory exists:
+    manage.py createapp blog --force
+
+  Preview actions without creating files:
+    manage.py createapp blog --dry-run
+
+  Automatically add to PROJECT_APPS:
+    manage.py createapp blog --add-to-settings
+"""
+
+    def create_parser(self, *args, **kwargs):
+        kwargs['formatter_class'] = argparse.RawTextHelpFormatter
+        return super().create_parser(*args, **kwargs)
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -52,6 +79,7 @@ class Command(BaseCommand):
             action='store_true',
             help='Automatically add the app to PROJECT_APPS in settings'
         )
+
 
     def handle(self, *args, **options):
         app_name = options['app_name']

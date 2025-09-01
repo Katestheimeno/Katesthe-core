@@ -34,8 +34,8 @@ try:
         )
     }
 except Exception as e:
-    ic(f"⚠️  Database URL parsing failed: {e}")
-    ic("🔄 Falling back to SQLite")
+    # ic(f"⚠️  Database URL parsing failed: {e}")
+    # ic("🔄 Falling back to SQLite")
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',

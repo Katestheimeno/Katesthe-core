@@ -210,3 +210,6 @@ __marimo__/
 .cursor-agent-session
 cursor-session.sh
 resume-cursor.sh
+
+
+DRF-starter.code-workspace

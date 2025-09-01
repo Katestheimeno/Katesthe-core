@@ -7,10 +7,34 @@ import re
 from pathlib import Path
 from django.conf import settings as cfg
 from django.core.management.base import BaseCommand, CommandError
+import argparse
 
 
 class Command(BaseCommand):
-    help = "Manages apps in PROJECT_APPS and THIRD_PARTY_PACKAGES in apps_middlewares.py"
+    help = """Manage apps in Django settings lists (PROJECT_APPS, DEV_APPS, THIRD_PARTY_PACKAGES).
+
+Usage:
+  manage.py manageprojectapp <app_name> [options]
+
+Examples:
+  Add a project app:
+    manage.py manageprojectapp blog --type project
+
+  Add a third-party package:
+    manage.py manageprojectapp rest_framework --type third-party
+
+  Soft-remove a project app (comment out instead of deleting):
+    manage.py manageprojectapp blog --remove --soft-remove
+
+  Force add an app without checking if its folder exists:
+    manage.py manageprojectapp some_missing_app --force
+"""
+
+    def create_parser(self, *args, **kwargs):
+        # preserve newlines & formatting in help text
+        kwargs['formatter_class'] = argparse.RawTextHelpFormatter
+        return super().create_parser(*args, **kwargs)
+
 
     def add_arguments(self, parser):
         parser.add_argument(
