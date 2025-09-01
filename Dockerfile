@@ -39,5 +39,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s CMD curl -f http://lo
 
 RUN uv add watchfiles
 
-CMD ["uv", "run", "python", "manage.py", "runserver_plus", "0.0.0.0:${WEB_PORT:-8000}", "--reload", "--reloader", "watchfiles"]
+CMD ["uv", "run", "daphne", "-b", "0.0.0.0", "-p", "${WEB_PORT:-8000}", "config.asgi:application"]
 
