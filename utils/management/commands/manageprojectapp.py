@@ -35,7 +35,6 @@ Examples:
         kwargs['formatter_class'] = argparse.RawTextHelpFormatter
         return super().create_parser(*args, **kwargs)
 
-
     def add_arguments(self, parser):
         parser.add_argument(
             "app_name",

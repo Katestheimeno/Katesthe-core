@@ -10,6 +10,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.conf import settings as cfg
 import argparse
 
+
 class Command(BaseCommand):
     help = """Create a new Django app from templates with placeholder replacement.
 
@@ -79,7 +80,6 @@ Examples:
             action='store_true',
             help='Automatically add the app to PROJECT_APPS in settings'
         )
-
 
     def handle(self, *args, **options):
         app_name = options.get('app_name')
@@ -167,7 +167,8 @@ Examples:
                 ))
             except Exception as e:
                 self.stdout.write(self.style.WARNING(
-                    f"Could not add '{ app_name}' to settings automatically: {e}"
+                    f"Could not add '{
+                        app_name}' to settings automatically: {e}"
                 ))
 
         self.stdout.write(self.style.SUCCESS(

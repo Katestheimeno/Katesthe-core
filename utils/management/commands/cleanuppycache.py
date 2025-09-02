@@ -8,6 +8,7 @@ from django.conf import settings as cfg
 from pathlib import Path
 import shutil
 
+
 class Command(BaseCommand):
     help = "Remove all __pycache__ directories from all Django apps in the project"
 
@@ -33,26 +34,32 @@ class Command(BaseCommand):
         total_size = 0
 
         if not pycache_dirs:
-            self.stdout.write(self.style.SUCCESS("No __pycache__ directories found"))
+            self.stdout.write(self.style.SUCCESS(
+                "No __pycache__ directories found"))
             return
 
         for pycache_dir in pycache_dirs:
-            size_bytes = sum(f.stat().st_size for f in pycache_dir.rglob('*') if f.is_file())
+            size_bytes = sum(
+                f.stat().st_size for f in pycache_dir.rglob('*') if f.is_file())
             if dry_run:
                 if verbose:
-                    self.stdout.write(f"Would remove: {pycache_dir} ({size_bytes / 1024:.2f} KB)")
+                    self.stdout.write(f"Would remove: {pycache_dir} ({
+                                      size_bytes / 1024:.2f} KB)")
             else:
                 shutil.rmtree(pycache_dir)
                 total_removed += 1
                 total_size += size_bytes
                 if verbose:
-                    self.stdout.write(self.style.SUCCESS(f"Removed: {pycache_dir} ({size_bytes / 1024:.2f} KB)"))
+                    self.stdout.write(self.style.SUCCESS(
+                        f"Removed: {pycache_dir} ({size_bytes / 1024:.2f} KB)"))
 
         if dry_run:
             self.stdout.write(self.style.WARNING(
-                f"Dry run complete. {len(pycache_dirs)} __pycache__ directories would be removed."
+                f"Dry run complete. {
+                    len(pycache_dirs)} __pycache__ directories would be removed."
             ))
         else:
             self.stdout.write(self.style.SUCCESS(
-                f"Removed {total_removed} __pycache__ directories, freeing {total_size / 1024:.2f} KB."
+                f"Removed {total_removed} __pycache__ directories, freeing {
+                    total_size / 1024:.2f} KB."
             ))

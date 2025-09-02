@@ -10,9 +10,6 @@ from django.conf import settings as cfg
 import argparse
 
 
-
-
-
 class Command(BaseCommand):
     help = """Manages files to app layers with automatic import management
 and nested scope support.
@@ -97,12 +94,12 @@ Examples:
         ],
     }
 
-
     # Extendable imports: take from settings if provided, else use defaults
-    LAYER_IMPORTS = getattr(cfg, "ADDFILE_LAYER_IMPORTS", DEFAULT_LAYER_IMPORTS)
+    LAYER_IMPORTS = getattr(
+        cfg, "ADDFILE_LAYER_IMPORTS", DEFAULT_LAYER_IMPORTS)
     DEFAULT_VALID_LAYERS = [
         'admin', 'controllers', 'handlers', 'models', 'permissions',
-        'selectors', 'serializers', 'services', 'urls', 'filters', 'management', 
+        'selectors', 'serializers', 'services', 'urls', 'filters', 'management',
     ]
 
     VALID_LAYERS = getattr(
@@ -188,7 +185,6 @@ Examples:
             help="Preview actions without actually creating files"
         )
 
-
     def handle(self, *args, **options):
         app_name = options.get('app_name')
         layer = options.get('layer')
@@ -207,12 +203,15 @@ Examples:
             app_dir = cfg.BASE_DIR / app_name
             layer_dir = app_dir / layer
             if not layer_dir.exists():
-                raise CommandError(f"Layer directory '{layer_dir}' does not exist")
-            self._cleanup_layer(layer_dir=layer_dir, suffix=suffix, dry_run=dry_run)
+                raise CommandError(f"Layer directory '{
+                                   layer_dir}' does not exist")
+            self._cleanup_layer(layer_dir=layer_dir,
+                                suffix=suffix, dry_run=dry_run)
             return
         else:
             if not suffix:
-                raise CommandError("--suffix is required unless --cleanup is used")
+                raise CommandError(
+                    "--suffix is required unless --cleanup is used")
             if not self._is_valid_suffix_name(suffix):
                 raise CommandError(f"'{suffix}' is not a valid suffix name")
 
@@ -232,14 +231,14 @@ Examples:
 
         # Parse scope path into components
         scope_parts = scope.split('/') if scope else []
-        
+
         # Determine target paths
         if scope_parts:
             # Build nested scope path
             scope_path = layer_dir
             for part in scope_parts:
                 scope_path = scope_path / part
-            
+
             file_path = scope_path / f"{prefix}{suffix}.py"
             target_init_path = scope_path / "__init__.py"
         else:
@@ -249,7 +248,7 @@ Examples:
 
         if dry_run:
             self._dry_run_preview(
-                file_path, scope_path, layer_dir, suffix, 
+                file_path, scope_path, layer_dir, suffix,
                 scope_parts, disable, enable, prefix
             )
             return
@@ -270,7 +269,7 @@ Examples:
                     current_path.mkdir(parents=True, exist_ok=True)
                     self.stdout.write(self.style.SUCCESS(
                         f"Created directory: {current_path}"))
-                
+
                 # Create __init__.py for each level
                 init_path = current_path / "__init__.py"
                 if not init_path.exists():
@@ -297,17 +296,28 @@ Examples:
         """Validate scope path contains only valid Python identifiers"""
         parts = scope_path.split('/')
         return all(
-            part.isidentifier() and not part.startswith('__') 
+            part.isidentifier() and not part.startswith('__')
             for part in parts
         )
 
+    def _get_layer_name(self, file_path, app_dir):
+        for part in file_path.relative_to(app_dir).parts:
+            if part in self.VALID_LAYERS:
+                return part
+        return None
+
     def _create_suffix_file(self, file_path, suffix, scope, description=None):
         """Create the suffix file with a standard header, optional description, and default imports"""
-        header = f'"""\n{file_path.name}: {description or "TODO: Implement this file"}\n'
+        header = f'"""\n{file_path.name}: {
+            description or "TODO: Implement this file"}\n'
         header += f"Path: {file_path}\n\"\"\"\n\n"
 
         # Add default imports if any
-        layer = file_path.parent.name  # get layer name
+        app_dir = cfg.BASE_DIR / file_path.parts[len(cfg.BASE_DIR.parts)]
+        layer = self._get_layer_name(
+            file_path=file_path,
+            app_dir=app_dir
+        )
         imports = self.LAYER_IMPORTS.get(layer, [])
         if imports:
             header += "\n".join(imports) + "\n\n"
@@ -320,34 +330,36 @@ Examples:
         if not scope_parts:
             # Direct import to layer __init__.py
             layer_init = layer_dir / "__init__.py"
-            self._add_import_to_init(layer_init, f"from .{prefix}{suffix} import *")
+            self._add_import_to_init(layer_init, f"from .{
+                                     prefix}{suffix} import *")
             return
 
         # Handle nested imports
         current_path = layer_dir
-        
+
         # First, add the suffix import to the deepest __init__.py
         for part in scope_parts:
             current_path = current_path / part
-        
+
         deepest_init = current_path / "__init__.py"
-        self._add_import_to_init(deepest_init, f"from .{prefix}{suffix} import *")
+        self._add_import_to_init(deepest_init, f"from .{
+                                 prefix}{suffix} import *")
 
         # Then, propagate imports up the chain
         current_path = layer_dir
         import_chain = []
-        
+
         for i, part in enumerate(scope_parts):
             current_path = current_path / part
             current_init = current_path.parent / "__init__.py"
-            
+
             if i == 0:
                 # First level: layer/__init__.py imports from scope
                 import_statement = f"from .{part} import *"
             else:
                 # Subsequent levels: already handled by directory creation
                 continue
-                
+
             if current_init.exists() or current_init == layer_dir / "__init__.py":
                 self._add_import_to_init(current_init, import_statement)
 
@@ -356,11 +368,11 @@ Examples:
             intermediate_path = layer_dir
             for j in range(i + 1):
                 intermediate_path = intermediate_path / scope_parts[j]
-            
+
             intermediate_init = intermediate_path / "__init__.py"
             next_part = scope_parts[i + 1]
             import_statement = f"from .{next_part} import *"
-            
+
             self._add_import_to_init(intermediate_init, import_statement)
 
     def _add_import_to_init(self, init_path, import_statement):
@@ -447,7 +459,8 @@ Examples:
 
     def _dry_run_preview(self, file_path, scope_path, layer_dir, suffix, scope_parts, disable, enable, prefix):
         """Show what would be created/modified in dry-run mode"""
-        self.stdout.write(self.style.WARNING("DRY RUN - No changes will be made"))
+        self.stdout.write(self.style.WARNING(
+            "DRY RUN - No changes will be made"))
 
         if disable:
             self.stdout.write(f"Would disable import for suffix '{suffix}'")
@@ -463,34 +476,39 @@ Examples:
             for part in scope_parts:
                 current_path = current_path / part
                 if not current_path.exists():
-                    self.stdout.write(f"Would create directory: {current_path}")
-                
+                    self.stdout.write(
+                        f"Would create directory: {current_path}")
+
                 init_path = current_path / "__init__.py"
                 if not init_path.exists():
                     self.stdout.write(f"Would create: {init_path}")
 
             # Show import chain
             self.stdout.write("\nWould create import chain:")
-            
+
             # Deepest level
             deepest_init = scope_path / "__init__.py"
-            self.stdout.write(f"  {deepest_init}: from .{prefix}{suffix} import *")
-            
+            self.stdout.write(f"  {deepest_init}: from .{
+                              prefix}{suffix} import *")
+
             # Intermediate levels
             current_path = layer_dir
             for i, part in enumerate(scope_parts):
                 if i == 0:
                     parent_init = layer_dir / "__init__.py"
-                    self.stdout.write(f"  {parent_init}: from .{part} import *")
+                    self.stdout.write(
+                        f"  {parent_init}: from .{part} import *")
                 else:
                     parent_path = layer_dir
                     for j in range(i):
                         parent_path = parent_path / scope_parts[j]
                     parent_init = parent_path / "__init__.py"
-                    self.stdout.write(f"  {parent_init}: from .{part} import *")
+                    self.stdout.write(
+                        f"  {parent_init}: from .{part} import *")
         else:
             layer_init = layer_dir / "__init__.py"
-            self.stdout.write(f"Would add to {layer_init}: from .{prefix}{suffix} import *")
+            self.stdout.write(f"Would add to {layer_init}: from .{
+                              prefix}{suffix} import *")
 
     def _is_effectively_empty_dir(self, path: Path) -> bool:
         """Return True if the directory has nothing but __init__.py or __pycache__/"""
@@ -501,7 +519,7 @@ Examples:
                 continue
             return False
         return True
-    
+
     def _cleanup_layer(self, layer_dir: Path, suffix: str = None, dry_run=False, prefix='_'):
         """Clean empty directories and optionally delete a specific suffix file with import removal."""
         import shutil
@@ -519,7 +537,8 @@ Examples:
                 import_stmt = f"from .{prefix}{suffix} import *"
 
                 confirm = input(
-                    f"Do you want to delete '{target_file}' and remove its import? [y/N]: "
+                    f"Do you want to delete '{
+                        target_file}' and remove its import? [y/N]: "
                 ).strip().lower()
 
                 if confirm == 'y':
@@ -528,17 +547,21 @@ Examples:
                         content = target_init.read_text()
                         if import_stmt in content:
                             self.stdout.write(self.style.SUCCESS(
-                                f"Removing import from {target_init}: {import_stmt}"
+                                f"Removing import from {
+                                    target_init}: {import_stmt}"
                             ))
                             if not dry_run:
-                                target_init.write_text(content.replace(import_stmt + '\n', ''))
+                                target_init.write_text(
+                                    content.replace(import_stmt + '\n', ''))
 
                     # Delete the file
-                    self.stdout.write(self.style.SUCCESS(f"Deleting file: {target_file}"))
+                    self.stdout.write(self.style.SUCCESS(
+                        f"Deleting file: {target_file}"))
                     if not dry_run:
                         target_file.unlink()
                 else:
-                    self.stdout.write(self.style.WARNING(f"Skipped deleting {target_file}"))
+                    self.stdout.write(self.style.WARNING(
+                        f"Skipped deleting {target_file}"))
 
         # Walk directories bottom-up to remove empty ones
         for path in sorted(layer_dir.rglob('*'), key=lambda x: len(str(x)), reverse=True):
@@ -547,7 +570,8 @@ Examples:
 
             # Check if directory is effectively empty (only __init__.py and/or __pycache__)
             if self._is_effectively_empty_dir(path):
-                self.stdout.write(self.style.SUCCESS(f"Removing empty directory: {path}"))
+                self.stdout.write(self.style.SUCCESS(
+                    f"Removing empty directory: {path}"))
 
                 if not dry_run:
                     # Remove __init__.py
@@ -570,6 +594,8 @@ Examples:
                         content = parent_init.read_text()
                         if import_stmt in content:
                             self.stdout.write(self.style.SUCCESS(
-                                f"Removing import from parent __init__.py: {import_stmt}"
+                                f"Removing import from parent __init__.py: {
+                                    import_stmt}"
                             ))
-                            parent_init.write_text(content.replace(import_stmt + '\n', ''))
+                            parent_init.write_text(
+                                content.replace(import_stmt + '\n', ''))
