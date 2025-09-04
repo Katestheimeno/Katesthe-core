@@ -37,6 +37,9 @@ EXPOSE ${WEB_PORT:-8000}
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s CMD curl -f http://localhost:${WEB_PORT:-8000}/ || exit 1
 
+# only run this in development
+# RUN uv run manage.py collectstatic --no-input
+
 RUN uv add watchfiles
 
 # CMD ["uv", "run", "python", "manage.py", "runserver_plus", "0.0.0.0:${WEB_PORT:-8000}", "--reload", "--reloader", "watchfiles"]

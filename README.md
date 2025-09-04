@@ -275,7 +275,7 @@ All commands run inside containers by default:
 
 - Add an action/file to a section (e.g., a controller):
   ```bash
-  docker compose exec web uv run python manage.py addfile blog --section controllers --action list
+  docker compose exec web uv run python manage.py managefile blog --layer controllers --suffix list
   ```
 
 - Add/remove an app from settings lists:
@@ -286,6 +286,207 @@ All commands run inside containers by default:
   # remove from third-party packages (soft-remove as a comment)
   docker compose exec web uv run python manage.py manageprojectapp somepackage --type third-party --remove --soft-remove
   ```
+
+## Management Commands Reference
+
+This project includes several custom management commands to streamline development and maintenance tasks. All commands can be run either locally (with proper environment setup) or inside Docker containers.
+
+### 🚀 `dockerexec` - Execute Django Commands in Docker
+
+**Purpose**: Run Django management commands inside Docker containers from your local machine, ensuring consistent database connections and environment variables.
+
+**Use Cases**:
+- Running migrations when your local environment isn't configured for the Docker database
+- Executing any Django command that requires database access
+- Maintaining consistency between local development and containerized environments
+
+**Examples**:
+```bash
+# Run database migrations
+uv run python manage.py dockerexec migrate
+
+# Make migrations for specific app
+uv run python manage.py dockerexec makemigrations accounts
+
+# Create a superuser
+uv run python manage.py dockerexec createsuperuser
+
+# Run tests
+uv run python manage.py dockerexec test
+
+# Dry run to see what would be executed
+uv run python manage.py dockerexec migrate --dry-run
+
+# Use different Docker service
+uv run python manage.py dockerexec migrate --service=web-dev
+```
+
+**Configuration**: Customize the list of recommended Docker commands by defining `DOCKEREXEC_COMMANDS` in your Django settings.
+
+---
+
+### 📁 `managefile` - File Management with Nested Scope Support
+
+**Purpose**: Add suffix files to app layers with automatic import management and nested scope support. This command helps maintain the domain-driven architecture by creating properly structured files with correct imports.
+
+**Use Cases**:
+- Creating new controllers, serializers, models, or other layer files
+- Organizing code into nested scopes (e.g., `controllers/user/`, `serializers/auth/`)
+- Managing imports automatically across the nested structure
+- Enabling/disabling files by commenting/uncommenting imports
+- Cleaning up empty directories and unused imports
+
+**Examples**:
+```bash
+# Create a user controller
+uv run python manage.py managefile accounts --layer controllers --suffix user
+
+# Create a nested auth serializer
+uv run python manage.py managefile accounts --layer serializers --suffix auth --scope user
+
+# Create a review controller inside shop feature
+uv run python manage.py managefile shops --layer controllers --suffix review --scope shop
+
+# Disable an existing handler (comment out import)
+uv run python manage.py managefile bookings --layer handlers --suffix cancel --disable
+
+# Re-enable a disabled handler
+uv run python manage.py managefile bookings --layer handlers --suffix cancel --enable
+
+# Clean up empty directories in a layer
+uv run python manage.py managefile accounts --layer controllers --cleanup
+
+# Delete a specific file and clean up imports
+uv run python manage.py managefile accounts --layer controllers --cleanup user
+
+# Preview actions without making changes
+uv run python manage.py managefile accounts --layer controllers --suffix user --dry-run
+```
+
+**Features**:
+- **Automatic imports**: Adds default imports based on layer type (controllers get DRF imports, models get Django imports, etc.)
+- **Nested scopes**: Supports creating files in subdirectories with proper import chains
+- **Import management**: Automatically updates `__init__.py` files throughout the nested structure
+- **Enable/disable**: Comment/uncomment imports to temporarily disable files
+- **Cleanup**: Remove empty directories and unused imports
+
+---
+
+### 🏗️ `starttemplateapp` - Create Apps from Template
+
+**Purpose**: Scaffold a new Django app from the template in `static/exp_app` with placeholder replacement and automatic settings integration.
+
+**Use Cases**:
+- Creating new domain apps following the project's architecture
+- Ensuring consistent app structure across the project
+- Automatically adding new apps to Django settings
+- Customizing app templates for different use cases
+
+**Examples**:
+```bash
+# Create a new blog app
+uv run python manage.py starttemplateapp blog
+
+# Create app and automatically add to PROJECT_APPS
+uv run python manage.py starttemplateapp blog --add-to-settings
+
+# Create app in a specific directory
+uv run python manage.py starttemplateapp blog --dir apps
+
+# Use a custom template
+uv run python manage.py starttemplateapp blog --template custom_template
+
+# Force overwrite if directory exists
+uv run python manage.py starttemplateapp blog --force
+
+# Preview actions without creating files
+uv run python manage.py starttemplateapp blog --dry-run
+```
+
+**Features**:
+- **Template-based**: Uses `static/exp_app` as the template
+- **Placeholder replacement**: Replaces `{{app_name}}` placeholders throughout the template
+- **Settings integration**: Can automatically add the new app to `PROJECT_APPS`
+- **Directory flexibility**: Create apps in custom directories
+- **Safety features**: Dry-run mode and force overwrite options
+
+---
+
+### ⚙️ `manageprojectapp` - Manage Apps in Settings
+
+**Purpose**: Add or remove apps from Django settings lists (`PROJECT_APPS`, `DEV_APPS`, `THIRD_PARTY_PACKAGES`) with intelligent handling of different app types.
+
+**Use Cases**:
+- Adding new project apps to settings
+- Managing third-party package dependencies
+- Soft-removing apps (commenting out instead of deleting)
+- Organizing apps by type in settings files
+- Maintaining clean settings files
+
+**Examples**:
+```bash
+# Add a project app to PROJECT_APPS
+uv run python manage.py manageprojectapp blog --type project
+
+# Add a third-party package to THIRD_PARTY_PACKAGES
+uv run python manage.py manageprojectapp rest_framework --type third-party
+
+# Add a development tool to DEV_APPS
+uv run python manage.py manageprojectapp django_extensions --type dev
+
+# Soft-remove a project app (comment out instead of deleting)
+uv run python manage.py manageprojectapp blog --remove --soft-remove
+
+# Hard-remove a third-party package (delete the line)
+uv run python manage.py manageprojectapp somepackage --type third-party --remove
+
+# Force add an app without checking if its folder exists
+uv run python manage.py manageprojectapp some_missing_app --force
+
+# Preview changes without modifying files
+uv run python manage.py manageprojectapp blog --type project --dry-run
+```
+
+**Features**:
+- **App type handling**: Different logic for project apps vs third-party packages
+- **Soft removal**: Comment out apps instead of deleting them
+- **Validation**: Checks if app directories exist (unless forced)
+- **Settings organization**: Maintains clean, organized settings files
+- **Safety**: Dry-run mode for previewing changes
+
+---
+
+### 🧹 `cleanuppycache` - Remove Python Cache Files
+
+**Purpose**: Remove all `__pycache__` directories from all Django apps in the project to clean up compiled Python bytecode files.
+
+**Use Cases**:
+- Cleaning up before deployment
+- Resolving import issues caused by stale bytecode
+- Reducing project size
+- Ensuring fresh Python imports
+- Maintenance tasks
+
+**Examples**:
+```bash
+# Remove all __pycache__ directories
+uv run python manage.py cleanuppycache
+
+# Preview what would be removed without deleting
+uv run python manage.py cleanuppycache --dry-run
+
+# Verbose output showing each directory as it's removed
+uv run python manage.py cleanuppycache --verbose
+
+# Combine dry-run with verbose for detailed preview
+uv run python manage.py cleanuppycache --dry-run --verbose
+```
+
+**Features**:
+- **Comprehensive cleanup**: Finds and removes all `__pycache__` directories
+- **Safety**: Dry-run mode to preview actions
+- **Verbose output**: Shows each directory being processed
+- **Project-wide**: Covers all Django apps in the project
 
 
 ## Tech stack and main packages
