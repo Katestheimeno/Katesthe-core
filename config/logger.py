@@ -2,32 +2,27 @@
 Loguru-based logging setup for Django and libraries.
 Path: config/logger.py
 """
-
 import logging
 from loguru import logger
 import sys
 from pathlib import Path
 import os
 import socket
-
 # ------------------------------------------------------------
 # Setup directories
 # ------------------------------------------------------------
 LOG_DIR = Path("logs")
 LOG_DIR.mkdir(exist_ok=True)
-
 # ------------------------------------------------------------
 # Helper: environment-based log level
 # ------------------------------------------------------------
 ENV = os.getenv("DJANGO_ENV", "local").lower()
 CONSOLE_LEVEL = "DEBUG" if ENV in ("local", "dev") else "INFO"
 FILE_LEVEL = "DEBUG"
-
 # ------------------------------------------------------------
 # Remove default Loguru logger
 # ------------------------------------------------------------
 logger.remove()
-
 # ------------------------------------------------------------
 # Format strings
 # ------------------------------------------------------------
@@ -38,7 +33,6 @@ console_format = (
     "<level>{message}</level>\n"
     "------------------------------------------------------------"
 )
-
 file_format = (
     "{time:YYYY-MM-DD HH:mm:ss} | {level: <8}\n"
     "Module: {name} | Function: {function} | Line: {line}\n"
@@ -57,14 +51,13 @@ logger.add(
     backtrace=True,
     diagnose=True
 )
-
 # ------------------------------------------------------------
-# File sinks per level
+# File sinks per level with hierarchical date structure
 # ------------------------------------------------------------
 levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 for level_name in levels:
     logger.add(
-        LOG_DIR / f"{level_name.lower()}_{{time:YYYY-MM-DD}}.log",
+        LOG_DIR / "{time:YYYY}" / "{time:MM}" / "{time:DD}" / f"{level_name.lower()}.log",
         level=level_name,
         format=file_format,
         rotation="10 MB",
@@ -75,21 +68,16 @@ for level_name in levels:
         backtrace=True,
         diagnose=True
     )
-
 # ------------------------------------------------------------
 # Optional: Add hostname or process info as extra context
 # ------------------------------------------------------------
 HOSTNAME = socket.gethostname()
 logger = logger.bind(host=HOSTNAME, env=ENV)
-
 # ------------------------------------------------------------
 # Intercept Django logs
 # ------------------------------------------------------------
-
-
 class InterceptHandler(logging.Handler):
     """Redirect all logs from Python logging (Django, libraries) to Loguru"""
-
     def emit(self, record):
         try:
             level = logger.level(record.levelname).name
@@ -98,12 +86,10 @@ class InterceptHandler(logging.Handler):
         logger.opt(depth=6, exception=record.exc_info).log(
             level, record.getMessage())
 
-
 def setup_django_logging():
     """Call early in settings/base.py to capture all Django logs"""
     logging.root.handlers = []
     logging.basicConfig(handlers=[InterceptHandler()], level=0)
-
     django_loggers = [
         "django",
         "django.server",
