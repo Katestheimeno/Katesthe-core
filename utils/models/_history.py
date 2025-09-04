@@ -14,11 +14,11 @@ from django.core.serializers.json import DjangoJSONEncoder
 
 imports = []
 
-imports += ["EnhancedHistoryModel"]
+imports += ["HistoryModel"]
 
 # ==================== ENHANCED HISTORY MODEL ====================
 
-class EnhancedJSONEncoder(DjangoJSONEncoder):
+class HistoryJSONEncoder(DjangoJSONEncoder):
     """Custom JSON encoder to handle more data types in history"""
     def default(self, obj):
         if isinstance(obj, Decimal):
@@ -43,9 +43,9 @@ class HistoryManager(models.Manager):
         return self.filter(history__contains=[{'by': user.pk}])
 
 
-class EnhancedHistoryModel(models.Model):
+class HistoryModel(models.Model):
     """
-    Enhanced abstract model to store detailed change history.
+    Abstract model to store detailed change history.
     
     Improvements over basic HistoryModel:
     - Better data type handling
@@ -61,7 +61,7 @@ class EnhancedHistoryModel(models.Model):
         default=list, 
         blank=True, 
         editable=False,
-        encoder=EnhancedJSONEncoder,
+        encoder=HistoryJSONEncoder,
         help_text="JSON array of change history entries"
     )
     
@@ -95,7 +95,7 @@ class EnhancedHistoryModel(models.Model):
     }
 
     def save(self, *args, **kwargs):
-        """Enhanced save with better change tracking"""
+        """Save with better change tracking"""
         changed_by = kwargs.pop("changed_by", None)
         change_category = kwargs.pop("change_category", None)
         change_note = kwargs.pop("change_note", None)

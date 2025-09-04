@@ -1269,19 +1269,22 @@ class TestCustomActivationViewMissingLines:
     
     @pytest.mark.django_db
     def test_activation_post_with_general_exception(self, api_client):
-        """Test activation POST with general exception (covers lines 244-282)."""
+        """Test activation POST with general exception to cover lines 352-354."""
         uid = 'test_uid'
         token = 'test_token'
         url = reverse('user-activation', kwargs={'uid': uid, 'token': token})
         
-        # Mock the decode_uid function to raise a general exception
+        # Mock the decode_uid function to raise an exception
         with patch('djoser.utils.decode_uid') as mock_decode_uid:
-            mock_decode_uid.side_effect = Exception("General error")
+            mock_decode_uid.side_effect = Exception("Unexpected decode error")
             
             response = api_client.post(url)
             
-            # Should return a response
-            assert response.status_code in [200, 400, 404]
+            # Should return 400 due to decode error (specific handler)
+            assert response.status_code == 400
+            data = response.json()
+            assert data['success'] is False
+            assert 'Invalid activation link.' in data['message']
 
 
 class TestCustomUserViewSetAdvancedMissingLines:

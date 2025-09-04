@@ -3,7 +3,7 @@ drf-spectacular settings for OpenAPI schema and UIs.
 Path: config/settings/spectacular.py
 """
 
-from config.env import PROJECT_NAME, PROJECT_DESCRIPTION, PROJECT_VERSION, CONTACT_NAME, CONTACT_EMAIL, CONTACT_URL, THEME_PRIMARY_COLOR, THEME_ACCENT_COLOR
+from config.settings.config import settings
 
 imports = []
 
@@ -11,19 +11,19 @@ imports += ["SPECTACULAR_SETTINGS"]
 
 SPECTACULAR_SETTINGS = {
     # Basic info
-    'TITLE': f'{PROJECT_NAME} API',
+    'TITLE': f'{settings.PROJECT_NAME} API',
     'DESCRIPTION': f'''
-    # {PROJECT_NAME} Backend API Documentation
+    # {settings.PROJECT_NAME} Backend API Documentation
 
-    {PROJECT_DESCRIPTION}
+    {settings.PROJECT_DESCRIPTION}
 
     ## Features
     - JWT authentication
     - Custom User model
     - Modular app structure
-    - {PROJECT_NAME} conventions
+    - {settings.PROJECT_NAME} conventions
     ''',
-    'VERSION': PROJECT_VERSION,
+    'VERSION': settings.PROJECT_VERSION,
 
     # Serve settings
     'SERVE_INCLUDE_SCHEMA': False,  # do not expose /schema.json
@@ -59,8 +59,8 @@ SPECTACULAR_SETTINGS = {
         'suppressWarnings': False,
                     'theme': {
                 'colors': {
-                    'primary': {'main': THEME_PRIMARY_COLOR},       # configurable primary color
-                    'accent': {'main': THEME_ACCENT_COLOR},        # configurable accent color
+                    'primary': {'main': settings.THEME_PRIMARY_COLOR},       # configurable primary color
+                    'accent': {'main': settings.THEME_ACCENT_COLOR},        # configurable accent color
                     'success': {'main': '#28a745'},
                     'error': {'main': '#dc3545'},
                 },
@@ -82,6 +82,14 @@ SPECTACULAR_SETTINGS = {
     'COMPONENT_SPLIT_REQUEST': True,
     'SCHEMA_PATH_PREFIX': '/api/v1/',
     'SCHEMA_PATH_PREFIX_TRIM': False,
+    
+    # Operation ID generation
+    'OPERATION_ID_GENERATOR': 'drf_spectacular.generators.operation_id_generator',
+    'GENERATE_OPERATION_ID': True,
+    
+    # Reduce warnings
+    'SERVE_AUTHENTICATION': None,
+    'SWAGGER_UI_OAUTH2_REDIRECT_URL': None,
 
     # Tags to organize endpoints
     'TAGS': [
@@ -91,9 +99,9 @@ SPECTACULAR_SETTINGS = {
 
     # Contact and license info
     'CONTACT': {
-        'name': CONTACT_NAME,
-        'email': CONTACT_EMAIL,
-        'url': CONTACT_URL,
+        'name': settings.CONTACT_NAME,
+        'email': settings.CONTACT_EMAIL,
+        'url': settings.CONTACT_URL,
     },
     'LICENSE': {
         'name': 'MIT License',

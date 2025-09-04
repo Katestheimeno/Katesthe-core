@@ -47,6 +47,20 @@ class TestCustomActivationEmail:
         assert context_data['support_email'] == 'support@yourapp.com'
     
     @pytest.mark.django_db
+    def test_activation_email_context_no_user(self):
+        """Test that activation email handles missing user gracefully."""
+        email = CustomActivationEmail()
+        
+        # Don't set any context
+        email.context = {}
+        
+        # Get the context data - should return empty dict
+        context_data = email.get_context_data()
+        
+        # Should return empty dict when no user
+        assert context_data == {}
+    
+    @pytest.mark.django_db
     def test_activation_email_sending(self):
         """Test that activation email can be sent."""
         user = UserFactory()

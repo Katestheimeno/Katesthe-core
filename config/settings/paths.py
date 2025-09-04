@@ -4,9 +4,10 @@ Path: config/settings/paths.py
 """
 
 from pathlib import Path
-from config.env import BASE_DIR
+from config.settings.config import settings
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-imports = []
+imports = ["BASE_DIR"]
 
 # ---------------------------
 # Media configuration

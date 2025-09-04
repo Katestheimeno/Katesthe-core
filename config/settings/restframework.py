@@ -3,7 +3,7 @@ DRF and SimpleJWT configuration.
 Path: config/settings/restframework.py
 """
 
-from config.env import JWT_SECRET_KEY
+from config.settings.config import settings
 from datetime import timedelta
 
 # Keep track of which settings we’re exporting in __all__
@@ -41,7 +41,7 @@ SIMPLE_JWT = {
     # JWT signing / validation
     # --------------------------
     "ALGORITHM": "HS256",
-    "SIGNING_KEY": JWT_SECRET_KEY,  # or a dedicated JWT_SECRET_KEY
+    "SIGNING_KEY": settings.JWT_SECRET_KEY,  # or a dedicated JWT_SECRET_KEY
     "VERIFYING_KEY": None,
     "AUDIENCE": None,                    # set if you issue tokens to multiple clients
     "ISSUER": None,                      # set if you want issuer validation

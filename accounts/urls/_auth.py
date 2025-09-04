@@ -9,7 +9,7 @@ from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
 from accounts.controllers import CustomJWTTokenCreateView, CustomJWTLogoutView, CustomActivationView
 
 urlpatterns = [
-    # Custom activation endpoint (renders HTML page)
+    # Custom activation endpoint (only the specific pattern to avoid conflicts)
     path('auth/users/activation/<str:uid>/<str:token>/', CustomActivationView.as_view(), name='user-activation'),
     
     # Custom JWT authentication endpoints (no duplicate paths)

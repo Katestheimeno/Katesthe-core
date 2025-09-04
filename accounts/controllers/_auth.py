@@ -22,6 +22,7 @@ from djoser.utils import ActionViewMixin
 from accounts.serializers.auth import CustomTokenObtainPairSerializer
 from django.contrib.auth import get_user_model
 from config.logger import logger
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
 
 User = get_user_model()
 
@@ -114,11 +115,41 @@ class CustomJWTTokenCreateView(TokenObtainPairView):
             raise
 
 
+@extend_schema(
+    tags=['Authentication'],
+    summary='JWT Logout',
+    description='Logout and blacklist the refresh token',
+    request=None,
+    responses={
+        204: {
+            'description': 'Successfully logged out',
+            'type': 'object',
+            'properties': {
+                'detail': {'type': 'string', 'example': 'Successfully logged out.'}
+            }
+        },
+        400: {
+            'description': 'Bad request - refresh token required or invalid',
+            'type': 'object',
+            'properties': {
+                'detail': {'type': 'string', 'example': 'Refresh token is required.'}
+            }
+        }
+    },
+    examples=[
+        OpenApiExample(
+            'Logout Request',
+            value={'refresh': 'your_refresh_token_here'},
+            request_only=True
+        )
+    ]
+)
 class CustomJWTLogoutView(APIView):
     """
     Custom JWT logout view that blacklists the refresh token.
     """
     permission_classes = [IsAuthenticated]
+    serializer_class = None  # No serializer needed for logout
 
     def post(self, request):
         user_id = request.user.id
@@ -200,12 +231,53 @@ class CustomTokenDestroyView(djoser_views.TokenDestroyView):
             )
 
 
+@extend_schema(
+    tags=['Authentication'],
+    summary='User Activation',
+    description='Activate user account with UID and token',
+    parameters=[
+        OpenApiParameter(
+            name='uid',
+            location=OpenApiParameter.PATH,
+            description='User ID for activation',
+            required=True,
+            type=str
+        ),
+        OpenApiParameter(
+            name='token',
+            location=OpenApiParameter.PATH,
+            description='Activation token',
+            required=True,
+            type=str
+        )
+    ],
+    request=None,
+    responses={
+        200: {
+            'description': 'Activation successful or already activated',
+            'type': 'object',
+            'properties': {
+                'success': {'type': 'boolean'},
+                'message': {'type': 'string'}
+            }
+        },
+        400: {
+            'description': 'Activation failed',
+            'type': 'object',
+            'properties': {
+                'success': {'type': 'boolean'},
+                'message': {'type': 'string'}
+            }
+        }
+    }
+)
 @method_decorator(csrf_exempt, name='dispatch')
 class CustomActivationView(ActionViewMixin, APIView):
     """
     Custom activation view that renders an HTML page with activation button.
     """
     permission_classes = [AllowAny]
+    serializer_class = None  # No serializer needed for activation
     
     def get(self, request, uid, token):
         """Render the activation page."""

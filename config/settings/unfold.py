@@ -3,7 +3,7 @@ Unfold Admin UI configuration.
 Path: config/settings/unfold.py
 """
 
-from config.env import PROJECT_NAME, THEME_PRIMARY_COLOR, THEME_ACCENT_COLOR
+from config.settings.config import settings
 
 # ------------------------------------------------------------
 # Helper function to convert hex to RGB
@@ -14,8 +14,8 @@ def hex_to_rgb(hex_color):
     return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
 
 # Convert theme colors to RGB
-primary_rgb = hex_to_rgb(THEME_PRIMARY_COLOR)
-accent_rgb = hex_to_rgb(THEME_ACCENT_COLOR)
+primary_rgb = hex_to_rgb(settings.THEME_PRIMARY_COLOR)
+accent_rgb = hex_to_rgb(settings.THEME_ACCENT_COLOR)
 
 # ------------------------------------------------------------
 # Imports Collector
@@ -32,8 +32,8 @@ UNFOLD = {
     # --------------------------------------------------------
     # Branding
     # --------------------------------------------------------
-    "SITE_TITLE": f"{PROJECT_NAME} Admin",  # Browser tab + login screen
-    "SITE_HEADER": PROJECT_NAME,       # Header displayed in the admin
+    "SITE_TITLE": f"{settings.PROJECT_NAME} Admin",  # Browser tab + login screen
+    "SITE_HEADER": settings.PROJECT_NAME,       # Header displayed in the admin
 
     # --------------------------------------------------------
     # Color Palette
@@ -108,7 +108,7 @@ UNFOLD = {
     # --------------------------------------------------------
     "FOOTER": {
         "show": True,
-        "text": f"© 2025 {PROJECT_NAME}",
+        "text": f"© 2025 {settings.PROJECT_NAME}",
     },
 }
 

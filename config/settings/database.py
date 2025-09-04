@@ -6,7 +6,7 @@ Uses dj-database-url to parse DATABASE_URL and configures Redis cache.
 """
 
 from config.settings import SQLITE_DATABASE_PATH
-from config.env import DATABASE_URL, REDIS_URL
+from config.settings.config import settings
 from icecream import ic
 import dj_database_url
 
@@ -28,7 +28,7 @@ imports += ["DATABASES"]
 try:
     DATABASES = {
         'default': dj_database_url.config(
-            default=DATABASE_URL,
+            default=settings.database.DATABASE_URL,
             conn_max_age=600,
             conn_health_checks=True,
         )
@@ -93,7 +93,7 @@ try:
     CACHES = {
         'default': {
             'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-            'LOCATION': REDIS_URL,
+            'LOCATION': settings.REDIS_URL,
             'KEY_PREFIX': 'django_cache',
             'TIMEOUT': 300,
         }

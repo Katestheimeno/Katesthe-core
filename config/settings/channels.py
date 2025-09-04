@@ -3,7 +3,7 @@ Django Channels configuration for WebSocket support.
 Path: config/settings/channels.py
 """
 
-from config.env import REDIS_URL
+from config.settings.config import settings
 
 # Keep track of which settings we're exporting
 imports = []
@@ -18,7 +18,7 @@ CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            "hosts": [REDIS_URL],
+            "hosts": [settings.REDIS_URL],
             "prefix": "channels",  # Prefix to avoid conflicts with other Redis data
             "expiry": 60,  # Messages expire after 60 seconds if not consumed
         },

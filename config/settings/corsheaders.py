@@ -8,7 +8,7 @@ via django-cors-headers.
 """
 
 from corsheaders.defaults import default_headers
-from config.env import WEB_PORT
+from config.settings.config import settings
 
 # List of symbols to be exported when doing `from settings.cors import *`
 # We build this dynamically as we define variables.
@@ -55,7 +55,7 @@ CORS_ALLOW_CREDENTIALS = True
 imports += ["CORS_ALLOWED_ORIGINS"]
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:8080",   # e.g. Vue / React dev server
-    f"http://127.0.0.1:{WEB_PORT}",   # Django dev server
+    f"http://127.0.0.1:{settings.WEB_PORT}",   # Django dev server
 ]
 
 # Expose only the explicitly defined symbols

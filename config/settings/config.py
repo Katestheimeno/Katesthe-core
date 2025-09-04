@@ -1,0 +1,163 @@
+"""
+Centralized configuration using pydantic-settings.
+Path: config/settings/config.py
+
+This module provides a centralized configuration structure using pydantic-settings
+with separate settings classes for different concerns (database, email, etc.)
+"""
+from pathlib import Path
+from typing import List
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class DatabaseSettings(BaseSettings):
+    """Database configuration settings."""
+    
+    USER: str = Field(default="postgres", description="PostgreSQL username")
+    PASSWORD: str = Field(default="postgres", description="PostgreSQL password")
+    HOST: str = Field(default="db", description="PostgreSQL host")
+    PORT: int = Field(default=5432, description="PostgreSQL port")
+    DB: str = Field(default="drf_starter", description="PostgreSQL database name")
+    
+    @property
+    def DATABASE_URL(self) -> str:
+        """Construct the full database URL."""
+        return f"postgresql://{self.USER}:{self.PASSWORD}@{self.HOST}:{self.PORT}/{self.DB}"
+
+
+class EmailSettings(BaseSettings):
+    """Email configuration settings."""
+    
+    HOST: str = Field(default="localhost", description="SMTP host")
+    PORT: int = Field(default=1025, description="SMTP port")
+    USE_TLS: bool = Field(default=False, description="Use TLS for SMTP")
+    HOST_USER: str = Field(default="", description="SMTP username")
+    HOST_PASSWORD: str = Field(default="", description="SMTP password")
+    FRONTEND_DOMAIN: str = Field(default="", description="Frontend domain for email links")
+
+
+class RedisSettings(BaseSettings):
+    """Redis configuration settings."""
+    
+    URL: str = Field(default="redis://localhost:6379/0", description="Redis connection URL")
+
+
+class CelerySettings(BaseSettings):
+    """Celery configuration settings."""
+    
+    BROKER_URL: str = Field(default="", description="Celery broker URL")
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # If BROKER_URL is not set, use Redis URL
+        if not self.BROKER_URL:
+            redis_settings = RedisSettings()
+            self.BROKER_URL = redis_settings.URL
+
+
+class ProjectSettings(BaseSettings):
+    """Project branding and configuration settings."""
+    
+    NAME: str = Field(default="Katesthe-core", description="Project name")
+    DESCRIPTION: str = Field(
+        default="A Django REST Framework starter project with ready-to-use authentication, custom user management, and modular app structure.",
+        description="Project description"
+    )
+    VERSION: str = Field(default="1.0.0", description="Project version")
+
+
+class ContactSettings(BaseSettings):
+    """Contact information settings."""
+    
+    NAME: str = Field(default="Katesthe-core Dev Team", description="Contact name")
+    EMAIL: str = Field(default="support@katesthe-core.com", description="Contact email")
+    URL: str = Field(default="https://github.com/katesthe-core", description="Contact URL")
+
+
+class ThemeSettings(BaseSettings):
+    """Theme color settings."""
+    
+    PRIMARY_COLOR: str = Field(default="#6a0dad", description="Primary theme color")
+    ACCENT_COLOR: str = Field(default="#4b0082", description="Accent theme color")
+
+
+class MainSettings(BaseSettings):
+    """Main application settings that aggregates all other settings."""
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore"
+    )
+    
+    # Core Django settings
+    DJANGO_DEBUG: bool = Field(default=True, alias="DEBUG", description="Django debug mode")
+    SECRET_KEY: str = Field(description="Django secret key")
+    JWT_SECRET_KEY: str = Field(description="JWT secret key")
+    ALLOWED_HOSTS: List[str] = Field(default=["*"], description="Allowed hosts")
+    
+    # Web server settings
+    WEB_PORT: int = Field(default=8000, description="Web server port")
+    
+    # Database settings (direct environment variables)
+    POSTGRES_USER: str = Field(default="postgres", description="PostgreSQL username")
+    POSTGRES_PASSWORD: str = Field(default="postgres", description="PostgreSQL password")
+    POSTGRES_HOST: str = Field(default="db", description="PostgreSQL host")
+    POSTGRES_PORT: int = Field(default=5432, description="PostgreSQL port")
+    POSTGRES_DB: str = Field(default="drf_starter", description="PostgreSQL database name")
+    
+    # Redis settings (direct environment variables)
+    REDIS_URL: str = Field(default="redis://localhost:6379/0", description="Redis connection URL")
+    
+    # Email settings (direct environment variables)
+    EMAIL_HOST: str = Field(default="localhost", description="SMTP host")
+    EMAIL_PORT: int = Field(default=1025, description="SMTP port")
+    EMAIL_USE_TLS: bool = Field(default=False, description="Use TLS for SMTP")
+    EMAIL_HOST_USER: str = Field(default="", description="SMTP username")
+    EMAIL_HOST_PASSWORD: str = Field(default="", description="SMTP password")
+    EMAIL_FRONTEND_DOMAIN: str = Field(default="", description="Frontend domain for email links")
+    
+    # Project settings (direct environment variables)
+    PROJECT_NAME: str = Field(default="Katesthe-core", description="Project name")
+    PROJECT_DESCRIPTION: str = Field(
+        default="A Django REST Framework starter project with ready-to-use authentication, custom user management, and modular app structure.",
+        description="Project description"
+    )
+    PROJECT_VERSION: str = Field(default="1.0.0", description="Project version")
+    
+    # Contact settings (direct environment variables)
+    CONTACT_NAME: str = Field(default="Katesthe-core Dev Team", description="Contact name")
+    CONTACT_EMAIL: str = Field(default="support@katesthe-core.com", description="Contact email")
+    CONTACT_URL: str = Field(default="https://github.com/katesthe-core", description="Contact URL")
+    
+    # Theme settings (direct environment variables)
+    THEME_PRIMARY_COLOR: str = Field(default="#6a0dad", description="Primary theme color")
+    THEME_ACCENT_COLOR: str = Field(default="#4b0082", description="Accent theme color")
+    
+    # Nested settings (for backward compatibility and computed properties)
+    database: DatabaseSettings = Field(default_factory=DatabaseSettings)
+    email: EmailSettings = Field(default_factory=EmailSettings)
+    redis: RedisSettings = Field(default_factory=RedisSettings)
+    celery: CelerySettings = Field(default_factory=CelerySettings)
+    project: ProjectSettings = Field(default_factory=ProjectSettings)
+    contact: ContactSettings = Field(default_factory=ContactSettings)
+    theme: ThemeSettings = Field(default_factory=ThemeSettings)
+    
+    # Computed properties for backward compatibility
+    @property
+    def DEBUG(self) -> bool:
+        return self.DJANGO_DEBUG
+    
+    @property
+    def DATABASE_URL(self) -> str:
+        """Construct the full database URL."""
+        return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+    
+    @property
+    def CELERY_BROKER_URL(self) -> str:
+        return self.REDIS_URL
+
+
+# Create the global settings instance
+settings = MainSettings()

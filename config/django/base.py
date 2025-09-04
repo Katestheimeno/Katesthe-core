@@ -3,7 +3,6 @@ Base settings entry point loaded by env-specific modules (local/production).
 Path: config/django/base.py
 """
 
-from config.env import *
 from config.settings import *
 from config.logger import setup_django_logging
 
