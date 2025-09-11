@@ -3,6 +3,8 @@ Management command: Execute Django management commands inside Docker container.
 Path: utils/management/commands/dockerexec.py
 """
 
+import os
+from pathlib import Path
 import subprocess
 import sys
 from django.core.management.base import BaseCommand, CommandError
@@ -88,6 +90,42 @@ Configuration:
         kwargs['formatter_class'] = argparse.RawTextHelpFormatter
         return super().create_parser(*args, **kwargs)
 
+    def _find_docker_compose_file(self, compose_file):
+        """Find the docker-compose.yml file, checking multiple locations"""
+        # If it's an absolute path, use it as-is
+        if os.path.isabs(compose_file):
+            if os.path.exists(compose_file):
+                return compose_file
+            else:
+                raise CommandError(f"Docker compose file not found: {compose_file}")
+        
+        # Try relative to current directory
+        current_dir = Path.cwd()
+        compose_path = current_dir / compose_file
+        if compose_path.exists():
+            return str(compose_path)
+        
+        # Try relative to service directory (where manage.py is)
+        service_dir = Path(__file__).parent.parent.parent.parent.parent  # Go up to service/
+        compose_path = service_dir / compose_file
+        if compose_path.exists():
+            return str(compose_path)
+        
+        # Try relative to project root (one level up from service)
+        project_root = service_dir.parent
+        compose_path = project_root / compose_file
+        if compose_path.exists():
+            return str(compose_path)
+        
+        # Try just 'docker-compose.yml' in project root
+        compose_path = project_root / 'docker-compose.yml'
+        if compose_path.exists():
+            return str(compose_path)
+        
+        raise CommandError(f"Docker compose file not found. Tried: {compose_file}")
+
+ 
+
     def add_arguments(self, parser):
         parser.add_argument(
             'django_command',
@@ -109,7 +147,7 @@ Configuration:
             '--compose-file',
             type=str,
             default='docker-compose.yml',
-            help='Docker compose file to use (default: docker-compose.yml)'
+            help='Docker compose file to use (default: docker-compose.yml, auto-detected)'
         )
         parser.add_argument(
             '--dry-run',
@@ -199,10 +237,16 @@ Configuration:
         compose_file = options['compose_file']
         dry_run = options['dry_run']
 
+        # Find the docker-compose file
+        try:
+            compose_file_path = self._find_docker_compose_file(compose_file)
+        except CommandError as e:
+            raise e
+
         # Build the base command (without -it flags yet)
         docker_cmd = [
             'docker', 'compose',
-            '-f', compose_file,
+            '-f', compose_file_path,
             'exec', service,
             'uv', 'run', 'python', 'manage.py',
             django_command

@@ -306,7 +306,8 @@ This project includes several custom management commands to streamline developme
 - **Real-time Output Streaming**: Non-interactive commands stream output as it happens
 - **Dry Run Support**: Preview commands before execution
 - **Flexible Service Selection**: Choose which Docker service to use
-- **Custom Docker Compose Files**: Specify different compose files
+- **Auto Docker Compose Discovery**: Automatically finds docker-compose.yml files in multiple locations
+- **Custom Docker Compose Files**: Specify different compose files with intelligent path resolution
 - **Keyboard Interrupt Handling**: Graceful handling of Ctrl+C
 
 **Examples**:
@@ -338,8 +339,11 @@ uv run python manage.py dockerexec collectstatic --interactive
 # Force non-interactive mode
 uv run python manage.py dockerexec createsuperuser --no-interactive
 
-# Use different Docker compose file
+# Use different Docker compose file (auto-detected)
 uv run python manage.py dockerexec migrate --compose-file=docker-compose.prod.yml
+
+# Use absolute path to compose file
+uv run python manage.py dockerexec migrate --compose-file=/path/to/docker-compose.yml
 
 # Run shell with specific settings
 uv run python manage.py dockerexec shell --settings=config.django.test
@@ -356,6 +360,16 @@ uv run python manage.py dockerexec shell --settings=config.django.test
 - `test` - Test execution
 - `collectstatic` - Static file collection
 - `check` - Django system checks
+
+**Docker Compose Auto-Discovery**: The command automatically searches for docker-compose files in multiple locations:
+
+1. **Absolute paths** - Used as-is if the file exists
+2. **Current directory** - Relative to where you run the command
+3. **Service directory** - Where manage.py is located
+4. **Project root** - One level up from service directory
+5. **Fallback** - Looks for `docker-compose.yml` in project root
+
+This means you can run the command from anywhere in your project structure and it will find the correct compose file automatically. If no compose file is found, the command will provide a clear error message showing all the locations it searched.
 
 **Configuration**: Customize behavior by defining these settings in your Django settings:
 ```python
