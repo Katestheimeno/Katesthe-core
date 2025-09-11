@@ -9,7 +9,7 @@ from config.settings.config import settings
 DEBUG = settings.DEBUG
 SECRET_KEY = settings.SECRET_KEY
 JWT_SECRET_KEY = settings.JWT_SECRET_KEY
-ALLOWED_HOSTS = settings.ALLOWED_HOSTS
+ALLOWED_HOSTS = [host.strip() for host in settings.ALLOWED_HOSTS.split(',') if host.strip()]
 DATABASE_URL = settings.database.DATABASE_URL
 REDIS_URL = settings.REDIS_URL
 CELERY_BROKER_URL = settings.CELERY_BROKER_URL

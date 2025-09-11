@@ -5,10 +5,41 @@ Path: config/settings/config.py
 This module provides a centralized configuration structure using pydantic-settings
 with separate settings classes for different concerns (database, email, etc.)
 """
+import os
 from pathlib import Path
 from typing import List
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Define the base directory of the project (2 levels up from this file)
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+
+def get_env_file_path() -> str:
+    """
+    Determine which environment file to use based on Django settings.
+    
+    Priority:
+    1. DJANGO_ENV environment variable
+    2. DJANGO_SETTINGS_MODULE environment variable
+    3. Default to 'local'
+    """
+    # Check DJANGO_ENV first
+    django_env = os.getenv('DJANGO_ENV', '').lower()
+    if django_env in ['local', 'prod', 'test']:
+        return str(BASE_DIR / f".env.{django_env}")
+    
+    # Check DJANGO_SETTINGS_MODULE
+    settings_module = os.getenv('DJANGO_SETTINGS_MODULE', '')
+    if 'local' in settings_module:
+        return str(BASE_DIR / '.env.local')
+    elif 'production' in settings_module:
+        return str(BASE_DIR / '.env.prod')
+    elif 'test' in settings_module:
+        return str(BASE_DIR / '.env.test')
+    
+    # Default to local
+    return str(BASE_DIR / '.env.local')
 
 
 class DatabaseSettings(BaseSettings):
@@ -85,7 +116,7 @@ class ThemeSettings(BaseSettings):
 class MainSettings(BaseSettings):
     """Main application settings that aggregates all other settings."""
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=get_env_file_path(),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore"
@@ -95,7 +126,7 @@ class MainSettings(BaseSettings):
     DJANGO_DEBUG: bool = Field(default=True, alias="DEBUG", description="Django debug mode")
     SECRET_KEY: str = Field(description="Django secret key")
     JWT_SECRET_KEY: str = Field(description="JWT secret key")
-    ALLOWED_HOSTS: List[str] = Field(default=["*"], description="Allowed hosts")
+    ALLOWED_HOSTS: str = Field(default="*", description="Allowed hosts (comma-separated)")
     
     # Web server settings
     WEB_PORT: int = Field(default=8000, description="Web server port")

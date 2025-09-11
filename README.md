@@ -42,19 +42,79 @@ Because this project is fully dockerized, run Django and management commands ins
 curl -LsSf https://raw.githubusercontent.com/Yeeloman/Katesthe-core/main/setup.sh | sh
 ```
 
-2) Create `.env`
+2) **Create environment configuration**
 ```bash
-cp .env.example .env
+# For local development
+cp .env.local.example .env.local
+
+# For production (optional)
+cp .env.prod.example .env.prod
+
+# For testing (optional)
+cp .env.test.example .env.test
 ```
-Set secrets:
+
+3) **Set secrets for your environment**
 ```bash
-# generate a strong value; reuse for SECRET_KEY and JWT_SECRET_KEY (or generate two)
+# Generate strong values for production
 openssl rand -base64 48 | tr -d '\n'
 ```
 
-3) Start the stack
+4) **Start the stack**
 ```bash
+# Local development (uses .env.local by default)
 docker compose up --build
+
+# Or specify environment explicitly
+ENV_FILE=.env.local docker compose up --build
+```
+
+## Environment Configuration
+
+The project uses environment-specific configuration files for better separation of concerns:
+
+### Environment Files
+
+- **`.env.local`** - Local development environment
+- **`.env.prod`** - Production environment  
+- **`.env.test`** - Testing environment
+
+### Auto-Detection Logic
+
+The system automatically detects which environment file to use based on:
+
+1. **`DJANGO_ENV`** environment variable (`local`, `prod`, `test`)
+2. **`DJANGO_SETTINGS_MODULE`** environment variable (contains `local`, `production`, or `test`)
+3. **Default** to `.env.local` if neither is set
+
+### Docker Compose Integration
+
+Docker Compose uses the `ENV_FILE` environment variable to specify which `.env` file to load:
+
+```bash
+# Use local environment (default)
+docker compose up
+
+# Use production environment
+ENV_FILE=.env.prod docker compose up
+
+# Use test environment
+ENV_FILE=.env.test docker compose up
+```
+
+### Manual Setup
+
+Copy the appropriate example file and customize:
+
+```bash
+# For local development
+cp .env.local.example .env.local
+
+# For production
+cp .env.prod.example .env.prod
+
+# For testing
+cp .env.test.example .env.test
 ```
 
 4) Run management commands inside the web container
@@ -81,12 +141,12 @@ docker compose exec web uv run python manage.py shell
 
 
 ## Alternative: Host mode (advanced)
-If you prefer running Django on your host (outside Docker), you must point your `.env` to services reachable from your host, not the Docker DNS names.
+If you prefer running Django on your host (outside Docker), you must point your environment file to services reachable from your host, not the Docker DNS names.
 
 Two options:
 - Use the Dockerized Postgres/Redis but connect via localhost (ports are published by compose):
   ```env
-  # .env overrides for HOST MODE
+  # .env.local overrides for HOST MODE
   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/drf_starter
   REDIS_URL=redis://localhost:6379/0
   ```
@@ -152,7 +212,7 @@ The project centralizes env handling in `config/env.py`. Key variables:
 **Notes:**
 - `manage.py` defaults to `config.django.local` settings; Production can use `DJANGO_SETTINGS_MODULE=config.django.production`.
 - Database configuration uses `dj-database-url`.
-- Use `DJANGO_DEBUG` (boolean) for Django's debug toggle. The example `.env` includes `DEBUG` for Compose convenience; prefer `DJANGO_DEBUG`.
+- Use `DJANGO_DEBUG` (boolean) for Django's debug toggle. The example environment files include `DEBUG` for Compose convenience; prefer `DJANGO_DEBUG`.
 - All branding and theme variables can be customized via environment variables for easy project personalization.
 
 

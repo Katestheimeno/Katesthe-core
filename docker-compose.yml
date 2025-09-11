@@ -38,7 +38,7 @@ services:
     ports:
       - "${WEB_PORT:-8000}:8000"
     env_file:
-      - ./.env
+      - ${ENV_FILE:-.env.local}
     environment:
       DEBUG: ${DEBUG:-True}
       DJANGO_ENV: ${DJANGO_ENV:-local}
@@ -73,7 +73,7 @@ services:
     volumes:
       - .:/app
     env_file:
-      - ./.env
+      - ${ENV_FILE:-.env.local}
     environment:
       DEBUG: ${DEBUG:-True}
       DJANGO_ENV: ${DJANGO_ENV:-local}
@@ -91,7 +91,7 @@ services:
     volumes:
       - .:/app
     env_file:
-      - ./.env
+      - ${ENV_FILE:-.env.local}
     environment:
       DEBUG: ${DEBUG:-True}
       DJANGO_ENV: ${DJANGO_ENV:-local}
@@ -105,19 +105,20 @@ services:
 
   flower:
     build: .
-    command: uv run celery -A config.celery.app flower  --broker=${REDIS_URL}
+    command: uv run celery -A config.celery.app flower --port=5555
     volumes:
       - .:/app
     ports:
       - "5555:5555"
     env_file:
-      - ./.env
+      - ${ENV_FILE:-.env.local}
     environment:
       DEBUG: ${DEBUG:-True}
       DJANGO_ENV: ${DJANGO_ENV:-local}
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.django.local}
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: ${REDIS_URL}
+      CELERY_BROKER_URL: ${REDIS_URL}
     depends_on:
       - redis
     restart: unless-stopped
