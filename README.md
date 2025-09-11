@@ -299,6 +299,15 @@ This project includes several custom management commands to streamline developme
 - Running migrations when your local environment isn't configured for the Docker database
 - Executing any Django command that requires database access
 - Maintaining consistency between local development and containerized environments
+- Interactive commands like shell, createsuperuser, and runserver
+
+**Features**:
+- **Smart Interactive Mode**: Automatically detects when commands need interactive mode (TTY allocation)
+- **Real-time Output Streaming**: Non-interactive commands stream output as it happens
+- **Dry Run Support**: Preview commands before execution
+- **Flexible Service Selection**: Choose which Docker service to use
+- **Custom Docker Compose Files**: Specify different compose files
+- **Keyboard Interrupt Handling**: Graceful handling of Ctrl+C
 
 **Examples**:
 ```bash
@@ -308,8 +317,11 @@ uv run python manage.py dockerexec migrate
 # Make migrations for specific app
 uv run python manage.py dockerexec makemigrations accounts
 
-# Create a superuser
+# Create a superuser (automatically interactive)
 uv run python manage.py dockerexec createsuperuser
+
+# Run Django shell (automatically interactive)
+uv run python manage.py dockerexec shell
 
 # Run tests
 uv run python manage.py dockerexec test
@@ -319,9 +331,47 @@ uv run python manage.py dockerexec migrate --dry-run
 
 # Use different Docker service
 uv run python manage.py dockerexec migrate --service=web-dev
+
+# Force interactive mode for any command
+uv run python manage.py dockerexec collectstatic --interactive
+
+# Force non-interactive mode
+uv run python manage.py dockerexec createsuperuser --no-interactive
+
+# Use different Docker compose file
+uv run python manage.py dockerexec migrate --compose-file=docker-compose.prod.yml
+
+# Run shell with specific settings
+uv run python manage.py dockerexec shell --settings=config.django.test
 ```
 
-**Configuration**: Customize the list of recommended Docker commands by defining `DOCKEREXEC_COMMANDS` in your Django settings.
+**Interactive Commands** (automatically get TTY allocation):
+- `createsuperuser` - User creation prompts
+- `shell` - Interactive Python shell
+- `dbshell` - Database shell access
+- `runserver` - Development server
+
+**Non-Interactive Commands** (stream output):
+- `migrate`, `makemigrations` - Database operations
+- `test` - Test execution
+- `collectstatic` - Static file collection
+- `check` - Django system checks
+
+**Configuration**: Customize behavior by defining these settings in your Django settings:
+```python
+# Commands that should use Docker
+DOCKEREXEC_COMMANDS = [
+    'migrate', 'makemigrations', 'createsuperuser', 'shell',
+    'dbshell', 'collectstatic', 'runserver', 'test', 'flush',
+    'loaddata', 'dumpdata', 'showmigrations', 'sqlmigrate',
+    'check', 'compilemessages', 'makemessages'
+]
+
+# Commands that always need interactive mode
+DOCKEREXEC_INTERACTIVE_COMMANDS = [
+    'createsuperuser', 'shell', 'dbshell', 'runserver'
+]
+```
 
 ---
 
