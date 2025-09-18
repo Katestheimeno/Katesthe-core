@@ -167,6 +167,199 @@ docker compose --profile profiling exec web_profiling uv run python manage.py ch
 docker compose --profile profiling exec web_profiling uv run python manage.py shell
 ```
 
+### Advanced Profiling with the `profile` Management Command
+
+The project includes a comprehensive profiling management command (`profile`) that provides automated endpoint testing, profile generation, analysis, and a modern web dashboard for performance insights.
+
+#### Features
+
+- **Automated Profile Generation** - Test multiple endpoints concurrently and generate PyInstrument profiles
+- **Interactive Dashboard** - Modern, responsive web interface for analyzing performance data
+- **Profile Analysis** - Detailed statistics and insights about application performance
+- **Endpoint Configuration** - Flexible JSON-based configuration for testing different API endpoints
+- **Browsable Profiles** - In-page profile viewing with navigation and breadcrumbs
+- **Filtering & Sorting** - Advanced filtering by app, method, duration, and search capabilities
+- **Docker Integration** - Seamless integration with Docker containers for profile syncing
+
+#### Configuration
+
+Create a `profiling_config.json` file in your project root to define endpoints and authentication:
+
+```json
+{
+  "auth": {
+    "login_endpoint": "/api/v1/auth/jwt/create/",
+    "email_field": "email",
+    "password_field": "password"
+  },
+  "endpoint_groups": {
+    "main_endpoints": [
+      {
+        "endpoint": "/api/v1/auth/jwt/create/",
+        "method": "POST",
+        "auth": false,
+        "enabled": true,
+        "title": "🔐 JWT Token Creation",
+        "description": "Authenticate user and generate JWT access/refresh tokens"
+      },
+      {
+        "endpoint": "/api/v1/auth/jwt/destroy/",
+        "method": "POST",
+        "auth": true,
+        "enabled": true,
+        "title": "🔐 JWT Token Logout",
+        "description": "Logout user and invalidate JWT tokens"
+      },
+      {
+        "endpoint": "/api/v1/auth/users/activation/dummy/uid/dummy/token/",
+        "method": "POST",
+        "auth": false,
+        "enabled": true,
+        "title": "✉️ User Account Activation",
+        "description": "Activate user account using UID and token"
+      }
+    ],
+    "api_docs": [
+      {
+        "endpoint": "/api/schema/docs/",
+        "method": "GET",
+        "auth": false,
+        "enabled": true,
+        "title": "📚 API Documentation",
+        "description": "Swagger UI for API documentation"
+      }
+    ]
+  }
+}
+```
+
+#### Usage
+
+**Generate Profiles:**
+```bash
+# Generate profiles for all enabled endpoints
+uv run manage.py profile generate --config profiling_config.json
+
+# Generate profiles for specific endpoint groups
+uv run manage.py profile generate --config profiling_config.json --endpoints "main_endpoints,api_docs"
+
+# Generate with custom settings
+uv run manage.py profile generate --config profiling_config.json --concurrent 5 --requests 3 --base-url http://localhost:8101
+```
+
+**Create Interactive Dashboard:**
+```bash
+# Generate and open dashboard
+uv run manage.py profile dashboard --config profiling_config.json
+
+# Auto-sync from Docker before generating dashboard
+uv run manage.py profile dashboard --config profiling_config.json --auto-sync
+
+# Specify custom output location
+uv run manage.py profile dashboard --config profiling_config.json --output custom_dashboard.html
+```
+
+**Analyze Existing Profiles:**
+```bash
+# Show analysis of all profiles
+uv run manage.py profile analyze --config profiling_config.json
+
+# Filter by specific app
+uv run manage.py profile analyze --config profiling_config.json --app auth --limit 10
+
+# Sort by duration
+uv run manage.py profile analyze --config profiling_config.json --sort duration
+```
+
+**Sync from Docker:**
+```bash
+# Sync profiles from Docker container
+uv run manage.py profile sync --container web_profiling
+```
+
+**Clean Old Profiles:**
+```bash
+# Clean profiles older than 7 days
+uv run manage.py profile clean --days 7
+
+# Preview what would be deleted
+uv run manage.py profile clean --days 7 --dry-run
+```
+
+**Serve Profiles via HTTP:**
+```bash
+# Start HTTP server for profiles
+uv run manage.py profile serve --port 8080
+
+# Auto-sync before serving
+uv run manage.py profile serve --port 8080 --auto-sync
+
+# Filter by app and limit results
+uv run manage.py profile serve --port 8080 --app auth --limit 20
+```
+
+#### Dashboard Features
+
+The generated dashboard provides:
+
+- **📊 Statistics Overview** - Total profiles, size, duration metrics
+- **🎯 App Filtering** - Filter profiles by application (auth, health_checks, etc.)
+- **🔍 Search Functionality** - Search profiles by endpoint, title, or description
+- **📈 Performance Charts** - Visual representation of profile distribution
+- **🎨 Modern UI** - Responsive design with dark/light theme support
+- **📱 Browsable Profiles** - Click profiles to view them in-page with navigation
+- **🔄 Sorting Options** - Sort by HTTP method or duration
+- **📂 Collapsible Sections** - Organize profiles by app and endpoint groups
+
+#### Docker Integration
+
+When using Docker, profiles are automatically generated in the container and can be synced to your local machine:
+
+```bash
+# Start profiling environment
+ENV_FILE=.env.prof docker compose --profile profiling up
+
+# Generate profiles in container
+docker compose --profile profiling exec web_profiling uv run python manage.py profile generate --config profiling_config.json
+
+# Sync profiles to local machine
+uv run manage.py profile sync --container web_profiling
+
+# Generate dashboard with synced profiles
+uv run manage.py profile dashboard --auto-sync
+```
+
+#### Environment Variables
+
+Configure the profiling system using these environment variables:
+
+```bash
+# Profiling configuration
+PROFILING_CONFIG_FILE=profiling_config.json
+PROFILING_BASE_URL=http://127.0.0.1:8101
+PROFILING_CONCURRENT_REQUESTS=3
+PROFILING_REQUESTS_PER_ENDPOINT=2
+PROFILING_SERVE_PORT=8080
+PROFILING_SERVE_LIMIT=20
+PROFILING_ANALYZE_LIMIT=20
+PROFILING_CLEAN_DAYS=7
+
+# Authentication
+PROFILING_AUTH_EMAIL=admin@example.com
+PROFILING_AUTH_PASSWORD=admin
+
+# Docker integration
+PROFILING_CONTAINER_NAME=web_profiling
+```
+
+#### Best Practices
+
+1. **Regular Profile Generation** - Set up automated profile generation in your CI/CD pipeline
+2. **Profile Cleanup** - Regularly clean old profiles to manage disk space
+3. **Endpoint Configuration** - Keep your `profiling_config.json` updated with new endpoints
+4. **Performance Monitoring** - Use the dashboard to track performance trends over time
+5. **Docker Workflow** - Use Docker for consistent profiling across different environments
+
 ### Configuration
 
 **Environment Variables:**
@@ -643,6 +836,71 @@ uv run python manage.py manageprojectapp blog --type project --dry-run
 - **Validation**: Checks if app directories exist (unless forced)
 - **Settings organization**: Maintains clean, organized settings files
 - **Safety**: Dry-run mode for previewing changes
+
+---
+
+### ⚡ `profile` - Comprehensive PyInstrument Profiling Management
+
+**Purpose**: Comprehensive profiling management tool that provides automated endpoint testing, profile generation, analysis, and a modern web dashboard for performance insights.
+
+**Use Cases**:
+- Automated performance testing of API endpoints
+- Generating PyInstrument profiles for analysis
+- Creating interactive dashboards for performance monitoring
+- Syncing profiles from Docker containers
+- Analyzing existing profile data with statistics
+- Cleaning up old profile files
+- Serving profiles via HTTP for team collaboration
+
+**Features**:
+- **Automated Profile Generation** - Test multiple endpoints concurrently
+- **Interactive Dashboard** - Modern, responsive web interface
+- **Profile Analysis** - Detailed statistics and insights
+- **Endpoint Configuration** - Flexible JSON-based configuration
+- **Browsable Profiles** - In-page profile viewing with navigation
+- **Filtering & Sorting** - Advanced filtering and sorting capabilities
+- **Docker Integration** - Seamless container integration
+
+**Examples**:
+```bash
+# Generate profiles for all enabled endpoints
+uv run manage.py profile generate --config profiling_config.json
+
+# Generate profiles for specific endpoint groups
+uv run manage.py profile generate --config profiling_config.json --endpoints "main_endpoints,api_docs"
+
+# Generate with custom settings
+uv run manage.py profile generate --config profiling_config.json --concurrent 5 --requests 3
+
+# Create and open interactive dashboard
+uv run manage.py profile dashboard --config profiling_config.json
+
+# Auto-sync from Docker before generating dashboard
+uv run manage.py profile dashboard --config profiling_config.json --auto-sync
+
+# Analyze existing profiles
+uv run manage.py profile analyze --config profiling_config.json
+
+# Filter by specific app
+uv run manage.py profile analyze --config profiling_config.json --app auth --limit 10
+
+# Sync profiles from Docker container
+uv run manage.py profile sync --container web_profiling
+
+# Clean profiles older than 7 days
+uv run manage.py profile clean --days 7
+
+# Preview what would be deleted
+uv run manage.py profile clean --days 7 --dry-run
+
+# Start HTTP server for profiles
+uv run manage.py profile serve --port 8080
+
+# Auto-sync before serving
+uv run manage.py profile serve --port 8080 --auto-sync
+```
+
+**Configuration**: Create a `profiling_config.json` file with endpoint definitions, authentication settings, and titles/descriptions for the dashboard.
 
 ---
 
