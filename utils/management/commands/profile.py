@@ -663,6 +663,33 @@ Configuration:
             display: flex;
             align-items: center;
             justify-content: space-between;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            user-select: none;
+        }}
+
+        .app-header:hover {{
+            background: linear-gradient(135deg, var(--secondary-color), var(--primary-color));
+            transform: translateY(-1px);
+        }}
+
+        .app-header.collapsed {{
+            background: linear-gradient(135deg, var(--text-light), var(--primary-color));
+        }}
+
+        .collapse-icon {{
+            font-size: 1.2rem;
+            transition: transform 0.3s ease;
+            margin-left: 8px;
+            opacity: 0.8;
+        }}
+
+        .collapse-icon.collapsed {{
+            transform: rotate(-90deg);
+        }}
+
+        .app-header:hover .collapse-icon {{
+            opacity: 1;
         }}
 
         .app-title {{
@@ -685,6 +712,11 @@ Configuration:
             grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
             gap: 1rem;
             padding: 1.5rem;
+            transition: all 0.3s ease;
+        }}
+
+        .profiles-grid.collapsed {{
+            display: none;
         }}
 
         .profile-card {{
@@ -816,6 +848,8 @@ Configuration:
             <div class="filter-tabs">
                 <button class="filter-tab active" data-app="all">All Apps</button>
                 {self._generate_app_tabs(app_groups)}
+                <button class="filter-tab" onclick="expandAllSections()">Expand All</button>
+                <button class="filter-tab" onclick="collapseAllSections()">Collapse All</button>
             </div>
         </div>
 
@@ -904,6 +938,47 @@ Configuration:
             }});
         }});
 
+        // Toggle section collapse/expand
+        function toggleSection(app) {{
+            const content = document.getElementById(`content-${{app}}`);
+            const icon = document.getElementById(`icon-${{app}}`);
+            const header = icon.parentElement.parentElement;
+            
+            if (content.classList.contains('collapsed')) {{
+                // Expand
+                content.classList.remove('collapsed');
+                icon.classList.remove('collapsed');
+                header.classList.remove('collapsed');
+            }} else {{
+                // Collapse
+                content.classList.add('collapsed');
+                icon.classList.add('collapsed');
+                header.classList.add('collapsed');
+            }}
+        }}
+
+        // Collapse all sections by default
+        function collapseAllSections() {{
+            const sections = document.querySelectorAll('.profiles-grid');
+            const icons = document.querySelectorAll('.collapse-icon');
+            const headers = document.querySelectorAll('.app-header');
+            
+            sections.forEach(section => section.classList.add('collapsed'));
+            icons.forEach(icon => icon.classList.add('collapsed'));
+            headers.forEach(header => header.classList.add('collapsed'));
+        }}
+
+        // Expand all sections
+        function expandAllSections() {{
+            const sections = document.querySelectorAll('.profiles-grid');
+            const icons = document.querySelectorAll('.collapse-icon');
+            const headers = document.querySelectorAll('.app-header');
+            
+            sections.forEach(section => section.classList.remove('collapsed'));
+            icons.forEach(icon => icon.classList.remove('collapsed'));
+            headers.forEach(header => header.classList.remove('collapsed'));
+        }}
+
         // Profile card clicks
         function openProfile(filename) {{
             // Since dashboard is in the same directory as profiles, use relative path
@@ -947,11 +1022,11 @@ Configuration:
                 
             sections.append(f'''
             <div class="app-section" data-app="{app}">
-                <div class="app-header">
+                <div class="app-header" onclick="toggleSection('{app}')">
                     <div class="app-title">📱 {app.replace('_', ' ').title()}</div>
-                    <div class="app-count">{len(profiles)} profiles</div>
+                    <div class="app-count">{len(profiles)} profiles <span class="collapse-icon" id="icon-{app}">▼</span></div>
                 </div>
-                <div class="profiles-grid">
+                <div class="profiles-grid" id="content-{app}">
                     {self._generate_profile_cards(profiles)}
                 </div>
             </div>''')
