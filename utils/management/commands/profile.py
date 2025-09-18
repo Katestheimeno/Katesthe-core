@@ -1208,8 +1208,6 @@ Configuration:
             <div class="filter-tabs">
                 <button class="filter-tab active" data-app="all">All Apps</button>
                 {self._generate_app_tabs(app_groups)}
-                <button class="filter-tab" onclick="expandAllSections()">Expand All</button>
-                <button class="filter-tab" onclick="collapseAllSections()">Collapse All</button>
             </div>
         </div>
 
@@ -1397,27 +1395,6 @@ Configuration:
             }}
         }}
 
-        // Collapse all sections by default
-        function collapseAllSections() {{
-            const sections = document.querySelectorAll('.profiles-grid');
-            const icons = document.querySelectorAll('.collapse-icon');
-            const headers = document.querySelectorAll('.app-header');
-            
-            sections.forEach(section => section.classList.add('collapsed'));
-            icons.forEach(icon => icon.classList.add('collapsed'));
-            headers.forEach(header => header.classList.add('collapsed'));
-        }}
-
-        // Expand all sections
-        function expandAllSections() {{
-            const sections = document.querySelectorAll('.profiles-grid');
-            const icons = document.querySelectorAll('.collapse-icon');
-            const headers = document.querySelectorAll('.app-header');
-            
-            sections.forEach(section => section.classList.remove('collapsed'));
-            icons.forEach(icon => icon.classList.remove('collapsed'));
-            headers.forEach(header => header.classList.remove('collapsed'));
-        }}
 
         // Profile card clicks
         function showProfile(filename) {{
@@ -1655,7 +1632,7 @@ Configuration:
                 </div>''')
             
             sections.append(f'''
-            <div class="app-section">
+            <div class="app-section" data-app="{app}">
                 <div class="app-header" onclick="toggleSection('{app}')">
                     <div class="app-title">📱 {app.replace('_', ' ').title()}</div>
                     <div class="app-count">{len(profiles)} profiles <span class="collapse-icon" id="icon-{app}">▼</span></div>
