@@ -49,6 +49,7 @@ class Command(BaseCommand):
 
         # Serve profiles command
         serve_parser = subparsers.add_parser('serve', help='Serve profiles via HTTP server')
+        serve_parser.add_argument('--config', default=os.getenv('PROFILING_CONFIG_FILE', 'profiling_config.json'), help='Configuration file path')
         serve_parser.add_argument('--port', type=int, default=int(os.getenv('PROFILING_SERVE_PORT', '8080')), help='Port to serve on')
         serve_parser.add_argument('--app', help='Filter by app')
         serve_parser.add_argument('--limit', type=str, default=os.getenv('PROFILING_SERVE_LIMIT', '20'), help='Limit profiles shown')
@@ -58,11 +59,13 @@ class Command(BaseCommand):
 
         # HTML dashboard command
         html_parser = subparsers.add_parser('dashboard', help='Generate HTML dashboard')
+        html_parser.add_argument('--config', default=os.getenv('PROFILING_CONFIG_FILE', 'profiling_config.json'), help='Configuration file path')
         html_parser.add_argument('--output', help='Output HTML file path')
         html_parser.add_argument('--auto-sync', action='store_true', help='Auto-sync before generating')
 
         # Analysis command
         analyze_parser = subparsers.add_parser('analyze', help='Analyze existing profiles')
+        analyze_parser.add_argument('--config', default=os.getenv('PROFILING_CONFIG_FILE', 'profiling_config.json'), help='Configuration file path')
         analyze_parser.add_argument('--app', help='Filter by app')
         analyze_parser.add_argument('--limit', type=str, default=os.getenv('PROFILING_ANALYZE_LIMIT', '20'), help='Limit profiles shown')
         analyze_parser.add_argument('--sort', choices=['time', 'duration', 'size'], default=os.getenv('PROFILING_ANALYZE_SORT', 'time'))
@@ -262,7 +265,14 @@ Configuration:
         if not profiles_dir.exists() or not list(profiles_dir.glob('*.html')):
             raise CommandError('No profile files found. Run "generate" first.')
 
-        analyzer = ProfileAnalyzer(profiles_dir)
+        # Load config for titles and descriptions
+        config_path = Path(options.get('config', os.getenv('PROFILING_CONFIG_FILE', 'profiling_config.json')))
+        config = {}
+        if config_path.exists():
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+
+        analyzer = ProfileAnalyzer(profiles_dir, config)
         
         # Parse limit
         limit = None if options['limit'].lower() in ['none', '0'] else int(options['limit'])
@@ -290,6 +300,13 @@ Configuration:
         if not profiles_dir.exists():
             raise CommandError('No profiles directory found')
 
+        # Load config for titles and descriptions
+        config_path = Path(options.get('config', os.getenv('PROFILING_CONFIG_FILE', 'profiling_config.json')))
+        config = {}
+        if config_path.exists():
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+
         # Debug: Show what files are found
         profile_files = list(profiles_dir.glob('*.html'))
         self.stdout.write(f'📁 Profiles directory: {profiles_dir}')
@@ -307,7 +324,7 @@ Configuration:
             self.stdout.write('   Or sync from Docker: uv run manage.py profile sync')
             return
 
-        analyzer = ProfileAnalyzer(profiles_dir)
+        analyzer = ProfileAnalyzer(profiles_dir, config)
         
         # Debug: Show analysis results
         self.stdout.write(f'📊 Analyzed {len(analyzer.analyzed_profiles)} profiles')
@@ -344,7 +361,14 @@ Configuration:
         if not profiles_dir.exists():
             raise CommandError('No profiles directory found')
 
-        analyzer = ProfileAnalyzer(profiles_dir)
+        # Load config for titles and descriptions
+        config_path = Path(options.get('config', os.getenv('PROFILING_CONFIG_FILE', 'profiling_config.json')))
+        config = {}
+        if config_path.exists():
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+
+        analyzer = ProfileAnalyzer(profiles_dir, config)
         limit = None if options['limit'].lower() in ['none', '0'] else int(options['limit'])
         analyzer.print_summary(options['app'], limit)
 
@@ -767,6 +791,61 @@ Configuration:
             font-weight: 600;
         }}
 
+        .profile-method {{
+            color: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            margin-left: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }}
+        
+        .profile-method-get {{
+            background: linear-gradient(135deg, #10b981, #059669);
+        }}
+        
+        .profile-method-post {{
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+        }}
+        
+        .profile-method-put {{
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }}
+        
+        .profile-method-patch {{
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+        }}
+        
+        .profile-method-delete {{
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+        }}
+        
+        .profile-method-options {{
+            background: linear-gradient(135deg, #6b7280, #4b5563);
+        }}
+        
+        .profile-method-head {{
+            background: linear-gradient(135deg, #14b8a6, #0d9488);
+        }}
+
+        .profile-title {{
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+            line-height: 1.3;
+        }}
+
+        .profile-description {{
+            font-size: 0.85rem;
+            color: var(--text-light);
+            margin-bottom: 0.75rem;
+            line-height: 1.4;
+            font-style: italic;
+        }}
+
         .profile-endpoint {{
             font-weight: 600;
             color: var(--text-color);
@@ -854,7 +933,7 @@ Configuration:
         </div>
 
         <div class="content" id="content">
-            {self._generate_app_sections(app_groups)}
+            {self._generate_app_sections(app_groups, analyzer)}
         </div>
     </div>
 
@@ -914,7 +993,9 @@ Configuration:
                 
                 cards.forEach(card => {{
                     const endpoint = card.querySelector('.profile-endpoint').textContent.toLowerCase();
-                    const visible = endpoint.includes(searchTerm);
+                    const title = card.querySelector('.profile-title')?.textContent.toLowerCase() || '';
+                    const description = card.querySelector('.profile-description')?.textContent.toLowerCase() || '';
+                    const visible = endpoint.includes(searchTerm) || title.includes(searchTerm) || description.includes(searchTerm);
                     card.style.display = visible ? 'block' : 'none';
                     if (visible) visibleCount++;
                 }});
@@ -1013,13 +1094,14 @@ Configuration:
                 tabs.append(f'<button class="filter-tab" data-app="{app}">{app.title()} ({len(profiles)})</button>')
         return ''.join(tabs)
 
-    def _generate_app_sections(self, app_groups):
+    def _generate_app_sections(self, app_groups, analyzer):
         """Generate app sections for the dashboard."""
         sections = []
         for app, profiles in app_groups.items():
             if not profiles:
                 continue
                 
+            profile_cards = analyzer._generate_profile_cards(profiles)
             sections.append(f'''
             <div class="app-section" data-app="{app}">
                 <div class="app-header" onclick="toggleSection('{app}')">
@@ -1027,34 +1109,10 @@ Configuration:
                     <div class="app-count">{len(profiles)} profiles <span class="collapse-icon" id="icon-{app}">▼</span></div>
                 </div>
                 <div class="profiles-grid" id="content-{app}">
-                    {self._generate_profile_cards(profiles)}
+                    {profile_cards}
                 </div>
             </div>''')
         return ''.join(sections)
-
-    def _generate_profile_cards(self, profiles):
-        """Generate profile cards for a section."""
-        cards = []
-        for profile in profiles:
-            duration_str = f"{profile['duration']:.3f}s" if profile['duration'] else "N/A"
-            size_mb = profile['size'] / (1024 * 1024)
-            endpoint_display = profile['endpoint'].replace('_', '/')
-            
-            # Escape the filename for JavaScript
-            escaped_filename = profile['filename'].replace("'", "\\'").replace('"', '\\"')
-            
-            cards.append(f'''
-                <div class="profile-card" onclick="openProfile('{escaped_filename}')">
-                    <div class="profile-header">
-                        <span class="profile-duration">{duration_str}</span>
-                    </div>
-                    <div class="profile-endpoint">{endpoint_display}</div>
-                    <div class="profile-meta">
-                        <span>📅 {profile['formatted_time']}</span>
-                        <span>💾 {size_mb:.2f} MB</span>
-                    </div>
-                </div>''')
-        return ''.join(cards)
 
 
 class ProfileRunner:
@@ -1271,9 +1329,10 @@ class ProfileRunner:
 class ProfileAnalyzer:
     """Analyzes PyInstrument profile files."""
     
-    def __init__(self, profiles_dir: Path):
+    def __init__(self, profiles_dir: Path, config: Dict = None):
         self.profiles_dir = profiles_dir
         self.profile_files = list(profiles_dir.glob('*.html'))
+        self.config = config or {}
         self.analyzed_profiles = []
         self.app_groups = defaultdict(list)
         self.stats = {
@@ -1479,3 +1538,121 @@ class ProfileAnalyzer:
             print(f"  • {app}: {count} profiles")
         
         print("=" * 80)
+
+    def _generate_profile_cards(self, profiles):
+        """Generate profile cards for a section."""
+        cards = []
+        for profile in profiles:
+            duration_str = f"{profile['duration']:.3f}s" if profile['duration'] else "N/A"
+            size_mb = profile['size'] / (1024 * 1024)
+            endpoint_display = profile['endpoint'].replace('_', '/')
+            
+            # Create a better title with method and description
+            method = self._extract_method_from_filename(profile['filename'])
+            title = self._get_profile_title(endpoint_display, method)
+            description = self._get_profile_description(endpoint_display, method)
+            
+            # Escape the filename for JavaScript
+            escaped_filename = profile['filename'].replace("'", "\\'").replace('"', '\\"')
+            
+            # Get method-specific CSS class
+            method_class = method.lower()
+            
+            cards.append(f'''
+                <div class="profile-card" onclick="openProfile('{escaped_filename}')" title="Click to open PyInstrument profile">
+                    <div class="profile-header">
+                        <span class="profile-duration">{duration_str}</span>
+                        <span class="profile-method profile-method-{method_class}">{method}</span>
+                    </div>
+                    <div class="profile-title">{title}</div>
+                    <div class="profile-endpoint">{endpoint_display}</div>
+                    <div class="profile-description">{description}</div>
+                    <div class="profile-meta">
+                        <span>📅 {profile['formatted_time']}</span>
+                        <span>💾 {size_mb:.2f} MB</span>
+                    </div>
+                </div>''')
+        return ''.join(cards)
+
+    def _extract_method_from_filename(self, filename):
+        """Extract HTTP method from filename."""
+        if 'jwt/create' in filename:
+            return 'POST'
+        elif 'jwt/destroy' in filename:
+            return 'POST'
+        elif 'activation' in filename:
+            return 'POST'
+        elif 'schema' in filename:
+            return 'GET'
+        elif 'silk' in filename:
+            return 'GET'
+        elif 'rosetta' in filename:
+            return 'GET'
+        else:
+            return 'GET'
+
+    def _get_profile_title(self, endpoint, method):
+        """Get title from config or fallback to generated."""
+        endpoint_config = self._find_endpoint_config(endpoint, method)
+        if endpoint_config and 'title' in endpoint_config:
+            return endpoint_config['title']
+        else:
+            # Fallback to simple format
+            return f'{method} {endpoint}'
+
+    def _get_profile_description(self, endpoint, method):
+        """Get description from config or fallback to generated."""
+        endpoint_config = self._find_endpoint_config(endpoint, method)
+        if endpoint_config and 'description' in endpoint_config:
+            return endpoint_config['description']
+        else:
+            # Fallback to simple format
+            return f'Endpoint: {endpoint}'
+
+    def _find_endpoint_config(self, endpoint, method):
+        """Find endpoint configuration in the config file."""
+        if not self.config or 'endpoint_groups' not in self.config:
+            return None
+        
+        # Clean the endpoint for matching
+        clean_endpoint = endpoint.split('?')[0]  # Remove query parameters
+        if not clean_endpoint.startswith('/'):
+            clean_endpoint = '/' + clean_endpoint  # Add leading slash
+        
+        # Convert underscores to slashes for matching
+        clean_endpoint = '/' + '/'.join(clean_endpoint.lstrip('/').split('_'))
+        
+        # Try exact match first (endpoint + method)
+        for group_name, endpoints in self.config['endpoint_groups'].items():
+            for ep in endpoints:
+                config_endpoint = ep.get('endpoint')
+                config_method = ep.get('method')
+                if config_endpoint == clean_endpoint and config_method == method:
+                    return ep
+        
+        # Try endpoint match regardless of method (for cases where profiling uses different method than config)
+        for group_name, endpoints in self.config['endpoint_groups'].items():
+            for ep in endpoints:
+                config_endpoint = ep.get('endpoint')
+                if config_endpoint == clean_endpoint:
+                    return ep
+        
+        # Try with trailing slash variations (exact method match)
+        clean_endpoint_with_slash = clean_endpoint + '/' if not clean_endpoint.endswith('/') else clean_endpoint
+        clean_endpoint_without_slash = clean_endpoint.rstrip('/')
+        
+        for group_name, endpoints in self.config['endpoint_groups'].items():
+            for ep in endpoints:
+                config_endpoint = ep.get('endpoint')
+                config_method = ep.get('method')
+                if (config_endpoint == clean_endpoint_with_slash or config_endpoint == clean_endpoint_without_slash) and config_method == method:
+                    return ep
+        
+        # Try with trailing slash variations (endpoint match regardless of method)
+        for group_name, endpoints in self.config['endpoint_groups'].items():
+            for ep in endpoints:
+                config_endpoint = ep.get('endpoint')
+                if config_endpoint == clean_endpoint_with_slash or config_endpoint == clean_endpoint_without_slash:
+                    return ep
+        
+        return None

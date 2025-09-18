@@ -10,23 +10,26 @@
         "endpoint": "/api/v1/auth/jwt/create/",
         "method": "POST",
         "auth": false,
+        "title": "🔐 JWT Token Creation",
         "data": {
           "email": "admin@katesthe-core.com",
           "password": "admin"
         },
-        "description": "Custom JWT token creation"
+        "description": "Authenticate user and generate JWT access/refresh tokens"
       },
       {
         "endpoint": "/api/v1/auth/jwt/destroy/",
         "method": "POST",
         "auth": true,
-        "description": "Custom JWT token logout/destroy"
+        "title": "🔐 JWT Token Logout",
+        "description": "Logout user and invalidate JWT tokens"
       },
       {
-        "endpoint": "/api/v1/auth/users/activation/dummy_uid/dummy_token/",
+        "endpoint": "/api/v1/auth/users/activation/dummy/uid/dummy/token/",
         "method": "POST",
         "auth": false,
-        "description": "Custom activation endpoint with URL parameters"
+        "title": "✉️ User Account Activation",
+        "description": "Activate user account using UID and token"
       }
     ],
     "api_root": [
@@ -34,14 +37,16 @@
         "endpoint": "/",
         "method": "GET",
         "auth": false,
-        "description": "Root redirect to admin (custom)",
+        "title": "🏠 Root Redirect",
+        "description": "Application root - redirects to Django admin",
         "enabled": false
       },
       {
         "endpoint": "/api/v1/",
         "method": "GET",
         "auth": false,
-        "description": "API v1 root endpoint (custom)",
+        "title": "🚀 API v1 Root",
+        "description": "API version 1 root endpoint",
         "enabled": false
       }
     ],
@@ -50,19 +55,22 @@
         "endpoint": "/api/schema/",
         "method": "GET",
         "auth": false,
-        "description": "API schema endpoint (OpenAPI 3.0)"
+        "title": "📋 API Schema (OpenAPI)",
+        "description": "Machine-readable API specification in OpenAPI 3.0 format"
       },
       {
         "endpoint": "/api/schema/docs/",
         "method": "GET",
         "auth": false,
-        "description": "Swagger UI API documentation"
+        "title": "📖 Swagger UI Documentation",
+        "description": "Interactive API documentation with Swagger UI"
       },
       {
         "endpoint": "/api/schema/redoc/",
         "method": "GET",
         "auth": false,
-        "description": "ReDoc API documentation"
+        "title": "📚 ReDoc Documentation",
+        "description": "Clean, responsive API documentation interface"
       }
     ],
     "profiling_tools": [
@@ -70,13 +78,15 @@
         "endpoint": "/silk/",
         "method": "GET",
         "auth": false,
-        "description": "Silk profiling dashboard"
+        "title": "🕵️ Silk Profiling Dashboard",
+        "description": "Django application profiling and performance monitoring"
       },
       {
         "endpoint": "/rosetta/",
         "method": "GET",
         "auth": false,
-        "description": "Rosetta translation interface"
+        "title": "🌐 Rosetta Translation Interface",
+        "description": "Web-based interface for translating Django applications"
       }
     ]
   },
