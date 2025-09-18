@@ -142,7 +142,7 @@ services:
       - .:/app
       - ./profiles:/app/profiles  # Mount profiles directory
     ports:
-      - "8101:8000"
+      - "${PROFILING_PORT:-8101}:8000"
     env_file:
       - ${ENV_FILE:-.env.prof}
     environment:
@@ -153,6 +153,11 @@ services:
       REDIS_URL: ${REDIS_URL}
       PROFILING_ENABLED: ${PROFILING_ENABLED:-True}
       PYINSTRUMENT_ENABLED: ${PYINSTRUMENT_ENABLED:-True}
+      PYINSTRUMENT_PROFILE_DIR: ${PYINSTRUMENT_PROFILE_DIR:-profiles}
+      PYINSTRUMENT_ALWAYS_PROFILE: ${PYINSTRUMENT_ALWAYS_PROFILE:-True}
+      PYINSTRUMENT_SHOW_TOOLBAR: ${PYINSTRUMENT_SHOW_TOOLBAR:-True}
+      PYINSTRUMENT_USE_SIGNAL: ${PYINSTRUMENT_USE_SIGNAL:-False}
+      PROFILING_CONTAINER_NAME: ${PROFILING_CONTAINER_NAME:-web_profiling}
       CELERY_BROKER_URL: ${REDIS_URL}
     depends_on:
       db:

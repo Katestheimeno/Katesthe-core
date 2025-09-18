@@ -34,24 +34,24 @@ class Command(BaseCommand):
 
         # Profile generation command
         generate_parser = subparsers.add_parser('generate', help='Generate profiles by hitting endpoints')
-        generate_parser.add_argument('--config', default='profiling_config.json', help='Configuration file path')
-        generate_parser.add_argument('--base-url', default='http://127.0.0.1:8000', help='Base URL to test')
-        generate_parser.add_argument('--concurrent', type=int, default=3, help='Concurrent requests')
-        generate_parser.add_argument('--requests', type=int, default=2, help='Requests per endpoint')
+        generate_parser.add_argument('--config', default=os.getenv('PROFILING_CONFIG_FILE', 'profiling_config.json'), help='Configuration file path')
+        generate_parser.add_argument('--base-url', default=os.getenv('PROFILING_BASE_URL', 'http://127.0.0.1:8000'), help='Base URL to test')
+        generate_parser.add_argument('--concurrent', type=int, default=int(os.getenv('PROFILING_CONCURRENT_REQUESTS', '3')), help='Concurrent requests')
+        generate_parser.add_argument('--requests', type=int, default=int(os.getenv('PROFILING_REQUESTS_PER_ENDPOINT', '2')), help='Requests per endpoint')
         generate_parser.add_argument('--endpoints', help='Comma-separated endpoint groups to test')
-        generate_parser.add_argument('--email', default='admin@example.com', help='Auth email')
-        generate_parser.add_argument('--password', default='admin', help='Auth password')
+        generate_parser.add_argument('--email', default=os.getenv('PROFILING_AUTH_EMAIL', 'admin@example.com'), help='Auth email')
+        generate_parser.add_argument('--password', default=os.getenv('PROFILING_AUTH_PASSWORD', 'admin'), help='Auth password')
 
         # Sync profiles command
         sync_parser = subparsers.add_parser('sync', help='Sync profiles from Docker container')
-        sync_parser.add_argument('--container', default='web_profiling', help='Container name')
+        sync_parser.add_argument('--container', default=os.getenv('PROFILING_CONTAINER_NAME', 'web_profiling'), help='Container name')
 
         # Serve profiles command
         serve_parser = subparsers.add_parser('serve', help='Serve profiles via HTTP server')
-        serve_parser.add_argument('--port', type=int, default=8080, help='Port to serve on')
+        serve_parser.add_argument('--port', type=int, default=int(os.getenv('PROFILING_SERVE_PORT', '8080')), help='Port to serve on')
         serve_parser.add_argument('--app', help='Filter by app')
-        serve_parser.add_argument('--limit', type=str, default='20', help='Limit profiles shown')
-        serve_parser.add_argument('--sort', choices=['time', 'duration', 'size'], default='time')
+        serve_parser.add_argument('--limit', type=str, default=os.getenv('PROFILING_SERVE_LIMIT', '20'), help='Limit profiles shown')
+        serve_parser.add_argument('--sort', choices=['time', 'duration', 'size'], default=os.getenv('PROFILING_SERVE_SORT', 'time'))
         serve_parser.add_argument('--no-browser', action='store_true', help='Don\'t open browser')
         serve_parser.add_argument('--auto-sync', action='store_true', help='Auto-sync before serving')
 
@@ -63,12 +63,12 @@ class Command(BaseCommand):
         # Analysis command
         analyze_parser = subparsers.add_parser('analyze', help='Analyze existing profiles')
         analyze_parser.add_argument('--app', help='Filter by app')
-        analyze_parser.add_argument('--limit', type=str, default='20', help='Limit profiles shown')
-        analyze_parser.add_argument('--sort', choices=['time', 'duration', 'size'], default='time')
+        analyze_parser.add_argument('--limit', type=str, default=os.getenv('PROFILING_ANALYZE_LIMIT', '20'), help='Limit profiles shown')
+        analyze_parser.add_argument('--sort', choices=['time', 'duration', 'size'], default=os.getenv('PROFILING_ANALYZE_SORT', 'time'))
 
         # Clean command
         clean_parser = subparsers.add_parser('clean', help='Clean old profiles')
-        clean_parser.add_argument('--days', type=int, default=7, help='Keep profiles newer than N days')
+        clean_parser.add_argument('--days', type=int, default=int(os.getenv('PROFILING_CLEAN_DAYS', '7')), help='Keep profiles newer than N days')
         clean_parser.add_argument('--dry-run', action='store_true', help='Show what would be deleted')
 
     def handle(self, *args, **options):
