@@ -198,6 +198,10 @@ Configuration:
             )
 
         runner.print_summary()
+        
+        # Save response data for dashboard display
+        self.save_response_data(runner.results)
+        
         self.stdout.write(self.style.SUCCESS('Profile generation completed!'))
 
     def handle_sync(self, options):
@@ -417,6 +421,41 @@ Configuration:
         profiles_dir = Path(settings.BASE_DIR) / 'profiles'
         profiles_dir.mkdir(exist_ok=True)
         return profiles_dir
+
+    def save_response_data(self, results):
+        """Save response data to JSON file for dashboard display."""
+        profiles_dir = self.get_profiles_dir()
+        response_data_file = profiles_dir / 'response_data.json'
+        
+        # Process results to create response data
+        response_data = {}
+        for result in results:
+            # Create a key based on endpoint, method, and timestamp
+            endpoint_key = f"{result['endpoint']}_{result['method']}"
+            
+            # Try to parse JSON response for better display
+            response_content = result.get('response_content', '')
+            parsed_response = None
+            try:
+                if response_content:
+                    parsed_response = json.loads(response_content)
+            except:
+                parsed_response = response_content[:500] if len(response_content) > 500 else response_content
+            
+            response_data[endpoint_key] = {
+                'status': result['status'],
+                'success': result['success'],
+                'duration': result['duration'],
+                'content_length': result['content_length'],
+                'response': parsed_response,
+                'timestamp': int(time.time())
+            }
+        
+        # Save to JSON file
+        with open(response_data_file, 'w') as f:
+            json.dump(response_data, f, indent=2, default=str)
+        
+        self.stdout.write(f'💾 Response data saved to {response_data_file}')
 
     def create_default_config(self, config_path: Path):
         """Create a default configuration file."""
@@ -960,6 +999,15 @@ Configuration:
             color: var(--primary-color);
             margin-bottom: 0.5rem;
             line-height: 1.3;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            padding: 0.25rem;
+            border-radius: 4px;
+        }}
+
+        .profile-title:hover {{
+            background: rgba(102, 126, 234, 0.1);
+            transform: translateY(-1px);
         }}
 
         .profile-description {{
@@ -983,6 +1031,143 @@ Configuration:
             align-items: center;
             font-size: 0.85rem;
             color: var(--text-light);
+        }}
+
+        /* Response data styles */
+        .response-section {{
+            margin: 0.75rem 0;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.5);
+            position: relative;
+        }}
+
+        .response-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+            border-bottom: 1px solid var(--border-color);
+        }}
+
+        .response-status {{
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }}
+
+        .response-status-success {{
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }}
+
+        .response-status-error {{
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+        }}
+
+        .response-status-info {{
+            background: linear-gradient(135deg, #6b7280, #4b5563);
+            color: white;
+        }}
+
+        .response-placeholder {{
+            font-size: 0.7rem;
+            color: var(--text-light);
+            font-style: italic;
+        }}
+
+        .toggle-response-btn {{
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }}
+
+        .toggle-response-btn:hover {{
+            background: rgba(102, 126, 234, 0.1);
+            transform: scale(1.1);
+        }}
+
+        .response-content {{
+            padding: 0.75rem;
+            background: white;
+            max-height: 400px;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }}
+
+        .response-data {{
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.75rem;
+            line-height: 1.4;
+            color: var(--text-color);
+            background: #f8fafc;
+            padding: 1rem;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-x: auto;
+            overflow-y: visible;
+            position: relative;
+            width: 100%;
+            box-sizing: border-box;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+        }}
+
+        .response-data:hover {{
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.1);
+        }}
+
+        .response-data::-webkit-scrollbar {{
+            width: 8px;
+            height: 8px;
+        }}
+
+        .response-data::-webkit-scrollbar-track {{
+            background: #f1f5f9;
+            border-radius: 4px;
+        }}
+
+        .response-data::-webkit-scrollbar-thumb {{
+            background: #cbd5e1;
+            border-radius: 4px;
+            border: 1px solid #e2e8f0;
+        }}
+
+        .response-data::-webkit-scrollbar-thumb:hover {{
+            background: #94a3b8;
+        }}
+
+        .response-data::-webkit-scrollbar-corner {{
+            background: #f1f5f9;
+        }}
+
+        /* Also style the response-content scrollbar */
+        .response-content::-webkit-scrollbar {{
+            width: 8px;
+        }}
+
+        .response-content::-webkit-scrollbar-track {{
+            background: #f8fafc;
+            border-radius: 4px;
+        }}
+
+        .response-content::-webkit-scrollbar-thumb {{
+            background: #cbd5e1;
+            border-radius: 4px;
+        }}
+
+        .response-content::-webkit-scrollbar-thumb:hover {{
+            background: #94a3b8;
         }}
 
         .chart-container {{
@@ -1558,6 +1743,31 @@ Configuration:
             return 0;
         }}
 
+        // Toggle response data visibility
+        function toggleResponse(event) {{
+            event.stopPropagation(); // Prevent triggering profile view
+            const button = event.target;
+            const responseSection = button.closest('.response-section');
+            const responseContent = responseSection.querySelector('.response-content');
+            
+            if (responseContent && responseContent.style.display === 'none') {{
+                responseContent.style.display = 'block';
+                button.textContent = '📄';
+                button.title = 'Hide response details';
+            }} else if (responseContent) {{
+                responseContent.style.display = 'none';
+                button.textContent = '📄';
+                button.title = 'Show response details';
+            }}
+        }}
+
+        // Prevent response section from triggering profile view
+        document.addEventListener('click', function(event) {{
+            if (event.target.closest('.response-section')) {{
+                event.stopPropagation();
+            }}
+        }});
+
 
 
 
@@ -1707,57 +1917,60 @@ class ProfileRunner:
         needs_auth = endpoint_config.get("auth", False)
         data = endpoint_config.get("data", None)
         
-        # Add profiling parameter
-        if "?" in endpoint:
-            endpoint += "&profile=1"
-        else:
-            endpoint += "?profile=1"
-        
-        url = urljoin(self.base_url, endpoint)
-        start_time = time.time()
-        
+        # Prepare request kwargs
         request_kwargs = {}
         if needs_auth:
             request_kwargs["headers"] = self.get_auth_headers()
         if data and method in ["POST", "PUT", "PATCH"]:
             request_kwargs["json"] = data
 
+        # First request: Get actual API response (without profiling)
+        original_url = urljoin(self.base_url, endpoint)
+        start_time = time.time()
+        
         try:
-            async with self.session.request(method, url, **request_kwargs) as response:
-                content = await response.text()
-                duration = time.time() - start_time
-                
-                result = {
-                    'endpoint': endpoint,
-                    'method': method,
-                    'status': response.status,
-                    'duration': duration,
-                    'content_length': len(content),
-                    'success': 200 <= response.status < 400,
-                    'error': None,
-                    'auth_used': needs_auth
-                }
-                
-                auth_indicator = "🔐" if needs_auth else "🔓"
-                print(f"{auth_indicator} {method} {endpoint} -> {response.status} ({duration:.3f}s)")
-                return result
-                
+            async with self.session.request(method, original_url, **request_kwargs) as response:
+                api_content = await response.text()
+                api_duration = time.time() - start_time
+                api_status = response.status
         except Exception as e:
-            duration = time.time() - start_time
-            result = {
-                'endpoint': endpoint,
-                'method': method,
-                'status': 0,
-                'duration': duration,
-                'content_length': 0,
-                'success': False,
-                'error': str(e),
-                'auth_used': needs_auth
-            }
-            
-            auth_indicator = "🔐" if needs_auth else "🔓"
-            print(f"{auth_indicator} {method} {endpoint} -> ERROR: {e}")
-            return result
+            api_content = f"Error: {str(e)}"
+            api_duration = time.time() - start_time
+            api_status = 0
+
+        # Second request: Generate profile (with profiling parameter)
+        if "?" in endpoint:
+            profile_endpoint = endpoint + "&profile=1"
+        else:
+            profile_endpoint = endpoint + "?profile=1"
+        
+        profile_url = urljoin(self.base_url, profile_endpoint)
+        profile_start_time = time.time()
+        
+        try:
+            async with self.session.request(method, profile_url, **request_kwargs) as response:
+                profile_content = await response.text()
+                profile_duration = time.time() - profile_start_time
+        except Exception as e:
+            profile_content = ""
+            profile_duration = 0
+
+        result = {
+            'endpoint': endpoint,
+            'method': method,
+            'status': api_status,
+            'duration': api_duration,
+            'content_length': len(api_content),
+            'success': 200 <= api_status < 400,
+            'error': None,
+            'auth_used': needs_auth,
+            'response_content': api_content,
+            'profile_duration': profile_duration
+        }
+        
+        auth_indicator = "🔐" if needs_auth else "🔓"
+        print(f"{auth_indicator} {method} {endpoint} -> {api_status} ({api_duration:.3f}s)")
+        return result
 
     async def run_endpoint_tests(self, endpoints: List[Dict], concurrent: int = 3, requests_per_endpoint: int = 1):
         """Run tests against specified endpoints."""
@@ -1864,6 +2077,7 @@ class ProfileAnalyzer:
         self.config = config or {}
         self.analyzed_profiles = []
         self.app_groups = defaultdict(list)
+        self.response_data = self._load_response_data()
         self.stats = {
             'total_files': len(self.profile_files),
             'total_size': 0,
@@ -1873,6 +2087,17 @@ class ProfileAnalyzer:
             'apps': defaultdict(int)
         }
         self._analyze_profiles()
+
+    def _load_response_data(self):
+        """Load response data from JSON file."""
+        response_data_file = self.profiles_dir / 'response_data.json'
+        if response_data_file.exists():
+            try:
+                with open(response_data_file, 'r') as f:
+                    return json.load(f)
+            except:
+                return {}
+        return {}
 
     def _analyze_profiles(self):
         """Analyze all profile files."""
@@ -2089,16 +2314,21 @@ class ProfileAnalyzer:
             # Get method-specific CSS class
             method_class = method.lower()
             
+            # Get response data for this endpoint
+            response_info = self._get_response_info(endpoint_display, method)
+            response_section = self._generate_response_section(response_info)
+            
             cards.append(f'''
                 <div class="profile-card">
-                    <div class="profile-card-content" onclick="showProfile('{escaped_filename}')" title="Click to view PyInstrument profile">
+                    <div class="profile-card-content">
                         <div class="profile-header">
                             <span class="profile-duration">{duration_str}</span>
                             <span class="profile-method profile-method-{method_class}">{method}</span>
                         </div>
-                        <div class="profile-title">{title}</div>
+                        <div class="profile-title" onclick="showProfile('{escaped_filename}')" title="Click to view PyInstrument profile">{title}</div>
                         <div class="profile-endpoint">{endpoint_display}</div>
                         <div class="profile-description">{description}</div>
+                        {response_section}
                         <div class="profile-meta">
                             <span>📅 {profile['formatted_time']}</span>
                             <span>💾 {size_mb:.2f} MB</span>
@@ -2106,6 +2336,121 @@ class ProfileAnalyzer:
                     </div>
                 </div>''')
         return ''.join(cards)
+
+    def _get_response_info(self, endpoint, method):
+        """Get response information for an endpoint."""
+        # Try to find matching response data with more flexible matching
+        endpoint_clean = endpoint.replace('_', '/').replace('?profile=1', '')
+        
+        for key, data in self.response_data.items():
+            # Extract endpoint and method from the key
+            if '_' in key:
+                key_endpoint, key_method = key.rsplit('_', 1)
+                key_endpoint = key_endpoint.replace('_', '/')
+                
+                # Match endpoint (with or without leading slash) and method
+                if ((endpoint_clean == key_endpoint or 
+                     endpoint_clean.lstrip('/') == key_endpoint.lstrip('/') or
+                     endpoint_clean == key_endpoint.lstrip('/') or
+                     endpoint_clean.lstrip('/') == key_endpoint) and 
+                    method == key_method):
+                    return data
+        return None
+
+    def _generate_response_section(self, response_info):
+        """Generate HTML for response data section."""
+        if not response_info:
+            # Show a placeholder for endpoints without response data
+            return '''
+        <div class="response-section">
+            <div class="response-header">
+                <span class="response-status response-status-info">
+                    ℹ️ No Response Data
+                </span>
+                <span class="response-placeholder">Profile only</span>
+            </div>
+        </div>'''
+        
+        status = response_info.get('status', 'N/A')
+        success = response_info.get('success', False)
+        response = response_info.get('response', '')
+        content_length = response_info.get('content_length', 0)
+        
+        # Format response data with better handling
+        response_preview = self._format_response_preview(response)
+        
+        # Escape for HTML
+        response_preview_escaped = response_preview.replace('"', '&quot;').replace('<', '&lt;').replace('>', '&gt;')
+        
+        # Status color
+        status_class = 'success' if success else 'error'
+        status_emoji = '✅' if success else '❌'
+        
+        # Show content length if available
+        size_info = f" ({content_length} bytes)" if content_length > 0 else ""
+        
+        return f'''
+        <div class="response-section">
+            <div class="response-header">
+                <span class="response-status response-status-{status_class}">
+                    {status_emoji} {status}{size_info}
+                </span>
+                <button class="toggle-response-btn" onclick="toggleResponse(event)" title="Toggle response details">
+                    📄
+                </button>
+            </div>
+            <div class="response-content" style="display: none;">
+                <pre class="response-data">{response_preview_escaped}</pre>
+            </div>
+        </div>'''
+
+    def _format_response_preview(self, response, max_chars=500):
+        """Format response data for preview with better handling."""
+        if isinstance(response, dict):
+            # JSON response - format nicely
+            try:
+                formatted = json.dumps(response, indent=2)
+                if len(formatted) > max_chars:
+                    # Truncate at a reasonable point (end of a key-value pair)
+                    truncated = formatted[:max_chars]
+                    # Find the last complete line
+                    last_newline = truncated.rfind('\n')
+                    if last_newline > max_chars * 0.8:  # If we found a newline in the last 20%
+                        truncated = truncated[:last_newline]
+                    return truncated + "\n... (truncated)"
+                return formatted
+            except:
+                return str(response)[:max_chars] + ("..." if len(str(response)) > max_chars else "")
+        
+        elif isinstance(response, str):
+            # Text/HTML response
+            if len(response) > max_chars:
+                # For HTML, try to find a good breaking point
+                if response.strip().startswith('<!DOCTYPE') or response.strip().startswith('<html'):
+                    # It's HTML - truncate more aggressively but preserve structure
+                    truncated = response[:max_chars]
+                    # Try to find the last complete tag or line
+                    last_tag = truncated.rfind('>')
+                    last_newline = truncated.rfind('\n')
+                    last_break = max(last_tag, last_newline)
+                    
+                    if last_break > max_chars * 0.8:  # If we found a good break point
+                        truncated = truncated[:last_break + 1]
+                    
+                    return truncated + "\n\n... (HTML response truncated - scroll to see more)"
+                else:
+                    # Regular text - truncate at word boundary if possible
+                    truncated = response[:max_chars]
+                    last_space = truncated.rfind(' ')
+                    if last_space > max_chars * 0.9:  # If we found a space in the last 10%
+                        truncated = truncated[:last_space]
+                    return truncated + "\n\n... (response truncated - scroll to see more)"
+            return response
+        
+        else:
+            # Other types
+            str_response = str(response)
+            return str_response[:max_chars] + ("..." if len(str_response) > max_chars else "")
 
     def _extract_method_from_filename(self, filename):
         """Extract HTTP method from filename."""
