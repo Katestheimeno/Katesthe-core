@@ -35,10 +35,11 @@ class Command(BaseCommand):
         # Profile generation command
         generate_parser = subparsers.add_parser('generate', help='Generate profiles by hitting endpoints')
         generate_parser.add_argument('--config', default=os.getenv('PROFILING_CONFIG_FILE', 'profiling_config.json'), help='Configuration file path')
-        generate_parser.add_argument('--base-url', default=os.getenv('PROFILING_BASE_URL', 'http://127.0.0.1:8000'), help='Base URL to test')
+        generate_parser.add_argument('--base-url', default=os.getenv('PROFILING_BASE_URL', 'http://127.0.0.1:8101'), help='Base URL to test')
         generate_parser.add_argument('--concurrent', type=int, default=int(os.getenv('PROFILING_CONCURRENT_REQUESTS', '3')), help='Concurrent requests')
         generate_parser.add_argument('--requests', type=int, default=int(os.getenv('PROFILING_REQUESTS_PER_ENDPOINT', '2')), help='Requests per endpoint')
         generate_parser.add_argument('--endpoints', help='Comma-separated endpoint groups to test')
+        generate_parser.add_argument('--include-disabled', action='store_true', help='Include disabled endpoints')
         generate_parser.add_argument('--email', default=os.getenv('PROFILING_AUTH_EMAIL', 'admin@example.com'), help='Auth email')
         generate_parser.add_argument('--password', default=os.getenv('PROFILING_AUTH_PASSWORD', 'admin'), help='Auth password')
 
@@ -111,10 +112,12 @@ Available Commands:
 
 Examples:
   uv run manage.py profile generate --config profiling_config.json
+  uv run manage.py profile generate --endpoints "custom_auth,api_docs"
+  uv run manage.py profile generate --include-disabled  # Include health checks
   uv run manage.py profile sync --container web_profiling
-  uv run manage.py profile serve --port 8080 --app auth
+  uv run manage.py profile serve --port 8080 --app custom_auth
   uv run manage.py profile dashboard --auto-sync
-  uv run manage.py profile analyze --app auth --limit 10
+  uv run manage.py profile analyze --app custom_auth --limit 10
   uv run manage.py profile clean --days 7 --dry-run
 
 Configuration:
@@ -159,16 +162,27 @@ Configuration:
         )
 
         # Determine which endpoint groups to test
+        include_disabled = options.get('include_disabled', False)
+        
         if options['endpoints']:
             groups = options['endpoints'].split(',')
             endpoints = []
             for group in groups:
                 if group.strip() in config['endpoint_groups']:
-                    endpoints.extend(config['endpoint_groups'][group.strip()])
+                    group_endpoints = config['endpoint_groups'][group.strip()]
+                    if include_disabled:
+                        endpoints.extend(group_endpoints)
+                    else:
+                        # Filter out disabled endpoints unless explicitly requested
+                        endpoints.extend([ep for ep in group_endpoints if ep.get('enabled', True)])
         else:
             endpoints = []
             for group_endpoints in config['endpoint_groups'].values():
-                endpoints.extend(group_endpoints)
+                if include_disabled:
+                    endpoints.extend(group_endpoints)
+                else:
+                    # Filter out disabled endpoints by default
+                    endpoints.extend([ep for ep in group_endpoints if ep.get('enabled', True)])
 
         self.stdout.write(f'Starting profile generation with {len(endpoints)} endpoints')
 
@@ -893,8 +907,24 @@ Configuration:
         // Profile card clicks
         function openProfile(filename) {{
             // Since dashboard is in the same directory as profiles, use relative path
-            const url = `./${{filename}}`;
-            window.open(url, '_blank');
+            // Properly encode the filename for URLs
+            const encodedFilename = encodeURIComponent(filename);
+            const url = `./${{encodedFilename}}`;
+            
+            // Try to open the file
+            const newWindow = window.open(url, '_blank');
+            
+            // Fallback: if the window fails to load, try alternative approaches
+            if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {{
+                // Try with a different approach - create a temporary link
+                const link = document.createElement('a');
+                link.href = url;
+                link.target = '_blank';
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }}
         }}
     </script>
 </body>
@@ -935,8 +965,11 @@ Configuration:
             size_mb = profile['size'] / (1024 * 1024)
             endpoint_display = profile['endpoint'].replace('_', '/')
             
+            # Escape the filename for JavaScript
+            escaped_filename = profile['filename'].replace("'", "\\'").replace('"', '\\"')
+            
             cards.append(f'''
-                <div class="profile-card" onclick="openProfile('{profile['filename']}')">
+                <div class="profile-card" onclick="openProfile('{escaped_filename}')">
                     <div class="profile-header">
                         <span class="profile-duration">{duration_str}</span>
                     </div>
