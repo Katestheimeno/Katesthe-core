@@ -1,0 +1,3140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyInstrument Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #667eea;
+            --secondary-color: #764ba2;
+            --accent-color: #f093fb;
+            --text-color: #2d3748;
+            --text-light: #718096;
+            --bg-color: #f7fafc;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+            --success-color: #48bb78;
+            --warning-color: #ed8936;
+            --error-color: #f56565;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+            color: var(--text-color);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 2rem;
+            text-align: center;
+            margin-bottom: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .header h1 {
+            color: white;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 1.1rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: var(--text-light);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .controls {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            margin-bottom: 1rem;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .filter-tabs {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-tab {
+            padding: 8px 16px;
+            border: 2px solid var(--primary-color);
+            background: transparent;
+            color: var(--primary-color);
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .filter-tab:hover,
+        .filter-tab.active {
+            background: var(--primary-color);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .content {
+            display: grid;
+            gap: 2rem;
+        }
+
+        .app-section {
+            background: var(--card-bg);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        .app-header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .app-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .app-count {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.875rem;
+        }
+
+        .profiles-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1rem;
+            padding: 1.5rem;
+        }
+
+        .profile-card {
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.25rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .profile-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .profile-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+            border-color: var(--primary-color);
+        }
+
+        .profile-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .profile-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .profile-duration {
+            background: linear-gradient(135deg, var(--error-color), #ff6b6b);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .profile-endpoint {
+            font-weight: 600;
+            color: var(--text-color);
+            margin-bottom: 0.5rem;
+            word-break: break-word;
+        }
+
+        .profile-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            color: var(--text-light);
+        }
+
+        .chart-container {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .profiles-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚡ PyInstrument Dashboard</h1>
+            <p>Performance profiling insights for your Django application</p>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">268</div>
+                <div class="stat-label">Total Profiles</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">27.2 MB</div>
+                <div class="stat-label">Total Size</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">0.104s</div>
+                <div class="stat-label">Average Duration</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">0.012s</div>
+                <div class="stat-label">Fastest</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">1.404s</div>
+                <div class="stat-label">Slowest</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="performanceChart" width="400" height="200"></canvas>
+        </div>
+
+        <div class="controls">
+            <input type="text" class="search-input" id="searchInput" placeholder="🔍 Search profiles...">
+            <div class="filter-tabs">
+                <button class="filter-tab active" data-app="all">All Apps</button>
+                <button class="filter-tab" data-app="health_checks">Health_Checks (132)</button><button class="filter-tab" data-app="static_media">Static_Media (122)</button><button class="filter-tab" data-app="admin">Admin (9)</button><button class="filter-tab" data-app="other">Other (4)</button><button class="filter-tab" data-app="api_schema">Api_Schema (1)</button>
+            </div>
+        </div>
+
+        <div class="content" id="content">
+            
+            <div class="app-section" data-app="health_checks">
+                <div class="app-header">
+                    <div class="app-title">📱 Health Checks</div>
+                    <div class="app-count">132 profiles</div>
+                </div>
+                <div class="profiles-grid">
+                    
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758196131.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:48:51</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758193390.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:03:10</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758194322.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:18:42</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758196431.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:53:51</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758196281.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:51:21</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.017s _ 1758193961.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.017s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:12:41</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758195464.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:37:44</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758195134.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:32:14</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.220s _ 1758190453.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.220s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:14:13</span>
+                        <span>💾 0.26 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758194201.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:16:41</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758193059.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:57:39</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758194412.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:20:12</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758193630.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:07:10</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('1.213s _ 1758195678.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">1.213s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:41:18</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758194713.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:25:13</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758193660.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:07:40</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758195554.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:39:14</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.012s _ 1758196311.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.012s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:51:51</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758194532.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:22:12</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758195920.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:45:20</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758193299.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:01:39</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758196071.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:47:51</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758196251.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:50:51</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.012s _ 1758195494.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.012s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:38:14</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.071s _ 1758192969.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.071s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:56:09</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758194262.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:17:42</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758192878.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:54:38</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758193690.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:08:10</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758195164.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:32:44</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758194923.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:28:43</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758194652.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:24:12</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758194292.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:18:12</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.012s _ 1758195314.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.012s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:35:14</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758195284.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:34:44</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758194382.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:19:42</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.012s _ 1758193209.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.012s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:00:09</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.240s _ 1758190795.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.240s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:19:55</span>
+                        <span>💾 0.27 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758193089.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:58:09</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758195013.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:30:13</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.217s _ 1758190552.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.217s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:52</span>
+                        <span>💾 0.27 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758193841.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:10:41</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('1.404s _ 1758195740.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">1.404s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:42:20</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.280s _ 1758195585.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.280s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:39:45</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.028s _ 1758192909.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.028s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:55:09</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.012s _ 1758193269.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.012s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:01:09</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758195344.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:35:44</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758196040.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:47:20</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758193119.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:58:39</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758194472.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:21:12</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758193901.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:11:41</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758194502.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:21:42</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758196191.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:49:51</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.016s _ 1758193510.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.016s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:05:10</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.019s _ 1758194051.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.019s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:14:11</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758196010.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:46:50</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758194743.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:25:43</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.012s _ 1758196221.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.012s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:50:21</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758193239.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:00:39</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758193420.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:03:40</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758194953.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:29:13</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758196522.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:55:22</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758193570.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:06:10</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758195073.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:31:13</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758192999.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:56:39</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758194352.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:19:12</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758193149.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:59:09</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.039s _ 1758192848.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.039s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:54:08</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.018s _ 1758195980.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.018s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:46:20</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758196341.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:52:21</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758194111.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:15:11</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758195194.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:33:14</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758195524.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:38:44</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758194562.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:22:42</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.012s _ 1758190513.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.012s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:13</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758196401.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:53:21</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.016s _ 1758195374.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.016s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:36:14</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758196491.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:54:51</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.016s _ 1758193991.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.016s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:13:11</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758193029.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:57:09</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.016s _ 1758195224.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.016s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:33:44</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.017s _ 1758190582.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.017s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:22</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.017s _ 1758195800.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.017s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:43:20</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758195103.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:31:43</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758195860.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:44:20</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.016s _ 1758193871.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.016s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:11:11</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758195434.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:37:14</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758193600.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:06:40</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758193450.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:04:10</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.017s _ 1758190483.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.017s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:14:43</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.013s _ 1758196101.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.013s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:48:21</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.017s _ 1758196582.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.017s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:56:22</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.041s _ 1758192939.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.041s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:55:39</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.013s _ 1758195770.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.013s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:42:50</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758194983.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:29:43</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.046s _ 1758193781.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.046s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:09:41</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.016s _ 1758194021.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.016s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:13:41</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.016s _ 1758193931.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.016s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:12:11</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758195254.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:34:14</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758195890.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:44:50</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758194893.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:28:13</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758195830.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:43:50</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758193750.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:09:10</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758194141.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:15:41</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.023s _ 1758195615.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.023s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:40:15</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758193811.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:10:11</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758193179.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:59:39</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758196161.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:49:21</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758194622.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:23:42</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758193480.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:04:40</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758196552.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:55:52</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758196461.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:54:21</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758194592.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:23:12</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.711s _ 1758195708.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.711s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:41:48</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.016s _ 1758190508.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.016s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:08</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.016s _ 1758194171.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.016s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:16:11</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758196371.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:52:51</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758194442.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:20:42</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758195950.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:45:50</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.012s _ 1758194081.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.012s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:14:41</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758193360.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:02:40</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758195043.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:30:43</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758194232.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:17:12</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758194833.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:27:13</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758194803.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:26:43</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758194683.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:24:43</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758194863.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:27:43</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758193330.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:02:10</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758195404.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:36:44</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.014s _ 1758194773.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.014s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:26:13</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('1.366s _ 1758195646.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">1.366s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:40:46</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758193540.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:05:40</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.015s _ 1758193720.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.015s</span>
+                    </div>
+                    <div class="profile-endpoint"></div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 11:08:40</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                </div>
+            </div>
+            <div class="app-section" data-app="static_media">
+                <div class="app-header">
+                    <div class="app-title">📱 Static Media</div>
+                    <div class="app-count">122 profiles</div>
+                </div>
+                <div class="profiles-grid">
+                    
+                <div class="profile-card" onclick="openProfile('0.138s _static_unfold_css_styles.css 1758190514.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.138s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/css/styles.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:14</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.088s _static_unfold_js_alpine_alpine.resize.js 1758190571.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.088s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.resize.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:11</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.299s _static_unfold_fonts_material-symbols_styles.css 1758190515.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.299s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/fonts/material-symbols/styles.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:15</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.066s _static_unfold_js_simplebar_simplebar.js 1758190513.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.066s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/simplebar/simplebar.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:13</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.099s _static_unfold_js_app.js 1758190571.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.099s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/app.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:11</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.118s _static_unfold_css_simplebar_simplebar.css 1758190570.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.118s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/css/simplebar/simplebar.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:10</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.058s _static_unfold_js_simplebar_simplebar.js 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.058s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/simplebar/simplebar.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.326s _static_unfold_css_simplebar_simplebar.css 1758190515.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.326s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/css/simplebar/simplebar.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:15</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.071s _static_unfold_js_alpine_alpine.sort.js 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.071s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.sort.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.087s _static_unfold_js_simplebar_simplebar.js 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.087s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/simplebar/simplebar.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.295s _static_unfold_js_htmx_htmx.js 1758190570.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.295s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/htmx/htmx.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:10</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.072s _static_unfold_js_chart_chart.js 1758190509.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.072s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/chart/chart.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:09</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.017s _static_unfold_fonts_material-symbols_Material-Symbols-Outlined.woff2 1758193110.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.017s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/fonts/material-symbols/Material-Symbols-Outlined.woff2</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:58:30</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.459s _static_unfold_css_styles.css 1758190571.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.459s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/css/styles.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:11</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.020s _static_unfold_js_chart_chart.js 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.020s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/chart/chart.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.079s _static_unfold_js_chart_chart.js 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.079s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/chart/chart.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.068s _static_unfold_js_chart_chart.js 1758190513.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.068s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/chart/chart.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:13</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.307s _static_unfold_js_alpine_alpine.anchor.js 1758190513.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.307s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.anchor.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:13</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.059s _static_unfold_js_simplebar_simplebar.js 1758190509.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.059s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/simplebar/simplebar.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:09</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.057s _static_unfold_fonts_inter_styles.css 1758190513.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.057s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/fonts/inter/styles.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:13</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.042s _static_unfold_js_app.js 1758190571.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.042s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/app.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:11</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.195s _static_unfold_js_alpine_alpine.sort.js 1758190570.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.195s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.sort.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:10</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.018s _static_unfold_js_chart_chart.js 1758190509.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.018s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/chart/chart.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:09</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.157s _static_unfold_fonts_inter_styles.css 1758190570.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.157s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/fonts/inter/styles.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:10</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.188s _static_unfold_js_htmx_htmx.js 1758190571.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.188s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/htmx/htmx.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:11</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.251s _static_unfold_js_app.js 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.251s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/app.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.253s _static_unfold_js_alpine_alpine.js 1758190571.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.253s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:11</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.281s _static_unfold_js_htmx_htmx.js 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.281s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/htmx/htmx.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.076s _static_unfold_js_alpine_alpine.js 1758192837.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.076s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:57</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.039s _static_unfold_js_simplebar_simplebar.js 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.039s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/simplebar/simplebar.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.075s _static_unfold_js_chart_chart.js 1758190570.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.075s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/chart/chart.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:10</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.056s _static_unfold_js_alpine_alpine.js 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.056s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.034s _static_unfold_js_chart_chart.js 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.034s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/chart/chart.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.058s _static_unfold_js_simplebar_simplebar.js 1758190571.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.058s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/simplebar/simplebar.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:11</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.054s _static_unfold_js_alpine_alpine.anchor.js 1758193110.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.054s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.anchor.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:58:30</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.072s _static_unfold_fonts_inter_Inter-SemiBold.woff2 1758193110.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.072s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/fonts/inter/Inter-SemiBold.woff2</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:58:30</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.081s _static_unfold_js_app.js 1758190514.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.081s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/app.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:14</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.175s _static_unfold_js_alpine_alpine.persist.js 1758190513.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.175s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.persist.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:13</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.206s _static_unfold_css_simplebar_simplebar.css 1758190509.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.206s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/css/simplebar/simplebar.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:09</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.170s _static_unfold_js_htmx_htmx.js 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.170s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/htmx/htmx.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.020s _static_unfold_js_simplebar_simplebar.js 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.020s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/simplebar/simplebar.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.123s _static_unfold_js_chart_chart.js 1758193110.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.123s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/chart/chart.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:58:30</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.061s _static_unfold_js_alpine_alpine.persist.js 1758190509.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.061s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.persist.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:09</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.039s _static_unfold_css_styles.css 1758192837.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.039s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/css/styles.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:57</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.029s _static_unfold_js_app.js 1758190513.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.029s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/app.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:13</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.056s _static_unfold_js_app.js 1758190513.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.056s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/app.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:13</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.261s _static_unfold_js_app.js 1758190509.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.261s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/app.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:09</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.161s _static_unfold_js_alpine_alpine.sort.js 1758190514.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.161s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.sort.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:14</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.460s _static_unfold_js_htmx_htmx.js 1758190509.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.460s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/htmx/htmx.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:09</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.373s _static_unfold_js_alpine_alpine.anchor.js 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.373s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.anchor.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.260s _static_unfold_css_simplebar_simplebar.css 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.260s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/css/simplebar/simplebar.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.131s _static_unfold_css_styles.css 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.131s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/css/styles.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.063s _static_unfold_js_chart_chart.js 1758190514.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.063s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/chart/chart.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:14</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.157s _static_unfold_js_alpine_alpine.js 1758190509.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.157s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:09</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.085s _static_unfold_fonts_material-symbols_styles.css 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.085s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/fonts/material-symbols/styles.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.032s _static_unfold_js_alpine_alpine.resize.js 1758190514.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.032s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.resize.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:14</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.362s _static_unfold_js_alpine_alpine.persist.js 1758193110.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.362s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.persist.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:58:30</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.196s _static_unfold_fonts_inter_styles.css 1758190514.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.196s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/fonts/inter/styles.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:14</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.210s _static_unfold_js_alpine_alpine.sort.js 1758193110.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.210s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.sort.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:58:30</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.186s _static_unfold_fonts_material-symbols_styles.css 1758193110.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.186s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/fonts/material-symbols/styles.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:58:30</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.106s _static_unfold_js_app.js 1758193110.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.106s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/app.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:58:30</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.118s _static_unfold_js_alpine_alpine.js 1758193110.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.118s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:58:30</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.043s _static_unfold_js_app.js 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.043s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/app.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.363s _static_unfold_js_alpine_alpine.resize.js 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.363s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.resize.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.104s _static_unfold_js_alpine_alpine.resize.js 1758190509.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.104s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.resize.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:09</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.078s _static_unfold_css_styles.css 1758190513.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.078s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/css/styles.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:13</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.075s _static_unfold_css_simplebar_simplebar.css 1758190571.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.075s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/css/simplebar/simplebar.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:11</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.120s _static_unfold_js_alpine_alpine.sort.js 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.120s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.sort.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.029s _static_unfold_js_chart_chart.js 1758190513.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.029s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/chart/chart.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:13</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.174s _static_unfold_js_alpine_alpine.resize.js 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.174s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.resize.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.146s _static_unfold_js_chart_chart.js 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.146s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/chart/chart.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.190s _static_unfold_js_simplebar_simplebar.js 1758190515.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.190s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/simplebar/simplebar.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:15</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.231s _static_unfold_js_alpine_alpine.persist.js 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.231s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.persist.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.094s _static_unfold_js_htmx_htmx.js 1758190514.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.094s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/htmx/htmx.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:14</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.023s _static_unfold_fonts_inter_styles.css 1758193110.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.023s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/fonts/inter/styles.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:58:30</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.465s _static_unfold_fonts_inter_styles.css 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.465s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/fonts/inter/styles.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.130s _static_unfold_css_styles.css 1758190570.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.130s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/css/styles.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:10</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.256s _static_unfold_js_alpine_alpine.resize.js 1758190570.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.256s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.resize.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:10</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.177s _static_unfold_js_app.js 1758190570.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.177s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/app.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:10</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.019s _static_unfold_js_simplebar_simplebar.js 1758193110.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.019s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/simplebar/simplebar.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:58:30</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.054s _static_unfold_js_simplebar_simplebar.js 1758190570.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.054s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/simplebar/simplebar.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:10</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.268s _static_unfold_js_alpine_alpine.anchor.js 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.268s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.anchor.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.090s _static_unfold_fonts_inter_styles.css 1758192837.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.090s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/fonts/inter/styles.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:57</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.135s _static_unfold_js_chart_chart.js 1758190571.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.135s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/chart/chart.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:11</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.363s _static_unfold_js_alpine_alpine.persist.js 1758190571.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.363s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.persist.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:11</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.269s _static_unfold_css_styles.css 1758193110.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.269s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/css/styles.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:58:30</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.294s _static_unfold_css_styles.css 1758190509.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.294s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/css/styles.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:09</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.109s _static_unfold_js_alpine_alpine.sort.js 1758190571.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.109s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.sort.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:11</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.021s _static_unfold_js_simplebar_simplebar.js 1758190509.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.021s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/simplebar/simplebar.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:09</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.018s _static_unfold_js_simplebar_simplebar.js 1758190571.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.018s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/simplebar/simplebar.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:11</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.047s _static_unfold_fonts_inter_Inter-Medium.woff2 1758193110.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.047s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/fonts/inter/Inter-Medium.woff2</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:58:30</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.127s _static_unfold_fonts_material-symbols_styles.css 1758190571.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.127s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/fonts/material-symbols/styles.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:11</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.028s _static_unfold_js_simplebar_simplebar.js 1758190513.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.028s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/simplebar/simplebar.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:13</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.043s _static_unfold_js_alpine_alpine.anchor.js 1758190509.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.043s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.anchor.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:09</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.404s _static_unfold_js_alpine_alpine.anchor.js 1758190571.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.404s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.anchor.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:11</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.482s _static_unfold_js_alpine_alpine.js 1758190514.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.482s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:14</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.232s _static_unfold_js_alpine_alpine.sort.js 1758190513.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.232s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.sort.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:13</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.073s _static_unfold_css_simplebar_simplebar.css 1758193110.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.073s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/css/simplebar/simplebar.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:58:30</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.233s _static_unfold_js_alpine_alpine.persist.js 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.233s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.persist.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.126s _static_unfold_js_alpine_alpine.resize.js 1758193110.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.126s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.resize.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:58:30</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.034s _static_unfold_fonts_inter_Inter-Regular.woff2 1758193110.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.034s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/fonts/inter/Inter-Regular.woff2</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:58:30</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.018s _static_unfold_js_app.js 1758190571.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.018s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/app.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:11</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.479s _static_unfold_js_alpine_alpine.js 1758190515.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.479s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:15</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.018s _static_unfold_js_app.js 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.018s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/app.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.488s _static_unfold_fonts_material-symbols_styles.css 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.488s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/fonts/material-symbols/styles.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.459s _static_unfold_js_alpine_alpine.anchor.js 1758190571.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.459s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.anchor.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:11</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.355s _static_unfold_js_alpine_alpine.sort.js 1758190509.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.355s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.sort.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:09</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.018s _static_unfold_js_app.js 1758190509.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.018s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/app.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:09</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.018s _static_unfold_js_chart_chart.js 1758190571.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.018s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/chart/chart.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:11</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.413s _static_unfold_css_simplebar_simplebar.css 1758190513.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.413s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/css/simplebar/simplebar.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:13</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.198s _static_unfold_fonts_material-symbols_styles.css 1758190509.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.198s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/fonts/material-symbols/styles.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:09</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.237s _static_unfold_fonts_inter_styles.css 1758190509.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.237s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/fonts/inter/styles.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:09</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.154s _static_unfold_fonts_inter_styles.css 1758190571.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.154s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/fonts/inter/styles.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:11</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.228s _static_unfold_js_htmx_htmx.js 1758193110.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.228s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/htmx/htmx.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:58:30</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.050s _static_unfold_js_alpine_alpine.js 1758190570.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.050s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:10</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.123s _static_unfold_js_alpine_alpine.persist.js 1758190514.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.123s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.persist.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:14</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.084s _static_unfold_js_alpine_alpine.persist.js 1758190570.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.084s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.persist.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:10</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.214s _static_unfold_fonts_material-symbols_styles.css 1758190570.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.214s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/fonts/material-symbols/styles.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:10</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.105s _static_unfold_fonts_material-symbols_styles.css 1758190513.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.105s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/fonts/material-symbols/styles.css</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:13</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.359s _static_unfold_js_alpine_alpine.anchor.js 1758190515.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.359s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.anchor.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:15</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.382s _static_unfold_js_alpine_alpine.resize.js 1758190513.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.382s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/alpine/alpine.resize.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:13</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.257s _static_unfold_js_htmx_htmx.js 1758190513.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.257s</span>
+                    </div>
+                    <div class="profile-endpoint">static/unfold/js/htmx/htmx.js</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:13</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                </div>
+            </div>
+            <div class="app-section" data-app="admin">
+                <div class="app-header">
+                    <div class="app-title">📱 Admin</div>
+                    <div class="app-count">9 profiles</div>
+                </div>
+                <div class="profiles-grid">
+                    
+                <div class="profile-card" onclick="openProfile('0.025s _admin_login_?next=_admin_ 1758193110.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.025s</span>
+                    </div>
+                    <div class="profile-endpoint">admin/login/?next=/admin</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:58:30</span>
+                        <span>💾 0.12 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.278s _admin_login_?next=_admin_ 1758192837.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.278s</span>
+                    </div>
+                    <div class="profile-endpoint">admin/login/?next=/admin</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:57</span>
+                        <span>💾 0.37 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.059s _admin_login_?next=_admin_ 1758190570.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.059s</span>
+                    </div>
+                    <div class="profile-endpoint">admin/login/?next=/admin</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:10</span>
+                        <span>💾 0.16 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.046s _admin_login_?next=_admin_ 1758190508.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.046s</span>
+                    </div>
+                    <div class="profile-endpoint">admin/login/?next=/admin</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:08</span>
+                        <span>💾 0.17 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.023s _admin_login_?next=_admin_ 1758190514.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.023s</span>
+                    </div>
+                    <div class="profile-endpoint">admin/login/?next=/admin</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:14</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.024s _admin_login_?next=_admin_ 1758190571.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.024s</span>
+                    </div>
+                    <div class="profile-endpoint">admin/login/?next=/admin</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:16:11</span>
+                        <span>💾 0.12 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.022s _admin_login_?next=_admin_ 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.022s</span>
+                    </div>
+                    <div class="profile-endpoint">admin/login/?next=/admin</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.12 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.039s _admin_ 1758190508.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.039s</span>
+                    </div>
+                    <div class="profile-endpoint">admin</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:08</span>
+                        <span>💾 0.11 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.025s _admin_login_?next=_admin_ 1758190513.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.025s</span>
+                    </div>
+                    <div class="profile-endpoint">admin/login/?next=/admin</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:13</span>
+                        <span>💾 0.12 MB</span>
+                    </div>
+                </div>
+                </div>
+            </div>
+            <div class="app-section" data-app="other">
+                <div class="app-header">
+                    <div class="app-title">📱 Other</div>
+                    <div class="app-count">4 profiles</div>
+                </div>
+                <div class="profiles-grid">
+                    
+                <div class="profile-card" onclick="openProfile('0.019s _favicon.ico 1758190515.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.019s</span>
+                    </div>
+                    <div class="profile-endpoint">favicon.ico</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:15</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.020s _favicon.ico 1758190501.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.020s</span>
+                    </div>
+                    <div class="profile-endpoint">favicon.ico</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:01</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.019s _favicon.ico 1758190514.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.019s</span>
+                    </div>
+                    <div class="profile-endpoint">favicon.ico</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:14</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                <div class="profile-card" onclick="openProfile('0.019s _favicon.ico 1758192838.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.019s</span>
+                    </div>
+                    <div class="profile-endpoint">favicon.ico</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:53:58</span>
+                        <span>💾 0.09 MB</span>
+                    </div>
+                </div>
+                </div>
+            </div>
+            <div class="app-section" data-app="api_schema">
+                <div class="app-header">
+                    <div class="app-title">📱 Api Schema</div>
+                    <div class="app-count">1 profiles</div>
+                </div>
+                <div class="profiles-grid">
+                    
+                <div class="profile-card" onclick="openProfile('0.020s _api_schema_swagger-ui_ 1758190501.html')">
+                    <div class="profile-header">
+                        <span class="profile-duration">0.020s</span>
+                    </div>
+                    <div class="profile-endpoint">api/schema/swagger-ui</div>
+                    <div class="profile-meta">
+                        <span>📅 2025-09-18 10:15:01</span>
+                        <span>💾 0.10 MB</span>
+                    </div>
+                </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize performance chart
+        const ctx = document.getElementById('performanceChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['health_checks', 'static_media', 'admin', 'other', 'api_schema'],
+                datasets: [{
+                    label: 'Profile Count',
+                    data: [132, 122, 9, 4, 1],
+                    backgroundColor: 'rgba(102, 126, 234, 0.7)',
+                    borderColor: 'rgba(102, 126, 234, 1)',
+                    borderWidth: 2,
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.1)'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Profiles by App',
+                        font: {
+                            size: 16,
+                            weight: 'bold'
+                        }
+                    }
+                }
+            }
+        });
+
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const sections = document.querySelectorAll('.app-section');
+            
+            sections.forEach(section => {
+                const cards = section.querySelectorAll('.profile-card');
+                let visibleCount = 0;
+                
+                cards.forEach(card => {
+                    const endpoint = card.querySelector('.profile-endpoint').textContent.toLowerCase();
+                    const visible = endpoint.includes(searchTerm);
+                    card.style.display = visible ? 'block' : 'none';
+                    if (visible) visibleCount++;
+                });
+                
+                section.style.display = visibleCount > 0 ? 'block' : 'none';
+            });
+        });
+
+        // Filter functionality
+        document.querySelectorAll('.filter-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+                
+                const app = this.dataset.app;
+                const sections = document.querySelectorAll('.app-section');
+                
+                sections.forEach(section => {
+                    section.style.display = app === 'all' || section.dataset.app === app ? 'block' : 'none';
+                });
+            });
+        });
+
+        // Profile card clicks
+        function openProfile(filename) {
+            const url = `http://localhost:8080/${encodeURIComponent(filename)}`;
+            window.open(url, '_blank');
+        }
+    </script>
+</body>
+</html>

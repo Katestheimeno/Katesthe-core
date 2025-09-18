@@ -26,20 +26,28 @@ imports += ["DATABASES"]
 
 # Handle database configuration with fallback to SQLite
 try:
+    database_url = settings.database.DATABASE_URL
+    
+    # Parse the database URL
+    db_config = dj_database_url.config(
+        default=database_url,
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
+    
+    # Check if the configuration is valid
+    if not db_config or not db_config.get('ENGINE'):
+        raise ValueError(f"Invalid database configuration: {db_config}")
+    
     DATABASES = {
-        'default': dj_database_url.config(
-            default=settings.database.DATABASE_URL,
-            conn_max_age=600,
-            conn_health_checks=True,
-        )
+        'default': db_config
     }
 except Exception as e:
-    # ic(f"⚠️  Database URL parsing failed: {e}")
-    # ic("🔄 Falling back to SQLite")
+    # Fall back to SQLite for profiling environment
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': SQLITE_DATABASE_PATH / 'db.sqlite3',
+            'NAME': str(SQLITE_DATABASE_PATH / 'db.sqlite3'),
         }
     }
 

@@ -1,0 +1,384 @@
+{
+  "auth": {
+    "login_endpoint": "/api/v1/auth/jwt/create/",
+    "email_field": "email",
+    "password_field": "password"
+  },
+  "endpoint_groups": {
+    "auth": [
+      {
+        "endpoint": "/api/v1/auth/jwt/create/",
+        "method": "POST",
+        "auth": false,
+        "data": {
+          "email": "admin@katesthe-core.com",
+          "password": "admin"
+        },
+        "description": "JWT token creation"
+      },
+      {
+        "endpoint": "/api/v1/auth/jwt/refresh/",
+        "method": "POST",
+        "auth": false,
+        "data": {
+          "refresh": "dummy_token"
+        },
+        "description": "JWT token refresh"
+      },
+      {
+        "endpoint": "/api/v1/auth/jwt/verify/",
+        "method": "POST",
+        "auth": false,
+        "data": {
+          "token": "dummy_token"
+        },
+        "description": "JWT token verification"
+      },
+      {
+        "endpoint": "/api/v1/auth/jwt/destroy/",
+        "method": "POST",
+        "auth": true,
+        "description": "JWT token logout/destroy"
+      },
+      {
+        "endpoint": "/api/v1/auth/users/",
+        "method": "GET",
+        "auth": true,
+        "description": "List users"
+      },
+      {
+        "endpoint": "/api/v1/auth/users/",
+        "method": "POST",
+        "auth": false,
+        "data": {
+          "email": "testuser@example.com",
+          "username": "testuser",
+          "password": "testpass123",
+          "first_name": "Test",
+          "last_name": "User"
+        },
+        "description": "User registration"
+      },
+      {
+        "endpoint": "/api/v1/auth/users/me/",
+        "method": "GET",
+        "auth": true,
+        "description": "Current user profile"
+      },
+      {
+        "endpoint": "/api/v1/auth/users/me/",
+        "method": "PUT",
+        "auth": true,
+        "data": {
+          "email": "updated@example.com",
+          "first_name": "Updated",
+          "last_name": "User"
+        },
+        "description": "Update current user profile"
+      },
+      {
+        "endpoint": "/api/v1/auth/users/me/",
+        "method": "PATCH",
+        "auth": true,
+        "data": {
+          "first_name": "Patched"
+        },
+        "description": "Partial update current user profile"
+      },
+      {
+        "endpoint": "/api/v1/auth/users/me/",
+        "method": "DELETE",
+        "auth": true,
+        "description": "Delete current user account"
+      },
+      {
+        "endpoint": "/api/v1/auth/users/set_password/",
+        "method": "POST",
+        "auth": true,
+        "data": {
+          "new_password": "newpassword123",
+          "current_password": "currentpassword123"
+        },
+        "description": "Change user password"
+      },
+      {
+        "endpoint": "/api/v1/auth/users/reset_password/",
+        "method": "POST",
+        "auth": false,
+        "data": {
+          "email": "testuser@example.com"
+        },
+        "description": "Reset password request"
+      },
+      {
+        "endpoint": "/api/v1/auth/users/reset_password_confirm/",
+        "method": "POST",
+        "auth": false,
+        "data": {
+          "uid": "dummy_uid",
+          "token": "dummy_token",
+          "new_password": "newpassword123"
+        },
+        "description": "Confirm password reset"
+      },
+      {
+        "endpoint": "/api/v1/auth/users/activation/",
+        "method": "POST",
+        "auth": false,
+        "data": {
+          "uid": "dummy_uid",
+          "token": "dummy_token"
+        },
+        "description": "Activate user account"
+      },
+      {
+        "endpoint": "/api/v1/auth/users/resend_activation/",
+        "method": "POST",
+        "auth": false,
+        "data": {
+          "email": "testuser@example.com"
+        },
+        "description": "Resend activation email"
+      },
+      {
+        "endpoint": "/api/v1/auth/users/activation/dummy_uid/dummy_token/",
+        "method": "POST",
+        "auth": false,
+        "description": "Custom activation endpoint with URL parameters"
+      }
+    ],
+    "admin": [
+      {
+        "endpoint": "/admin/",
+        "method": "GET",
+        "auth": false,
+        "description": "Django admin homepage"
+      },
+      {
+        "endpoint": "/admin/login/",
+        "method": "GET",
+        "auth": false,
+        "description": "Admin login page"
+      },
+      {
+        "endpoint": "/admin/logout/",
+        "method": "GET",
+        "auth": false,
+        "description": "Admin logout page"
+      },
+      {
+        "endpoint": "/admin/password_reset/",
+        "method": "GET",
+        "auth": false,
+        "description": "Admin password reset page"
+      },
+      {
+        "endpoint": "/admin/jsi18n/",
+        "method": "GET",
+        "auth": false,
+        "description": "Admin JavaScript internationalization"
+      }
+    ],
+    "api_schema": [
+      {
+        "endpoint": "/api/schema/",
+        "method": "GET",
+        "auth": false,
+        "description": "API schema endpoint (OpenAPI 3.0)"
+      },
+      {
+        "endpoint": "/api/schema/docs/",
+        "method": "GET",
+        "auth": false,
+        "description": "Swagger UI API documentation"
+      },
+      {
+        "endpoint": "/api/schema/redoc/",
+        "method": "GET",
+        "auth": false,
+        "description": "ReDoc API documentation"
+      }
+    ],
+    "profiling_tools": [
+      {
+        "endpoint": "/silk/",
+        "method": "GET",
+        "auth": false,
+        "description": "Silk profiling dashboard"
+      },
+      {
+        "endpoint": "/silk/requests/",
+        "method": "GET",
+        "auth": false,
+        "description": "Silk requests list"
+      },
+      {
+        "endpoint": "/silk/profiling/",
+        "method": "GET",
+        "auth": false,
+        "description": "Silk profiling list"
+      },
+      {
+        "endpoint": "/rosetta/",
+        "method": "GET",
+        "auth": false,
+        "description": "Rosetta translation interface"
+      },
+      {
+        "endpoint": "/rosetta/files/",
+        "method": "GET",
+        "auth": false,
+        "description": "Rosetta translation files"
+      }
+    ],
+    "static_media": [
+      {
+        "endpoint": "/static/admin/css/base.css",
+        "method": "GET",
+        "auth": false,
+        "description": "Static CSS file"
+      },
+      {
+        "endpoint": "/static/admin/js/core.js",
+        "method": "GET",
+        "auth": false,
+        "description": "Static JavaScript file"
+      },
+      {
+        "endpoint": "/static/admin/css/widgets.css",
+        "method": "GET",
+        "auth": false,
+        "description": "Admin widgets CSS"
+      },
+      {
+        "endpoint": "/static/admin/js/admin/RelatedObjectLookups.js",
+        "method": "GET",
+        "auth": false,
+        "description": "Admin related object lookups JS"
+      },
+      {
+        "endpoint": "/media/",
+        "method": "GET",
+        "auth": false,
+        "description": "Media files directory"
+      },
+      {
+        "endpoint": "/media/test/",
+        "method": "GET",
+        "auth": false,
+        "description": "Test media directory"
+      }
+    ],
+    "celery_monitoring": [
+      {
+        "endpoint": "/flower/",
+        "method": "GET",
+        "auth": false,
+        "description": "Flower Celery monitoring dashboard"
+      },
+      {
+        "endpoint": "/flower/api/workers",
+        "method": "GET",
+        "auth": false,
+        "description": "Flower workers API"
+      },
+      {
+        "endpoint": "/flower/api/tasks",
+        "method": "GET",
+        "auth": false,
+        "description": "Flower tasks API"
+      },
+      {
+        "endpoint": "/flower/api/stats",
+        "method": "GET",
+        "auth": false,
+        "description": "Flower statistics API"
+      }
+    ],
+    "health_checks": [
+      {
+        "endpoint": "/",
+        "method": "GET",
+        "auth": false,
+        "description": "Root redirect to admin"
+      },
+      {
+        "endpoint": "/api/v1/",
+        "method": "GET",
+        "auth": false,
+        "description": "API v1 root endpoint"
+      }
+    ],
+    "error_pages": [
+      {
+        "endpoint": "/404/",
+        "method": "GET",
+        "auth": false,
+        "description": "404 error page test"
+      },
+      {
+        "endpoint": "/500/",
+        "method": "GET",
+        "auth": false,
+        "description": "500 error page test"
+      },
+      {
+        "endpoint": "/nonexistent/",
+        "method": "GET",
+        "auth": false,
+        "description": "Non-existent endpoint test"
+      }
+    ]
+  },
+  "profiling": {
+    "profile_parameter": "profile",
+    "profile_value": "1",
+    "concurrent_requests": 3,
+    "requests_per_endpoint": 2,
+    "request_timeout": 30,
+    "user_agent": "DjangoProfiler/1.0",
+    "retry_attempts": 3,
+    "retry_delay": 1,
+    "follow_redirects": true,
+    "verify_ssl": false
+  },
+  "docker": {
+    "container_name": "web_profiling",
+    "container_profiles_path": "/app/profiles",
+    "host_profiles_path": "./profiles",
+    "sync_interval": 5
+  },
+  "output": {
+    "format": "html",
+    "include_metadata": true,
+    "include_request_headers": true,
+    "include_response_headers": true,
+    "include_timing": true,
+    "include_sql_queries": true,
+    "include_template_rendering": true
+  },
+  "filters": {
+    "exclude_endpoints": [
+      "/silk/static/",
+      "/static/admin/fonts/",
+      "/media/favicon.ico",
+      "/robots.txt",
+      "/favicon.ico"
+    ],
+    "include_only_authenticated": false,
+    "include_only_public": false,
+    "min_response_time": 0,
+    "max_response_time": 30
+  },
+  "notifications": {
+    "enable_email": false,
+    "enable_webhook": false,
+    "email_recipients": [],
+    "webhook_url": "",
+    "thresholds": {
+      "slow_request": 2.0,
+      "error_rate": 0.1,
+      "memory_usage": 100
+    }
+  }
+}

@@ -3,6 +3,8 @@ version: '3.8'
 services:
   db:
     image: postgres:15
+    env_file:
+      - ${ENV_FILE:-.env.local}
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-drf_starter}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -16,6 +18,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    stop_grace_period: 30s
 
   redis:
     image: redis:7-alpine
@@ -28,6 +31,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    stop_grace_period: 30s
 
   web:
     build: .
@@ -80,10 +84,12 @@ services:
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.django.local}
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: ${REDIS_URL}
+      CELERY_BROKER_URL: ${REDIS_URL}
     depends_on:
       - db
       - redis
     restart: unless-stopped
+    stop_grace_period: 30s
 
   celery_beat:
     build: .
@@ -98,11 +104,12 @@ services:
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.django.local}
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: ${REDIS_URL}
+      CELERY_BROKER_URL: ${REDIS_URL}
     depends_on:
       - db
       - redis
     restart: unless-stopped
-
+    stop_grace_period: 30s
   flower:
     build: .
     command: uv run celery -A config.celery.app flower --port=5555
@@ -122,6 +129,38 @@ services:
     depends_on:
       - redis
     restart: unless-stopped
+    stop_grace_period: 30s
+  web_profiling:
+    build: .
+    command: >
+      sh -c "
+        mkdir -p /app/profiles &&
+        chown -R django:django /app/profiles &&
+        /app/entrypoint.sh
+      "
+    volumes:
+      - .:/app
+      - ./profiles:/app/profiles  # Mount profiles directory
+    ports:
+      - "8101:8000"
+    env_file:
+      - ${ENV_FILE:-.env.prof}
+    environment:
+      DEBUG: ${DEBUG:-True}
+      DJANGO_ENV: ${DJANGO_ENV:-prof}
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.django.profiling}
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_URL: ${REDIS_URL}
+      PROFILING_ENABLED: ${PROFILING_ENABLED:-True}
+      PYINSTRUMENT_ENABLED: ${PYINSTRUMENT_ENABLED:-True}
+      CELERY_BROKER_URL: ${REDIS_URL}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    profiles:
+      - profiling  # Only start when explicitly requested
 
 volumes:
   postgres_data:

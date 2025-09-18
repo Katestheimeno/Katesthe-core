@@ -26,7 +26,7 @@ def get_env_file_path() -> str:
     """
     # Check DJANGO_ENV first
     django_env = os.getenv('DJANGO_ENV', '').lower()
-    if django_env in ['local', 'prod', 'test']:
+    if django_env in ['local', 'prod', 'test', 'prof']:
         return str(BASE_DIR / f".env.{django_env}")
     
     # Check DJANGO_SETTINGS_MODULE
@@ -37,6 +37,8 @@ def get_env_file_path() -> str:
         return str(BASE_DIR / '.env.prod')
     elif 'test' in settings_module:
         return str(BASE_DIR / '.env.test')
+    elif 'profiling' in settings_module:
+        return str(BASE_DIR / '.env.prof')
     
     # Default to local
     return str(BASE_DIR / '.env.local')
@@ -45,11 +47,11 @@ def get_env_file_path() -> str:
 class DatabaseSettings(BaseSettings):
     """Database configuration settings."""
     
-    USER: str = Field(default="postgres", description="PostgreSQL username")
-    PASSWORD: str = Field(default="postgres", description="PostgreSQL password")
-    HOST: str = Field(default="db", description="PostgreSQL host")
-    PORT: int = Field(default=5432, description="PostgreSQL port")
-    DB: str = Field(default="drf_starter", description="PostgreSQL database name")
+    USER: str = Field(default="postgres", alias="POSTGRES_USER", description="PostgreSQL username")
+    PASSWORD: str = Field(default="postgres", alias="POSTGRES_PASSWORD", description="PostgreSQL password")
+    HOST: str = Field(default="db", alias="POSTGRES_HOST", description="PostgreSQL host")
+    PORT: int = Field(default=5432, alias="POSTGRES_PORT", description="PostgreSQL port")
+    DB: str = Field(default="drf_starter", alias="POSTGRES_DB", description="PostgreSQL database name")
     
     @property
     def DATABASE_URL(self) -> str:

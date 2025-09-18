@@ -78,13 +78,14 @@ The project uses environment-specific configuration files for better separation 
 - **`.env.local`** - Local development environment
 - **`.env.prod`** - Production environment  
 - **`.env.test`** - Testing environment
+- **`.env.prof`** - Profiling environment with PyInstrument
 
 ### Auto-Detection Logic
 
 The system automatically detects which environment file to use based on:
 
-1. **`DJANGO_ENV`** environment variable (`local`, `prod`, `test`)
-2. **`DJANGO_SETTINGS_MODULE`** environment variable (contains `local`, `production`, or `test`)
+1. **`DJANGO_ENV`** environment variable (`local`, `prod`, `test`, `prof`)
+2. **`DJANGO_SETTINGS_MODULE`** environment variable (contains `local`, `production`, `test`, or `profiling`)
 3. **Default** to `.env.local` if neither is set
 
 ### Docker Compose Integration
@@ -100,6 +101,9 @@ ENV_FILE=.env.prod docker compose up
 
 # Use test environment
 ENV_FILE=.env.test docker compose up
+
+# Use profiling environment
+ENV_FILE=.env.prof docker compose --profile profiling up
 ```
 
 ### Manual Setup
@@ -115,7 +119,69 @@ cp .env.prod.example .env.prod
 
 # For testing
 cp .env.test.example .env.test
+
+# For profiling
+cp .env.prof.example .env.prof
 ```
+
+## 🔍 Performance Profiling with PyInstrument
+
+The project includes PyInstrument integration for performance profiling and analysis:
+
+### Features
+- **Real-time Performance Monitoring** - PyInstrument middleware captures request timing
+- **Interactive Profiling UI** - Web-based interface for analyzing performance data
+- **Profile Export** - Save profiling data for offline analysis
+- **Silk Integration** - Combined with Silk for comprehensive performance analysis
+
+### Usage
+
+**Start Profiling Environment:**
+```bash
+# Copy profiling configuration
+cp .env.prof.example .env.prof
+
+# Start with profiling enabled
+ENV_FILE=.env.prof docker compose --profile profiling up
+
+# Or start profiling service only
+docker compose --profile profiling up web_profiling
+```
+
+**Access Profiling Interface:**
+- **Main Application**: `http://localhost:8101` (profiling enabled)
+- **Silk Profiling**: `http://localhost:8101/silk/` (if enabled)
+- **PyInstrument Toolbar**: Visible on all pages when profiling is active
+
+**Profile Output:**
+- **Location**: `./profiles/` directory (mounted in container)
+- **Format**: HTML files for interactive analysis
+- **Naming**: Automatic timestamp-based naming
+
+**Management Commands:**
+```bash
+# Run profiling-specific commands
+docker compose --profile profiling exec web_profiling uv run python manage.py check
+
+# Generate profiling reports
+docker compose --profile profiling exec web_profiling uv run python manage.py shell
+```
+
+### Configuration
+
+**Environment Variables:**
+```bash
+PROFILING_ENABLED=True          # Enable profiling mode
+PYINSTRUMENT_ENABLED=True       # Enable PyInstrument middleware
+DJANGO_ENV=prof               # Set profiling environment
+DJANGO_SETTINGS_MODULE=config.django.profiling  # Use profiling settings
+```
+
+**PyInstrument Settings:**
+- **Profile Directory**: `./profiles/`
+- **Auto-Profile**: All requests are profiled
+- **Toolbar**: Always visible for debugging
+- **Export**: HTML format for analysis
 
 4) Run management commands inside the web container
 ```bash

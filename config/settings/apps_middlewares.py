@@ -105,6 +105,13 @@ DEV_APPS = [
     "silk",     # Profiling & performance analysis
 ]
 
+imports += ["PROFILING_APPS"]
+
+# Profiling-specific apps
+PROFILING_APPS = [
+    "pyinstrument",  # Performance profiling
+]
+
 
 # ------------------------------------------------------------
 # Middleware Configuration
