@@ -1061,6 +1061,93 @@ Configuration:
             padding: 0.5rem 1rem 1rem 1rem;
         }}
 
+        /* Profile view container */
+        .profile-view-container {{
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-color);
+            z-index: 1000;
+            overflow: hidden;
+        }}
+
+        .profile-view-container.active {{
+            display: block;
+        }}
+
+        .profile-view-header {{
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }}
+
+        .profile-view-title {{
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-color);
+        }}
+
+        .profile-view-nav {{
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }}
+
+        .back-btn {{
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+        }}
+
+        .back-btn:hover {{
+            background: var(--secondary-color);
+            transform: translateY(-1px);
+        }}
+
+        .profile-view-content {{
+            height: calc(100vh - 80px);
+            overflow: hidden;
+        }}
+
+        .profile-iframe {{
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: white;
+        }}
+
+        .breadcrumb {{
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--text-light);
+        }}
+
+        .breadcrumb-separator {{
+            color: var(--text-light);
+        }}
+
+        .breadcrumb-current {{
+            color: var(--primary-color);
+            font-weight: 500;
+        }}
+
         .endpoint-content.collapsed {{
             display: none;
         }}
@@ -1333,27 +1420,82 @@ Configuration:
         }}
 
         // Profile card clicks
-        function openProfile(filename) {{
+        function showProfile(filename) {{
+            // Show the profile view container
+            const profileView = document.getElementById('profileView');
+            const profileIframe = document.getElementById('profileIframe');
+            const currentProfileTitle = document.getElementById('currentProfileTitle');
+            
+            // Extract profile title from the clicked card
+            const profileCard = event.target.closest('.profile-card');
+            const profileTitle = profileCard.querySelector('.profile-title').textContent;
+            
+            // Update the breadcrumb title
+            currentProfileTitle.textContent = profileTitle;
+            
             // Since dashboard is in the same directory as profiles, use relative path
             // Properly encode the filename for URLs
             const encodedFilename = encodeURIComponent(filename);
             const url = `./${{encodedFilename}}`;
             
-            // Try to open the file
-            const newWindow = window.open(url, '_blank');
+            // Set the iframe source to the profile file
+            profileIframe.src = url;
             
-            // Fallback: if the window fails to load, try alternative approaches
-            if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {{
-                // Try with a different approach - create a temporary link
-                const link = document.createElement('a');
-                link.href = url;
-                link.target = '_blank';
-                link.download = filename;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            }}
+            // Show the profile view
+            profileView.classList.add('active');
+            
+            // Update browser history
+            history.pushState({{ filename: url, title: profileTitle }}, '', `?profile=${{encodedFilename}}`);
         }}
+
+        function hideProfile() {{
+            // Hide the profile view container
+            const profileView = document.getElementById('profileView');
+            const profileIframe = document.getElementById('profileIframe');
+            
+            // Clear the iframe source
+            profileIframe.src = '';
+            
+            // Hide the profile view
+            profileView.classList.remove('active');
+            
+            // Update browser history
+            history.pushState(null, '', window.location.pathname);
+        }}
+
+        // Handle browser back/forward buttons
+        window.addEventListener('popstate', function(event) {{
+            if (event.state && event.state.filename) {{
+                // Show profile if there's state with filename
+                const profileView = document.getElementById('profileView');
+                const profileIframe = document.getElementById('profileIframe');
+                const currentProfileTitle = document.getElementById('currentProfileTitle');
+                
+                currentProfileTitle.textContent = event.state.title || 'Profile';
+                profileIframe.src = event.state.filename;
+                profileView.classList.add('active');
+            }} else {{
+                // Hide profile if no state
+                hideProfile();
+            }}
+        }});
+
+        // Check URL parameters on page load
+        window.addEventListener('load', function() {{
+            const urlParams = new URLSearchParams(window.location.search);
+            const profileParam = urlParams.get('profile');
+            if (profileParam) {{
+                // Find the profile card and show it
+                const profileCards = document.querySelectorAll('.profile-card');
+                for (let card of profileCards) {{
+                    const onclick = card.getAttribute('onclick');
+                    if (onclick && onclick.includes(profileParam)) {{
+                        showProfile(decodeURIComponent(profileParam));
+                        break;
+                    }}
+                }}
+            }}
+        }});
 
         // Filter dropdown functionality
         function toggleFilterMenu() {{
@@ -1444,6 +1586,25 @@ Configuration:
 
 
     </script>
+
+    <!-- Profile View Container -->
+    <div class="profile-view-container" id="profileView">
+        <div class="profile-view-header">
+            <div class="breadcrumb" id="breadcrumb">
+                <span>Dashboard</span>
+                <span class="breadcrumb-separator">›</span>
+                <span class="breadcrumb-current" id="currentProfileTitle">Profile</span>
+            </div>
+            <div class="profile-view-nav">
+                <button class="back-btn" onclick="hideProfile()">
+                    ← Back to Dashboard
+                </button>
+            </div>
+        </div>
+        <div class="profile-view-content">
+            <iframe class="profile-iframe" id="profileIframe" src=""></iframe>
+        </div>
+    </div>
 </body>
 </html>"""
 
@@ -1953,7 +2114,7 @@ class ProfileAnalyzer:
             
             cards.append(f'''
                 <div class="profile-card">
-                    <div class="profile-card-content" onclick="openProfile('{escaped_filename}')" title="Click to open PyInstrument profile">
+                    <div class="profile-card-content" onclick="showProfile('{escaped_filename}')" title="Click to view PyInstrument profile">
                         <div class="profile-header">
                             <span class="profile-duration">{duration_str}</span>
                             <span class="profile-method profile-method-{method_class}">{method}</span>
