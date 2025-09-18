@@ -627,6 +627,127 @@ Configuration:
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
         }}
 
+        /* Fixed Filter Button */
+        .fixed-filter-container {{
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            z-index: 1000;
+        }}
+
+        .filter-btn {{
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 0.75rem 1rem;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25), 0 2px 8px rgba(102, 126, 234, 0.4);
+            font-size: 0.9rem;
+            backdrop-filter: blur(10px);
+        }}
+
+        .filter-btn:hover {{
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.35), 0 4px 12px rgba(102, 126, 234, 0.5);
+            border-color: rgba(255, 255, 255, 0.5);
+        }}
+
+        .filter-icon {{
+            font-size: 1.1rem;
+            color: white;
+            filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+            font-weight: bold;
+        }}
+
+        .filter-arrow {{
+            transition: transform 0.3s ease;
+            font-size: 0.8rem;
+        }}
+
+        .filter-btn.active .filter-arrow {{
+            transform: rotate(180deg);
+        }}
+
+        .filter-dropdown {{
+            position: absolute;
+            top: calc(100% + 0.5rem);
+            right: 0;
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+            border: 1px solid var(--border-color);
+            min-width: 280px;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            overflow: hidden;
+        }}
+
+        .filter-dropdown.show {{
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }}
+
+        .filter-section {{
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }}
+
+        .filter-section:last-child {{
+            border-bottom: none;
+        }}
+
+        .filter-title {{
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.75rem;
+        }}
+
+        .filter-options {{
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }}
+
+        .filter-option {{
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }}
+
+        .filter-option:hover {{
+            background: rgba(102, 126, 234, 0.08);
+        }}
+
+        .filter-option input[type="radio"] {{
+            width: 16px;
+            height: 16px;
+            accent-color: var(--primary-color);
+            cursor: pointer;
+        }}
+
+        .filter-option span {{
+            color: var(--text-color);
+            cursor: pointer;
+        }}
+
         .search-input {{
             width: 100%;
             padding: 12px 16px;
@@ -924,11 +1045,71 @@ Configuration:
 
         <div class="controls">
             <input type="text" class="search-input" id="searchInput" placeholder="🔍 Search profiles...">
+            
             <div class="filter-tabs">
                 <button class="filter-tab active" data-app="all">All Apps</button>
                 {self._generate_app_tabs(app_groups)}
                 <button class="filter-tab" onclick="expandAllSections()">Expand All</button>
                 <button class="filter-tab" onclick="collapseAllSections()">Collapse All</button>
+            </div>
+        </div>
+
+        <!-- Fixed Filter Button -->
+        <div class="fixed-filter-container">
+            <button class="filter-btn" id="filterBtn" onclick="toggleFilterMenu()">
+                <span class="filter-icon">⇅</span>
+                <span class="filter-text">Sort</span>
+                <span class="filter-arrow">▼</span>
+            </button>
+            
+            <div class="filter-dropdown" id="filterDropdown">
+                <div class="filter-section">
+                    <div class="filter-title">Sort by Method</div>
+                    <div class="filter-options">
+                        <label class="filter-option">
+                            <input type="radio" name="methodSort" value="default" checked onchange="sortProfiles()">
+                            <span>Default Order</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="radio" name="methodSort" value="GET" onchange="sortProfiles()">
+                            <span>GET First</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="radio" name="methodSort" value="POST" onchange="sortProfiles()">
+                            <span>POST First</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="radio" name="methodSort" value="PUT" onchange="sortProfiles()">
+                            <span>PUT First</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="radio" name="methodSort" value="PATCH" onchange="sortProfiles()">
+                            <span>PATCH First</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="radio" name="methodSort" value="DELETE" onchange="sortProfiles()">
+                            <span>DELETE First</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="filter-section">
+                    <div class="filter-title">Sort by Duration</div>
+                    <div class="filter-options">
+                        <label class="filter-option">
+                            <input type="radio" name="durationSort" value="default" checked onchange="sortProfiles()">
+                            <span>Default Order</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="radio" name="durationSort" value="fastest" onchange="sortProfiles()">
+                            <span>Fastest First</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="radio" name="durationSort" value="slowest" onchange="sortProfiles()">
+                            <span>Slowest First</span>
+                        </label>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1081,6 +1262,90 @@ Configuration:
                 link.click();
                 document.body.removeChild(link);
             }}
+        }}
+
+        // Filter dropdown functionality
+        function toggleFilterMenu() {{
+            const dropdown = document.getElementById('filterDropdown');
+            const button = document.getElementById('filterBtn');
+            
+            dropdown.classList.toggle('show');
+            button.classList.toggle('active');
+        }}
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {{
+            const container = document.querySelector('.fixed-filter-container');
+            const dropdown = document.getElementById('filterDropdown');
+            const button = document.getElementById('filterBtn');
+            
+            if (!container.contains(event.target)) {{
+                dropdown.classList.remove('show');
+                button.classList.remove('active');
+            }}
+        }});
+
+        // Sorting functionality
+        function sortProfiles() {{
+            const methodSort = document.querySelector('input[name="methodSort"]:checked').value;
+            const durationSort = document.querySelector('input[name="durationSort"]:checked').value;
+            
+            // Get all app sections
+            const appSections = document.querySelectorAll('.app-section');
+            
+            appSections.forEach(section => {{
+                const profilesGrid = section.querySelector('.profiles-grid');
+                const profileCards = Array.from(profilesGrid.querySelectorAll('.profile-card'));
+                
+                // Sort the cards based on current sort options
+                profileCards.sort((a, b) => {{
+                    let comparison = 0;
+                    
+                    // Method sorting
+                    if (methodSort !== 'default') {{
+                        const methodA = extractMethod(a);
+                        const methodB = extractMethod(b);
+                        
+                        if (methodSort === methodA && methodSort !== methodB) {{
+                            comparison = -1;
+                        }} else if (methodSort !== methodA && methodSort === methodB) {{
+                            comparison = 1;
+                        }}
+                    }}
+                    
+                    // Duration sorting (only if method sorting doesn't override)
+                    if (comparison === 0 && durationSort !== 'default') {{
+                        const durationA = extractDuration(a);
+                        const durationB = extractDuration(b);
+                        
+                        if (durationSort === 'fastest') {{
+                            comparison = durationA - durationB;
+                        }} else if (durationSort === 'slowest') {{
+                            comparison = durationB - durationA;
+                        }}
+                    }}
+                    
+                    return comparison;
+                }});
+                
+                // Re-append sorted cards
+                profileCards.forEach(card => profilesGrid.appendChild(card));
+            }});
+        }}
+
+        function extractMethod(card) {{
+            const methodSpan = card.querySelector('.profile-method');
+            return methodSpan ? methodSpan.textContent.trim() : 'GET';
+        }}
+
+        function extractDuration(card) {{
+            const durationSpan = card.querySelector('.profile-duration');
+            if (durationSpan) {{
+                const durationText = durationSpan.textContent.trim();
+                const match = durationText.match(/(\\d+\\.?\\d*)s/);
+                return match ? parseFloat(match[1]) : 0;
+            }}
+            return 0;
         }}
     </script>
 </body>
