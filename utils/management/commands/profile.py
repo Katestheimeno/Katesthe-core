@@ -75,6 +75,7 @@ class Command(BaseCommand):
         clean_parser.add_argument('--days', type=int, default=int(os.getenv('PROFILING_CLEAN_DAYS', '7')), help='Keep profiles newer than N days')
         clean_parser.add_argument('--dry-run', action='store_true', help='Show what would be deleted')
 
+
     def handle(self, *args, **options):
         action = options['action']
         
@@ -330,6 +331,7 @@ Configuration:
         self.stdout.write(f'📊 Analyzed {len(analyzer.analyzed_profiles)} profiles')
         self.stdout.write(f'📱 App groups: {list(analyzer.app_groups.keys())}')
         
+        # Generate dashboard HTML
         output_path = Path(options['output']) if options['output'] else (
             profiles_dir / 'profiling_dashboard.html'
         )
@@ -409,6 +411,7 @@ Configuration:
                 self.style.SUCCESS(f'Cleaned {len(files_to_delete)} profile files')
             )
 
+
     def get_profiles_dir(self) -> Path:
         """Get the profiles directory path."""
         profiles_dir = Path(settings.BASE_DIR) / 'profiles'
@@ -449,7 +452,7 @@ Configuration:
             
             # Show filtered profiles
             filtered_profiles = analyzer.get_filtered_profiles(app_filter, limit or 20, sort_by)
-        
+            
             if not filtered_profiles:
                 self.stdout.write('❌ No profile files found!')
                 self.stdout.write('   Try running: uv run manage.py profile generate')
@@ -1007,6 +1010,75 @@ Configuration:
                 grid-template-columns: 1fr;
             }}
         }}
+
+
+        /* Endpoint section styles */
+        .endpoint-section {{
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }}
+
+        .endpoint-header {{
+            background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+            padding: 1rem 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border-color);
+        }}
+
+        .endpoint-title {{
+            font-weight: 600;
+            color: var(--text-color);
+            font-size: 1rem;
+        }}
+
+        .endpoint-count {{
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            background: rgba(102, 126, 234, 0.1);
+            padding: 4px 8px;
+            border-radius: 6px;
+        }}
+
+
+
+        /* App content container */
+        .app-content {{
+            padding: 1rem;
+        }}
+
+        .app-content.collapsed {{
+            display: none;
+        }}
+
+        /* Endpoint content container */
+        .endpoint-content {{
+            padding: 0.5rem 1rem 1rem 1rem;
+        }}
+
+        .endpoint-content.collapsed {{
+            display: none;
+        }}
+
+
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {{
+            .endpoint-header {{
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }}
+
+            .app-header {{
+                flex-wrap: wrap;
+            }}
+        }}
     </style>
 </head>
 <body>
@@ -1219,6 +1291,25 @@ Configuration:
             }}
         }}
 
+        // Toggle endpoint section collapse/expand
+        function toggleEndpointSection(endpointId) {{
+            const content = document.getElementById(`endpoint-content-${{endpointId}}`);
+            const icon = document.getElementById(`endpoint-icon-${{endpointId}}`);
+            const header = icon.parentElement.parentElement;
+            
+            if (content.classList.contains('collapsed')) {{
+                // Expand
+                content.classList.remove('collapsed');
+                icon.classList.remove('collapsed');
+                header.classList.remove('collapsed');
+            }} else {{
+                // Collapse
+                content.classList.add('collapsed');
+                icon.classList.add('collapsed');
+                header.classList.add('collapsed');
+            }}
+        }}
+
         // Collapse all sections by default
         function collapseAllSections() {{
             const sections = document.querySelectorAll('.profiles-grid');
@@ -1347,6 +1438,11 @@ Configuration:
             }}
             return 0;
         }}
+
+
+
+
+
     </script>
 </body>
 </html>"""
@@ -1365,16 +1461,46 @@ Configuration:
         for app, profiles in app_groups.items():
             if not profiles:
                 continue
+            
+            # Group profiles by endpoint
+            endpoint_groups = {}
+            for profile in profiles:
+                endpoint = profile['endpoint']
+                if endpoint not in endpoint_groups:
+                    endpoint_groups[endpoint] = []
+                endpoint_groups[endpoint].append(profile)
+            
+            # Generate endpoint sections
+            endpoint_sections = []
+            for endpoint, endpoint_profiles in endpoint_groups.items():
+                # Get title from config or fallback to endpoint
+                title = analyzer._get_profile_title(endpoint_profiles[0]['endpoint'], endpoint_profiles[0].get('method', 'GET'))
+                profile_cards = analyzer._generate_profile_cards(endpoint_profiles)
                 
-            profile_cards = analyzer._generate_profile_cards(profiles)
+                # Generate unique endpoint ID for collapsible functionality
+                endpoint_id = f"{app}_{endpoint}".replace('/', '_').replace('?', '').replace('=', '').replace('&', '')
+                
+                endpoint_sections.append(f'''
+                <div class="endpoint-section">
+                    <div class="endpoint-header" onclick="toggleEndpointSection('{endpoint_id}')">
+                        <div class="endpoint-title">🔗 {title}</div>
+                        <div class="endpoint-count">{len(endpoint_profiles)} profiles <span class="collapse-icon" id="endpoint-icon-{endpoint_id}">▼</span></div>
+                    </div>
+                    <div class="endpoint-content" id="endpoint-content-{endpoint_id}">
+                        <div class="profiles-grid">
+                            {profile_cards}
+                        </div>
+                    </div>
+                </div>''')
+            
             sections.append(f'''
-            <div class="app-section" data-app="{app}">
+            <div class="app-section">
                 <div class="app-header" onclick="toggleSection('{app}')">
                     <div class="app-title">📱 {app.replace('_', ' ').title()}</div>
                     <div class="app-count">{len(profiles)} profiles <span class="collapse-icon" id="icon-{app}">▼</span></div>
                 </div>
-                <div class="profiles-grid" id="content-{app}">
-                    {profile_cards}
+                <div class="app-content" id="content-{app}">
+                    {''.join(endpoint_sections)}
                 </div>
             </div>''')
         return ''.join(sections)
@@ -1643,17 +1769,19 @@ class ProfileAnalyzer:
         
         # Try multiple patterns to match different PyInstrument filename formats
         patterns = [
-            # Pattern 1: "0.123s _ endpoint_name ?profile=1 _ 1758190144.html"
-            r'^(\d+\.?\d*)s\s+_\s+([^?]+)\s+\?profile=1\s+_\s+(\d+)\.html',
-            # Pattern 2: "0.123s _ endpoint_name ?profile=1 1758190144.html"
-            r'^(\d+\.?\d*)s\s+_\s+([^?]+)\s+\?profile=1\s+(\d+)\.html',
-            # Pattern 3: "0.123s endpoint_name ?profile=1 1758190144.html"
+            # Pattern 1: "0.123s _api_v1_auth_jwt_create_?profile=1 1758190144.html"
             r'^(\d+\.?\d*)s\s+([^?]+)\s+\?profile=1\s+(\d+)\.html',
-            # Pattern 4: "0.123s _ endpoint_name _ 1758190144.html"
+            # Pattern 2: "0.123s _ endpoint_name ?profile=1 _ 1758190144.html"
+            r'^(\d+\.?\d*)s\s+_\s+([^?]+)\s+\?profile=1\s+_\s+(\d+)\.html',
+            # Pattern 3: "0.123s _ endpoint_name ?profile=1 1758190144.html"
+            r'^(\d+\.?\d*)s\s+_\s+([^?]+)\s+\?profile=1\s+(\d+)\.html',
+            # Pattern 4: "0.123s endpoint_name ?profile=1 1758190144.html"
+            r'^(\d+\.?\d*)s\s+([^?]+)\s+\?profile=1\s+(\d+)\.html',
+            # Pattern 5: "0.123s _ endpoint_name _ 1758190144.html"
             r'^(\d+\.?\d*)s\s+_\s+([^_]+)\s+_\s+(\d+)\.html',
-            # Pattern 5: "0.123s endpoint_name 1758190144.html"
+            # Pattern 6: "0.123s endpoint_name 1758190144.html"
             r'^(\d+\.?\d*)s\s+([^\s]+)\s+(\d+)\.html',
-            # Pattern 6: Just timestamp - "1758190144.html"
+            # Pattern 7: Just timestamp - "1758190144.html"
             r'^(\d+)\.html'
         ]
         
@@ -1665,7 +1793,7 @@ class ProfileAnalyzer:
         for i, pattern in enumerate(patterns):
             match = re.match(pattern, filename)
             if match:
-                if i == 5:  # Pattern 6: just timestamp
+                if i == 6:  # Pattern 7: just timestamp
                     timestamp = match.group(1)
                     # Try to extract endpoint from file content or use filename
                     endpoint = filename.replace('.html', '').replace(timestamp, '').strip('_').strip()
@@ -1824,17 +1952,19 @@ class ProfileAnalyzer:
             method_class = method.lower()
             
             cards.append(f'''
-                <div class="profile-card" onclick="openProfile('{escaped_filename}')" title="Click to open PyInstrument profile">
-                    <div class="profile-header">
-                        <span class="profile-duration">{duration_str}</span>
-                        <span class="profile-method profile-method-{method_class}">{method}</span>
-                    </div>
-                    <div class="profile-title">{title}</div>
-                    <div class="profile-endpoint">{endpoint_display}</div>
-                    <div class="profile-description">{description}</div>
-                    <div class="profile-meta">
-                        <span>📅 {profile['formatted_time']}</span>
-                        <span>💾 {size_mb:.2f} MB</span>
+                <div class="profile-card">
+                    <div class="profile-card-content" onclick="openProfile('{escaped_filename}')" title="Click to open PyInstrument profile">
+                        <div class="profile-header">
+                            <span class="profile-duration">{duration_str}</span>
+                            <span class="profile-method profile-method-{method_class}">{method}</span>
+                        </div>
+                        <div class="profile-title">{title}</div>
+                        <div class="profile-endpoint">{endpoint_display}</div>
+                        <div class="profile-description">{description}</div>
+                        <div class="profile-meta">
+                            <span>📅 {profile['formatted_time']}</span>
+                            <span>💾 {size_mb:.2f} MB</span>
+                        </div>
                     </div>
                 </div>''')
         return ''.join(cards)

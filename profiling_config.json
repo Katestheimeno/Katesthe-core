@@ -5,7 +5,7 @@
     "password_field": "password"
   },
   "endpoint_groups": {
-    "custom_auth": [
+    "main_endpoints": [
       {
         "endpoint": "/api/v1/auth/jwt/create/",
         "method": "POST",
