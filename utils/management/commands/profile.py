@@ -411,7 +411,7 @@ Configuration:
             
             # Show filtered profiles
             filtered_profiles = analyzer.get_filtered_profiles(app_filter, limit or 20, sort_by)
-            
+        
             if not filtered_profiles:
                 self.stdout.write('❌ No profile files found!')
                 self.stdout.write('   Try running: uv run manage.py profile generate')
