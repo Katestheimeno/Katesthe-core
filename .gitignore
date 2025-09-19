@@ -220,3 +220,9 @@ resume-cursor.sh
 DRF-starter.code-workspace
 **/staticfiles/
 profiles/
+
+
+# Ignore all migration files
+*/migrations/*.py
+# But do not ignore __init__.py
+!*/migrations/__init__.py
