@@ -83,11 +83,13 @@ services:
       DJANGO_ENV: ${DJANGO_ENV:-local}
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.django.local}
       DATABASE_URL: ${DATABASE_URL}
-      REDIS_URL: ${REDIS_URL}
-      CELERY_BROKER_URL: ${REDIS_URL}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CELERY_BROKER_URL: ${REDIS_URL:-redis://redis:6379/0}
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
     stop_grace_period: 30s
 
@@ -103,11 +105,13 @@ services:
       DJANGO_ENV: ${DJANGO_ENV:-local}
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.django.local}
       DATABASE_URL: ${DATABASE_URL}
-      REDIS_URL: ${REDIS_URL}
-      CELERY_BROKER_URL: ${REDIS_URL}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CELERY_BROKER_URL: ${REDIS_URL:-redis://redis:6379/0}
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
     stop_grace_period: 30s
   flower:
@@ -124,10 +128,11 @@ services:
       DJANGO_ENV: ${DJANGO_ENV:-local}
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.django.local}
       DATABASE_URL: ${DATABASE_URL}
-      REDIS_URL: ${REDIS_URL}
-      CELERY_BROKER_URL: ${REDIS_URL}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CELERY_BROKER_URL: ${REDIS_URL:-redis://redis:6379/0}
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     restart: unless-stopped
     stop_grace_period: 30s
   web_profiling:

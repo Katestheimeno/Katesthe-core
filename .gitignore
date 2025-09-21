@@ -226,3 +226,4 @@ profiles/
 */migrations/*.py
 # But do not ignore __init__.py
 !*/migrations/__init__.py
+logs/

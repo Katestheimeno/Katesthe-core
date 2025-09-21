@@ -141,7 +141,7 @@ class MainSettings(BaseSettings):
     POSTGRES_DB: str = Field(default="drf_starter", description="PostgreSQL database name")
     
     # Redis settings (direct environment variables)
-    REDIS_URL: str = Field(default="redis://localhost:6379/0", description="Redis connection URL")
+    REDIS_URL: str = Field(default="redis://redis:6379/0", description="Redis connection URL")
     
     # Email settings (direct environment variables)
     EMAIL_HOST: str = Field(default="localhost", description="SMTP host")
