@@ -17,14 +17,24 @@ and nested scope support.
 Usage:
   manage.py managefile <app_name> --layer LAYER --suffix SUFFIX [options]
 
+Valid layers:
+  To customize which layers can be managed by this command, override
+  the following variable in the django settings
+  `MANAGE_FILE_VALID_LAYERS`, 
+
+        MANAGE_FILE_VALID_LAYERS = [
+            'admin', 'controllers', 'handlers', 'models', 'permissions',
+            'selectors', 'serializers', 'services', 'urls', 'filters', 'management',
+            'utils',
+        ]
 
 Layer-specific default imports:
   Some layers (urls, controllers, models, admin, serializers) have default
   imports automatically added to the new file. You can customize these imports
-  globally by defining the `ADDFILE_LAYER_IMPORTS` dictionary in your Django settings,
+  globally by defining the `MANAGE_FILE_LAYER_IMPORTS` dictionary in your Django settings,
   for example:
 
-      ADDFILE_LAYER_IMPORTS = {
+      MANAGE_FILE_LAYER_IMPORTS = {
           "controllers": [
               "from rest_framework import viewsets, status",
               "from rest_framework.response import Response",
@@ -92,19 +102,23 @@ Examples:
             "from django_filters import rest_framework as filters",
             "from django.db.models import Q",
         ],
+        "utils": [
+            "from django.db import models",
+        ]
     }
 
     # Extendable imports: take from settings if provided, else use defaults
     LAYER_IMPORTS = getattr(
-        cfg, "ADDFILE_LAYER_IMPORTS", DEFAULT_LAYER_IMPORTS)
+        cfg, "MANAGE_FILE_LAYER_IMPORTS", DEFAULT_LAYER_IMPORTS)
     DEFAULT_VALID_LAYERS = [
         'admin', 'controllers', 'handlers', 'models', 'permissions',
         'selectors', 'serializers', 'services', 'urls', 'filters', 'management',
+        'utils',
     ]
 
     VALID_LAYERS = getattr(
         cfg,
-        "ADDFILE_VALID_LAYERS",
+        "MANAGE_FILE_VALID_LAYERS",
         DEFAULT_VALID_LAYERS
     )
 

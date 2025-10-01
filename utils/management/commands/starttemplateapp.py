@@ -15,26 +15,26 @@ class Command(BaseCommand):
     help = """Create a new Django app from templates with placeholder replacement.
 
 Usage:
-  manage.py createapp <app_name> [options]
+  manage.py starttemplateapp <app_name> [options]
 
 Examples:
   Create a new app in the current directory:
-    manage.py createapp blog
+    manage.py starttemplateapp blog
 
   Create a new app in a specific directory:
-    manage.py createapp blog --dir apps
+    manage.py starttemplateapp blog --dir apps
 
   Use a custom template:
-    manage.py createapp blog --template custom_template
+    manage.py starttemplateapp blog --template custom_template
 
   Force overwrite if the directory exists:
-    manage.py createapp blog --force
+    manage.py starttemplateapp blog --force
 
   Preview actions without creating files:
-    manage.py createapp blog --dry-run
+    manage.py starttemplateapp blog --dry-run
 
   Automatically add to PROJECT_APPS:
-    manage.py createapp blog --add-to-settings
+    manage.py starttemplateapp blog --add-to-settings
 """
 
     def create_parser(self, *args, **kwargs):

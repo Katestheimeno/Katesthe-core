@@ -79,6 +79,7 @@ THIRD_PARTY_PACKAGES = [
 PROJECT_APPS = [
     'accounts',
     "utils",
+    'notifications',
 ]
 
 
