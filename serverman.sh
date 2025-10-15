@@ -1,6 +1,6 @@
 #!/bin/bash
 # =========================================
-# Server Deployment Manager
+# server Deployment Manager
 # =========================================
 # A flexible deployment automation tool for containerized applications
 #
@@ -33,7 +33,7 @@ DEFAULT_SERVICE_READY_WAIT=15
 
 # Default Django/Python settings
 DEFAULT_PYTHON_CMD="python"
-DEFAULT_MANAGE_PY_PATH="manage.py"
+DEFAULT_MANAGE_PY_PATH="service/manage.py"
 DEFAULT_CELERY_APP="config"
 DEFAULT_GIT_BRANCH="main"
 
@@ -340,7 +340,8 @@ cmd_build() {
 cmd_start() {
     log_step "Starting services"
     
-    dc up -d
+    # Use COMPOSE_ANSI=never to disable progress animation
+    COMPOSE_ANSI=never dc up -d
     
     log_info "Waiting for services to be ready (${SERVICE_READY_WAIT}s)..."
     sleep "$SERVICE_READY_WAIT"
@@ -353,7 +354,8 @@ cmd_start() {
 cmd_stop() {
     log_step "Stopping services"
     
-    dc down
+    # Use COMPOSE_ANSI=never to disable progress animation
+    COMPOSE_ANSI=never dc down --remove-orphans
     
     log_success "Services stopped successfully"
 }
@@ -493,7 +495,7 @@ cmd_deploy() {
     cmd_build
     
     log_info "Starting services..."
-    dc up -d
+    COMPOSE_ANSI=never dc up -d
     
     log_info "Waiting for services to be ready (${SERVICE_READY_WAIT}s)..."
     sleep "$SERVICE_READY_WAIT"
@@ -542,17 +544,46 @@ cmd_update() {
     # Pull latest changes if in git repo
     if [[ -d "$PROJECT_ROOT/.git" ]] && [[ "${GIT_AUTO_PULL:-true}" == "true" ]]; then
         log_info "Pulling latest changes from $GIT_BRANCH..."
-        git pull origin "$GIT_BRANCH" || log_warning "Git pull failed or not on $GIT_BRANCH branch"
+        
+        if ! git pull origin "$GIT_BRANCH" 2>&1; then
+            echo ""
+            log_error "Git pull failed!"
+            log_warning "This could be due to:"
+            echo "  • Uncommitted local changes (check: git status)"
+            echo "  • Merge conflicts"
+            echo "  • Not on the correct branch"
+            echo "  • Network issues"
+            echo ""
+            log_info "Current git status:"
+            git status --short
+            echo ""
+            
+            read -rp "Do you want to continue update WITHOUT pulling changes? (yes/no): " continue_without_pull
+            
+            if [[ "$continue_without_pull" != "yes" ]]; then
+                log_info "Update cancelled. Fix git issues and try again."
+                echo ""
+                log_info "Common fixes:"
+                echo "  • Stash changes:  git stash && git pull && git stash pop"
+                echo "  • Commit changes: git add . && git commit -m 'local changes' && git pull"
+                echo "  • Discard changes: git restore . && git pull"
+                exit 0
+            fi
+            
+            log_warning "Continuing update without git pull..."
+        else
+            log_success "Successfully pulled latest changes"
+        fi
     fi
     
     cmd_build
     
     if [[ "${ZERO_DOWNTIME_DEPLOY:-true}" == "true" ]]; then
         log_info "Performing zero-downtime deployment..."
-        dc up -d --no-deps --build "$WEB_SERVICE"
+        COMPOSE_ANSI=never dc up -d --no-deps --build "$WEB_SERVICE"
     else
         log_info "Restarting all services..."
-        dc up -d --build
+        COMPOSE_ANSI=never dc up -d --build
     fi
     
     log_info "Waiting for new containers (${SERVICE_READY_WAIT}s)..."
@@ -578,7 +609,7 @@ cmd_monitor() {
         log_warning "Monitoring not enabled in config. Enabling temporarily..."
     fi
     
-    dc --profile monitoring up -d
+    COMPOSE_ANSI=never dc --profile monitoring up -d
     
     log_success "Services started with monitoring"
     log_info "Flower dashboard: http://localhost:${FLOWER_PORT:-5555}"
@@ -777,7 +808,7 @@ cmd_cleanup() {
 
 # Show help
 show_help() {
-    cat << EOF
+    echo -e "$(cat << EOF
 ${BOLD}$SCRIPT_NAME v$SCRIPT_VERSION${NC} - Server Deployment Manager
 
 ${BOLD}Usage:${NC}
@@ -848,6 +879,7 @@ ${BOLD}Environment:${NC}
 
 For more information, visit the documentation.
 EOF
+)"
 }
 
 # Main command router
