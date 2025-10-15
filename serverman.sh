@@ -14,9 +14,8 @@ set -eo pipefail  # Exit on error, fail on pipe errors
 IFS=$'\n\t'       # Better word splitting
 
 # Script metadata
-SCRIPT_VERSION="2.1.0"
+SCRIPT_VERSION="2.2.1"
 SCRIPT_NAME="ServerMan"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Configuration paths
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/serverman"
@@ -25,12 +24,18 @@ LOCK_FILE="/tmp/serverman.lock"
 
 # Default configuration values
 DEFAULT_COMPOSE_FILE="docker-compose.prod.yml"
-DEFAULT_ENV_FILE="service/.env.prod"
+DEFAULT_ENV_FILE=".env.prod"
 DEFAULT_PROJECT_NAME="production"
 DEFAULT_BACKUP_DIR="backups"
 DEFAULT_BACKUP_RETENTION=10
 DEFAULT_HEALTH_CHECK_TIMEOUT=30
 DEFAULT_SERVICE_READY_WAIT=15
+
+# Default Django/Python settings
+DEFAULT_PYTHON_CMD="python"
+DEFAULT_MANAGE_PY_PATH="manage.py"
+DEFAULT_CELERY_APP="config"
+DEFAULT_GIT_BRANCH="main"
 
 # Colors for output
 readonly RED='\033[0;31m'
@@ -81,6 +86,8 @@ cleanup() {
     if [[ -f "$LOCK_FILE" ]]; then
         rm -f "$LOCK_FILE"
     fi
+    # Return to previous directory using cd -
+    cd - >/dev/null 2>&1 || true
 }
 
 # Trap errors and interrupts
@@ -200,6 +207,15 @@ WORKER_SERVICE="celery_worker"
 SCHEDULER_SERVICE="celery_beat"
 DB_SERVICE="db"
 CACHE_SERVICE="redis"
+
+# Django/Python settings
+PYTHON_CMD="$DEFAULT_PYTHON_CMD"              # Python command (python, python3, python3.12, etc.)
+MANAGE_PY_PATH="$DEFAULT_MANAGE_PY_PATH"      # Path to Django's manage.py (relative to PROJECT_ROOT)
+CELERY_APP="$DEFAULT_CELERY_APP"              # Celery app module name
+
+# Git settings
+GIT_BRANCH="$DEFAULT_GIT_BRANCH"              # Branch to pull from on update
+GIT_AUTO_PULL=true                            # Automatically pull git changes on update
 
 # Monitoring settings
 MONITORING_ENABLED=false
@@ -410,7 +426,7 @@ cmd_migrate() {
         error_exit "Web service is not running. Start services first."
     fi
     
-    dc exec -T "$WEB_SERVICE" python service/manage.py migrate --noinput
+    dc exec -T "$WEB_SERVICE" "$PYTHON_CMD" "$MANAGE_PY_PATH" migrate --noinput
     
     log_success "Migrations completed successfully"
 }
@@ -419,7 +435,7 @@ cmd_migrate() {
 cmd_collect_static() {
     log_step "Collecting static files"
     
-    dc exec -T "$WEB_SERVICE" python service/manage.py collectstatic --noinput --clear
+    dc exec -T "$WEB_SERVICE" "$PYTHON_CMD" "$MANAGE_PY_PATH" collectstatic --noinput --clear
     
     log_success "Static files collected successfully"
 }
@@ -524,9 +540,9 @@ cmd_update() {
     fi
     
     # Pull latest changes if in git repo
-    if [[ -d "$PROJECT_ROOT/.git" ]]; then
-        log_info "Pulling latest changes..."
-        git pull origin main || log_warning "Git pull failed or not on main branch"
+    if [[ -d "$PROJECT_ROOT/.git" ]] && [[ "${GIT_AUTO_PULL:-true}" == "true" ]]; then
+        log_info "Pulling latest changes from $GIT_BRANCH..."
+        git pull origin "$GIT_BRANCH" || log_warning "Git pull failed or not on $GIT_BRANCH branch"
     fi
     
     cmd_build
@@ -574,7 +590,7 @@ cmd_monitor() {
 cmd_superuser() {
     log_step "Creating Django superuser"
     
-    dc exec "$WEB_SERVICE" python service/manage.py createsuperuser
+    dc exec "$WEB_SERVICE" "$PYTHON_CMD" "$MANAGE_PY_PATH" createsuperuser
 }
 
 # Health checks
@@ -597,7 +613,7 @@ cmd_health() {
     # Django system check
     echo ""
     log_info "Running Django system checks..."
-    if dc exec -T "$WEB_SERVICE" python service/manage.py check --deploy 2>&1 | grep -q "no issues"; then
+    if dc exec -T "$WEB_SERVICE" "$PYTHON_CMD" "$MANAGE_PY_PATH" check --deploy 2>&1 | grep -q "no issues"; then
         log_success "Django system check passed"
     else
         log_warning "Django system check reported issues"
@@ -607,7 +623,7 @@ cmd_health() {
     # Database connectivity
     echo ""
     log_info "Checking database connection..."
-    if dc exec -T "$WEB_SERVICE" python -c "
+    if dc exec -T "$WEB_SERVICE" "$PYTHON_CMD" -c "
 import django
 django.setup()
 from django.db import connection
@@ -623,7 +639,7 @@ print('OK')
     # Check Celery workers
     echo ""
     log_info "Checking Celery workers..."
-    if dc exec -T "$WORKER_SERVICE" python -m celery -A config inspect ping 2>/dev/null | grep -q "pong"; then
+    if dc exec -T "$WORKER_SERVICE" "$PYTHON_CMD" -m celery -A "$CELERY_APP" inspect ping 2>/dev/null | grep -q "pong"; then
         log_success "Celery workers responding"
     else
         log_warning "Celery workers not responding"
@@ -643,7 +659,7 @@ print('OK')
 cmd_migrations() {
     log_step "Migration Status"
     
-    dc exec -T "$WEB_SERVICE" python service/manage.py showmigrations --list
+    dc exec -T "$WEB_SERVICE" "$PYTHON_CMD" "$MANAGE_PY_PATH" showmigrations --list
 }
 
 # Shell access
@@ -660,7 +676,7 @@ cmd_shell() {
 cmd_django_shell() {
     log_info "Opening Django shell..."
     
-    dc exec "$WEB_SERVICE" python service/manage.py shell
+    dc exec "$WEB_SERVICE" "$PYTHON_CMD" "$MANAGE_PY_PATH" shell
 }
 
 # Show configuration
@@ -819,6 +835,13 @@ ${BOLD}Configuration:${NC}
   
   The script works from the project root defined during setup.
   You can run serverman from anywhere on the system.
+  
+  ${BOLD}Configurable settings:${NC}
+  - PROJECT_ROOT, COMPOSE_FILE, ENV_FILE, PROJECT_NAME
+  - PYTHON_CMD (python/python3), MANAGE_PY_PATH (service/manage.py)
+  - CELERY_APP (config), GIT_BRANCH (main), GIT_AUTO_PULL
+  - Service names, backup settings, monitoring, notifications
+  - And more... (edit config file to customize)
 
 ${BOLD}Environment:${NC}
   DEBUG=1 serverman [command]  # Enable debug logging
