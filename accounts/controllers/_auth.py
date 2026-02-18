@@ -286,7 +286,7 @@ class CustomActivationView(ActionViewMixin, APIView):
             'uid': uid,
             'token': token,
             'activation_url': f'/api/v1/auth/users/activation/{uid}/{token}/',
-            'app_name': 'Your App Name'
+            'app_name': 'Katesthe-core'
         }
         return render(request, 'accounts/activation.html', context)
     
