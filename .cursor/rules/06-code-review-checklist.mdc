@@ -1,0 +1,60 @@
+---
+description: Checklist to verify before submitting code
+globs: ["**/*.py"]
+alwaysApply: false
+---
+
+# ✅ Code Review Checklist
+
+Before marking any implementation as complete, verify:
+
+## Functionality
+
+- [ ] Code implements the requested feature completely
+- [ ] All edge cases are handled
+- [ ] Error handling is implemented
+- [ ] Input validation is in place
+
+## Testing
+
+- [ ] Tests follow the project structure convention
+- [ ] Tests cover happy path scenarios
+- [ ] Tests cover error cases
+- [ ] Tests cover edge cases
+- [ ] Test names are descriptive
+- [ ] Tests are independent and can run in any order
+
+## Code Quality
+
+- [ ] Code follows Django best practices
+- [ ] No duplicate code or logic
+- [ ] Existing model methods are reused
+- [ ] Imports are organized correctly
+- [ ] Code is readable and well-commented
+- [ ] No hardcoded values (use constants or config)
+
+## Models
+
+- [ ] Model fields are appropriate for data types
+- [ ] Relationships are properly defined
+- [ ] Model methods are utilized when available
+- [ ] Database migrations are created if needed
+
+## Documentation
+
+- [ ] Functions have docstrings
+- [ ] Complex logic is commented
+- [ ] README is updated if needed
+
+## Security
+
+- [ ] No sensitive data in code
+- [ ] Input is validated and sanitized
+- [ ] Authentication/authorization is checked
+- [ ] SQL injection prevention (use ORM)
+
+## Performance
+
+- [ ] No N+1 queries
+- [ ] Appropriate use of select_related/prefetch_related
+- [ ] Database indexes considered for frequent queries

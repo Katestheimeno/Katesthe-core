@@ -1,0 +1,248 @@
+---
+description: Guidelines for Django Filter usage
+globs: ["**/filters.py", "**/filters/**/*.py", "**/controllers/**/*.py"]
+alwaysApply: true
+---
+
+# 🔎 Filters Pattern (Django Filter)
+
+## What Are Filters?
+
+Filters provide a way to filter querysets based on request parameters. Use `django-filter` for complex filtering logic.
+
+## Filter Structure
+
+```python
+# filters/user.py or filters.py
+
+import django_filters
+from django.contrib.auth import get_user_model
+from django.db.models import Q
+
+User = get_user_model()
+
+
+class UserFilter(django_filters.FilterSet):
+    """
+    Filter users by various criteria.
+    
+    Query params:
+        ?email=john@example.com
+        ?is_active=true
+        ?created_after=2024-01-01
+        ?search=john
+    """
+    
+    # Exact match filters
+    email = django_filters.CharFilter(lookup_expr='iexact')
+    is_active = django_filters.BooleanFilter()
+    
+    # Date filters
+    created_after = django_filters.DateFilter(
+        field_name='date_joined',
+        lookup_expr='gte'
+    )
+    created_before = django_filters.DateFilter(
+        field_name='date_joined',
+        lookup_expr='lte'
+    )
+    
+    # Search across multiple fields
+    search = django_filters.CharFilter(method='filter_search')
+    
+    # Choice filter
+    role = django_filters.ChoiceFilter(
+        choices=[
+            ('admin', 'Admin'),
+            ('user', 'User'),
+            ('guest', 'Guest'),
+        ]
+    )
+    
+    class Meta:
+        model = User
+        fields = ['email', 'is_active', 'role']
+    
+    def filter_search(self, queryset, name, value):
+        """Search in multiple fields."""
+        return queryset.filter(
+            Q(email__icontains=value) |
+            Q(first_name__icontains=value) |
+            Q(last_name__icontains=value)
+        )
+
+
+class OrderFilter(django_filters.FilterSet):
+    """
+    Filter orders with complex criteria.
+    
+    Query params:
+        ?status=pending
+        ?min_total=100
+        ?max_total=500
+        ?customer=123
+    """
+    
+    status = django_filters.ChoiceFilter(
+        choices=[
+            ('pending', 'Pending'),
+            ('processing', 'Processing'),
+            ('completed', 'Completed'),
+            ('cancelled', 'Cancelled'),
+        ]
+    )
+    
+    # Range filters
+    min_total = django_filters.NumberFilter(
+        field_name='total',
+        lookup_expr='gte'
+    )
+    max_total = django_filters.NumberFilter(
+        field_name='total',
+        lookup_expr='lte'
+    )
+    
+    # Related field filter
+    customer = django_filters.NumberFilter(field_name='customer__id')
+    
+    # Date range
+    created_date = django_filters.DateFromToRangeFilter()
+    
+    class Meta:
+        model = Order
+        fields = ['status', 'customer']
+```
+
+## Usage in Controllers
+
+### With Django REST Framework
+
+```python
+# controllers/user/list.py
+
+from rest_framework.generics import ListAPIView
+from django_filters.rest_framework import DjangoFilterBackend
+from filters.user import UserFilter
+from serializers.user import UserSerializer
+
+
+class UserListView(ListAPIView):
+    """
+    List users with filtering support.
+    
+    Query params:
+        ?email=john@example.com
+        ?is_active=true
+        ?search=john
+        ?ordering=date_joined
+    """
+    serializer_class = UserSerializer
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
+    filterset_class = UserFilter
+    ordering_fields = ['date_joined', 'email']
+    ordering = ['-date_joined']
+    
+    def get_queryset(self):
+        return User.objects.all().select_related('profile')
+```
+
+### Manual Usage
+
+```python
+# In a view or service
+
+from filters.user import UserFilter
+
+def get_filtered_users(request):
+    """Get filtered users based on request params."""
+    queryset = User.objects.all()
+    filter_instance = UserFilter(request.GET, queryset=queryset)
+    
+    if filter_instance.is_valid():
+        return filter_instance.qs
+    
+    return queryset
+```
+
+## Common Filter Types
+
+### 1. **Exact Match**
+
+```python
+email = django_filters.CharFilter(lookup_expr='exact')
+```
+
+### 2. **Case-Insensitive Match**
+
+```python
+email = django_filters.CharFilter(lookup_expr='iexact')
+```
+
+### 3. **Contains**
+
+```python
+name = django_filters.CharFilter(lookup_expr='icontains')
+```
+
+### 4. **Date Ranges**
+
+```python
+date_range = django_filters.DateFromToRangeFilter(field_name='created_at')
+# Usage: ?date_range_after=2024-01-01&date_range_before=2024-12-31
+```
+
+### 5. **Number Ranges**
+
+```python
+price_min = django_filters.NumberFilter(field_name='price', lookup_expr='gte')
+price_max = django_filters.NumberFilter(field_name='price', lookup_expr='lte')
+```
+
+### 6. **Multiple Choice**
+
+```python
+status = django_filters.MultipleChoiceFilter(
+    choices=[('pending', 'Pending'), ('done', 'Done')]
+)
+# Usage: ?status=pending&status=done
+```
+
+### 7. **Boolean**
+
+```python
+is_active = django_filters.BooleanFilter()
+# Usage: ?is_active=true
+```
+
+### 8. **Custom Method**
+
+```python
+custom_filter = django_filters.CharFilter(method='custom_filtering_logic')
+
+def custom_filtering_logic(self, queryset, name, value):
+    # Your custom logic
+    return queryset.filter(some_complex_condition)
+```
+
+## File Organization
+
+```bash
+filters/
+├── __init__.py
+├── user.py          # User-related filters
+├── order.py         # Order-related filters
+└── product.py       # Product-related filters
+
+# OR single file
+filters.py
+```
+
+## Best Practices
+
+- Use descriptive filter names matching query params
+- Document available filters in docstrings
+- Combine filters with ordering and pagination
+- Use custom methods for complex filtering logic
+- Keep filters reusable across views
+- Validate filter inputs appropriately
+- Use appropriate lookup expressions

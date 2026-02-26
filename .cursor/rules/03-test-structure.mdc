@@ -1,0 +1,73 @@
+---
+description: Defines the test file structure and naming conventions
+globs: ["**/tests/**/*.py", "**/controllers/**/*.py", "**/services/**/*.py"]
+alwaysApply: true
+---
+
+# 🧪 Test Structure Convention
+
+## Test File Mapping
+
+Tests MUST mirror the exact structure of the source code:
+
+### Source → Test Mapping Rules
+
+| Source File | Test File |
+|------------|-----------|
+| `controllers/user/create.py` | `tests/controllers/user/test_create.py` |
+| `controllers/auth/login.py` | `tests/controllers/auth/test_login.py` |
+| `services/email/send.py` | `tests/services/email/test_send.py` |
+| `utils/validators.py` | `tests/utils/test_validators.py` |
+
+### Key Principles
+
+1. **Directory Structure:** Tests mirror source directory structure exactly
+2. **Naming Convention:** Prefix test files with `test_`
+3. **One-to-One Mapping:** Each source file has one corresponding test file
+4. **Module Organization:** Group related tests in the same structure as source
+
+### Example Structure
+
+```bash
+project/
+├── controllers/
+│   ├── user/
+│   │   ├── __init__.py
+│   │   ├── create.py
+│   │   ├── update.py
+│   │   └── delete.py
+│   └── auth/
+│       ├── login.py
+│       └── logout.py
+├── services/
+│   └── notification/
+│       └── email.py
+└── tests/
+    ├── controllers/
+    │   ├── user/
+    │   │   ├── __init__.py
+    │   │   ├── test_create.py
+    │   │   ├── test_update.py
+    │   │   └── test_delete.py
+    │   └── auth/
+    │       ├── test_login.py
+    │       └── test_logout.py
+    └── services/
+        └── notification/
+            └── test_email.py
+```
+
+## When Creating Tests
+
+1. **Identify the source file** you're testing
+2. **Replicate the directory path** under `tests/`
+3. **Add `test_` prefix** to the filename
+4. **Maintain the same module hierarchy**
+
+## Before Writing Tests
+
+Always confirm:
+
+- The exact source file path
+- The corresponding test file location
+- Whether the test file already exists

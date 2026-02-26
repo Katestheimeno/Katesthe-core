@@ -3,6 +3,7 @@ Static, media, locale, and SQLite paths for the project.
 Path: config/settings/paths.py
 """
 
+import os
 from pathlib import Path
 from config.settings.config import settings
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -16,7 +17,7 @@ imports += ["MEDIA_URL"]
 MEDIA_URL = "/media/"  # Public URL to access uploaded media
 
 imports += ["MEDIA_ROOT"]
-MEDIA_ROOT = BASE_DIR / "media"  # Local directory to store uploaded media
+MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT", str(BASE_DIR / "media")))  # env override for Docker
 
 
 # ---------------------------
@@ -28,7 +29,7 @@ imports += ["STATIC_URL"]
 STATIC_URL = "/static/"  # Public URL to access static files
 
 imports += ["STATIC_ROOT"]
-STATIC_ROOT = BASE_DIR / "staticfiles"
+STATIC_ROOT = Path(os.environ.get("STATIC_ROOT", str(BASE_DIR / "staticfiles")))  # env override for Docker
 # Directory where Django will copy all static files when running `collectstatic`
 
 imports += ["STATICFILES_DIRS"]

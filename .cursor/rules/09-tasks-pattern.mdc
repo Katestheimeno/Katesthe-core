@@ -1,0 +1,257 @@
+---
+description: Guidelines for background tasks with Celery or similar
+globs: ["**/tasks.py", "**/tasks/**/*.py"]
+alwaysApply: true
+---
+
+# ⚡ Tasks (Background Jobs) Pattern
+
+## When to Use Tasks
+
+Use background tasks for:
+
+- Sending emails
+- Processing large files
+- Generating reports
+- External API calls
+- Long-running computations
+- Scheduled/periodic jobs
+
+## Task Structure (Celery Example)
+
+```python
+# tasks/email.py
+
+from celery import shared_task
+from django.core.mail import send_mail
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+
+@shared_task(bind=True, max_retries=3)
+def send_welcome_email_task(self, user_id: int):
+    """
+    Send welcome email to new user.
+    
+    Args:
+        user_id: The ID of the user to send email to
+        
+    Retries:
+        3 times with exponential backoff
+    """
+    try:
+        user = User.objects.get(id=user_id)
+        
+        send_mail(
+            subject='Welcome to Our Platform',
+            message=f'Hello {user.first_name}, welcome!',
+            from_email='noreply@example.com',
+            recipient_list=[user.email],
+            fail_silently=False,
+        )
+        
+    except User.DoesNotExist:
+        # Don't retry if user doesn't exist
+        raise
+        
+    except Exception as exc:
+        # Retry with exponential backoff
+        raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))
+
+
+@shared_task
+def process_csv_file_task(file_path: str, user_id: int):
+    """
+    Process uploaded CSV file in background.
+    
+    Args:
+        file_path: Path to the CSV file
+        user_id: ID of user who uploaded the file
+    """
+    import csv
+    from models import DataImport
+    
+    with open(file_path, 'r') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            # Process each row
+            DataImport.objects.create(
+                user_id=user_id,
+                data=row
+            )
+
+
+@shared_task
+def cleanup_old_sessions_task():
+    """
+    Periodic task to cleanup old sessions.
+    Scheduled to run daily.
+    """
+    from django.contrib.sessions.models import Session
+    from django.utils import timezone
+    
+    Session.objects.filter(
+        expire_date__lt=timezone.now()
+    ).delete()
+```
+
+## Key Principles
+
+### 1. **Make Tasks Idempotent**
+
+Tasks should produce the same result even if run multiple times:
+
+```python
+@shared_task
+def process_order_task(order_id: int):
+    """Process order - idempotent."""
+    order = Order.objects.get(id=order_id)
+    
+    # Check if already processed
+    if order.status == 'processed':
+        return f"Order {order_id} already processed"
+    
+    # Process order
+    order.status = 'processed'
+    order.save()
+    
+    return f"Order {order_id} processed successfully"
+```
+
+### 2. **Use Appropriate Retry Strategies**
+
+```python
+@shared_task(
+    bind=True,
+    max_retries=3,
+    default_retry_delay=60,  # 60 seconds
+)
+def call_external_api_task(self, data):
+    """Call external API with retry logic."""
+    try:
+        response = requests.post('https://api.example.com', json=data)
+        response.raise_for_status()
+        return response.json()
+        
+    except requests.RequestException as exc:
+        # Exponential backoff: 60s, 120s, 240s
+        raise self.retry(
+            exc=exc,
+            countdown=60 * (2 ** self.request.retries)
+        )
+```
+
+### 3. **Pass Primitive Arguments**
+
+```python
+# Good: Pass IDs
+@shared_task
+def process_user_task(user_id: int):
+    user = User.objects.get(id=user_id)
+    ...
+
+# Bad: Don't pass model instances
+@shared_task
+def process_user_task(user):  # Don't do this!
+    ...
+```
+
+### 4. **Log Task Execution**
+
+```python
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+@shared_task
+def important_task(param):
+    """Important background task."""
+    logger.info(f"Starting important_task with param={param}")
+    
+    try:
+        # Task logic
+        result = do_something(param)
+        logger.info(f"Completed important_task: {result}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Failed important_task: {e}", exc_info=True)
+        raise
+```
+
+## Task Organization
+
+```bash
+tasks/
+├── __init__.py
+├── email.py         # Email-related tasks
+├── reports.py       # Report generation tasks
+├── cleanup.py       # Cleanup/maintenance tasks
+└── processing.py    # Data processing tasks
+
+# OR single file for smaller apps
+tasks.py
+```
+
+## Calling Tasks
+
+### From Services
+
+```python
+# services/user.py
+
+def create_user_service(email, password):
+    """Create user and send welcome email."""
+    user = User.objects.create_user(email=email, password=password)
+    
+    # Trigger async task
+    from tasks.email import send_welcome_email_task
+    send_welcome_email_task.delay(user.id)
+    
+    return user
+```
+
+### From Signals
+
+```python
+# handlers/order.py
+
+@receiver(post_save, sender=Order)
+def order_created_handler(sender, instance, created, **kwargs):
+    if created:
+        from tasks.order import process_order_task
+        process_order_task.delay(instance.id)
+```
+
+## Periodic Tasks (Celery Beat)
+
+```python
+# celery.py or celeryconfig.py
+
+from celery.schedules import crontab
+
+app.conf.beat_schedule = {
+    'cleanup-sessions-daily': {
+        'task': 'tasks.cleanup.cleanup_old_sessions_task',
+        'schedule': crontab(hour=2, minute=0),  # Run at 2 AM
+    },
+    'send-report-weekly': {
+        'task': 'tasks.reports.send_weekly_report_task',
+        'schedule': crontab(day_of_week=1, hour=9, minute=0),  # Monday 9 AM
+    },
+}
+```
+
+## Best Practices
+
+- Keep tasks focused on a single responsibility
+- Make tasks idempotent when possible
+- Use appropriate retry strategies
+- Pass primitive types (IDs, strings, numbers)
+- Log task execution for debugging
+- Set reasonable timeout values
+- Use task routing for different queues
+- Monitor task execution and failures
+- Document task dependencies and side effects

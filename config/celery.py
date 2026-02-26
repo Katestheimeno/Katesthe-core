@@ -1,5 +1,5 @@
 """
-Celery application instance used by worker/beat/flower.
+Celery application instance used by worker/beat.
 Path: config/celery.py
 """
 

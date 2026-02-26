@@ -1,0 +1,4 @@
+; PgBouncer userlist: "username" "password"
+; Must match POSTGRES_USER / POSTGRES_PASSWORD used by the db service.
+; auth_type=plain sends these to the backend as-is.
+"postgres" "postgres"

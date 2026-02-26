@@ -1,0 +1,72 @@
+---
+description: Ensures models are read and understood before working with them
+globs: ["**/models.py", "**/models/**/*.py", "**/controllers/**/*.py", "**/services/**/*.py", "**/serializers/**/*.py"]
+alwaysApply: true
+---
+
+# 📚 Django Model Context Rule
+
+## MANDATORY: Read Models Before Using Them
+
+Whenever you need to work with a Django model, you MUST:
+
+### 1. **Read the Model File**
+
+- Locate and read the complete model definition
+- Understand all fields, their types, and constraints
+- Note any custom validators or field options
+
+### 2. **Identify Existing Methods**
+
+- Check for custom model methods
+- Look for class methods and static methods
+- Review property definitions
+- Check Meta class configurations
+
+### 3. **Use Existing Methods**
+
+- ALWAYS prefer existing model methods over creating new ones
+- If similar functionality exists, reuse it
+- Only create new methods if truly necessary
+
+### 4. **Understand Relationships**
+
+- Identify ForeignKey, ManyToMany, OneToOne relationships
+- Understand related_name configurations
+- Check for any custom managers
+
+## Example Workflow
+
+**Before:** Writing a controller that uses the User model
+
+**You Must:**
+
+1. Read `models/user.py` (or wherever User is defined)
+2. Identify fields: `email`, `username`, `first_name`, `last_name`, `is_active`, etc.
+3. Note existing methods: `get_full_name()`, `create_auth_token()`, etc.
+4. Use these methods in your implementation
+
+**Good:**
+
+```python
+user.create_auth_token()  # Uses existing model method
+full_name = user.get_full_name()
+```
+
+**Bad:**
+
+```python
+# Creating duplicate functionality
+token = Token.objects.create(user=user)  # When create_auth_token() exists
+full_name = f"{user.first_name} {user.last_name}"  # When get_full_name() exists
+```
+
+## When to Ask
+
+If you're unsure about:
+
+- Which model file to read
+- Whether a method exists for a specific purpose
+- How relationships should be accessed
+
+ASK THE USER before proceeding.

@@ -1,0 +1,57 @@
+---
+description: Ensures Cursor understands the full project context before adding features or creating tests.
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# 🧩 Context-Aware Development Rule
+
+Whenever you are asked to **add a feature**, **fix functionality**, or **create any test**, always follow this process:
+
+## 1. Load Context First
+
+Before writing any code, **analyze the relevant parts of the project**, including:
+
+- The **models** related to the feature (check relationships, signals, and managers).
+- The **serializers** (how data is exposed or validated).
+- The **services** or **selectors** (where the business logic lives).
+- Any **factories** under `tests/factories/` (for test data generation).
+- The **permissions**, **viewsets**, and **urls** related to the module.
+
+Only start writing code *after* you’ve read and understood the relevant files.
+
+## 2. Respect the Existing Architecture
+
+- Use the project’s existing **Django REST Framework patterns** (e.g. ViewSets, Serializers, Services, Selectors).
+- Follow the **same naming conventions and directory structure** as existing modules.
+- Avoid duplicating logic — reuse services or serializers if available.
+- Use **factories** instead of manually creating model instances in tests.
+
+## 3. For Tests
+
+When creating or fixing tests:
+
+- Automatically load and use the **appropriate factory classes** (e.g. `UserFactory`, `PostFactory`, etc.).
+- If a test requires related objects (e.g. a Post needs a User), **read the model definitions** to understand the relationship and use it correctly.
+- Keep tests isolated and descriptive.
+- Respect the current structure of the test suite (`controllers/`, `models/`, `serializers/`, `services/`, etc.).
+- If unsure about how a model or service works, read it first and confirm assumptions before writing code.
+
+## 4. Confirm Before Creating New Code
+
+If functionality, models, or serializers are missing:
+
+- **Pause and ask for approval** before generating new code or creating new files.
+
+## 5. Continuous Context Awareness
+
+Always maintain awareness of:
+
+- Which app you’re working in (`accounts`, `utils`, etc.)
+- The relationship between apps.
+- The overall data flow (models → services → serializers → views → tests).
+
+---
+
+**Goal:**  
+To ensure Cursor always acts contextually — understanding all dependencies before generating or modifying code — resulting in consistent, architecture-aligned, and reliable contributions.

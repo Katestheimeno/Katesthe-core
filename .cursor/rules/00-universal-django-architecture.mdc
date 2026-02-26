@@ -1,0 +1,418 @@
+---
+description: Universal Django architecture patterns, decision points, and context understanding rules
+globs: ["**/*.py"]
+alwaysApply: true
+---
+
+# 🏗️ Universal Django Architecture Rules
+
+## CRITICAL: Context Understanding Before Any Action
+
+Before writing ANY code, modifying ANY file, or making ANY architectural decision, you MUST:
+
+### 1. **Understand the Project Structure**
+
+**MANDATORY Discovery Steps:**
+
+1. **Identify the Django Project Type:**
+   - Is this a monolith or microservices?
+   - What apps exist? (`python manage.py showmigrations` or explore `settings.INSTALLED_APPS`)
+   - What's the overall architecture pattern? (MVC, MVT, layered architecture, domain-driven?)
+
+2. **Map the Architecture Layers:**
+   - Where are models? (`models/`, `models.py`, or app-level?)
+   - Where are views/controllers? (`views/`, `viewsets/`, `controllers/`, `api/`?)
+   - Where is business logic? (`services/`, `managers/`, `utils/`?)
+   - Where are queries? (`selectors/`, `queries/`, or inline in views?)
+   - Where are serializers? (`serializers/`, `api/serializers/`?)
+
+3. **Identify Patterns in Use:**
+   - Are they using ViewSets or APIViews?
+   - Are they using serializers or Pydantic?
+   - Do they have a service layer?
+   - Do they use selectors/query objects?
+   - How are permissions structured?
+   - How are signals/handlers organized?
+
+4. **Understand Domain Organization:**
+   - Is it app-based (one app = one domain)?
+   - Is it feature-based (features span apps)?
+   - Are models organized by domain or by app?
+
+### 2. **STOP AND ASK Decision Points**
+
+**You MUST stop and ask the user before:**
+
+#### A. Creating New Architectural Components
+
+- **New app creation:** "Should I create a new Django app for [domain], or add this to existing [app]?"
+- **New layer introduction:** "I see you use [pattern]. Should I add a [new layer] or follow existing patterns?"
+- **Pattern deviation:** "I notice the project uses [pattern A], but this feature might benefit from [pattern B]. Should I follow existing patterns or introduce [pattern B]?"
+
+#### B. Breaking Existing Patterns
+
+- **Different structure:** "I see [existing pattern] is used for similar features. Should I follow the same pattern or use a different approach?"
+- **Missing components:** "I notice [component type] doesn't exist yet. Should I create it following the project's patterns, or is there a reason it's not used?"
+
+#### C. Database/Model Decisions
+
+- **New relationships:** "Should I add a ForeignKey, ManyToMany, or OneToOne relationship here? What's the expected cardinality?"
+- **Field choices:** "Should this be a CharField, TextField, or JSONField? What's the expected data size and query pattern?"
+- **Migration strategy:** "This change requires a migration. Should I create a data migration, schema migration, or both?"
+
+#### D. Business Logic Placement
+
+- **Where to put logic:** "Should this logic go in a service, model method, manager, or selector?"
+- **Transaction boundaries:** "Does this operation need to be atomic? Should I wrap it in a transaction?"
+
+#### E. Testing Strategy
+
+- **Test structure:** "I see tests are organized as [pattern]. Should I follow the same structure?"
+- **Test coverage:** "What level of test coverage is expected? Should I test [specific scenarios]?"
+
+### 3. **Universal Django Architecture Patterns**
+
+#### Pattern Recognition Checklist
+
+When working with any Django project, identify which patterns are in use:
+
+**Models:**
+
+- [ ] Are models in `models.py` or `models/` directory?
+- [ ] Do models use custom managers?
+- [ ] Are there model mixins being used?
+- [ ] How are relationships defined (related_name patterns)?
+
+**Views/Controllers:**
+
+- [ ] Function-based views (FBV) or Class-based views (CBV)?
+- [ ] ViewSets (DRF) or APIViews?
+- [ ] Are there custom base classes?
+- [ ] How are permissions applied?
+
+**Business Logic:**
+
+- [ ] Service layer exists? (`services/`, `business/`, `logic/`?)
+- [ ] Managers used for business logic?
+- [ ] Utils/helpers for shared logic?
+- [ ] Where are complex operations handled?
+
+**Data Access:**
+
+- [ ] Selectors/Query objects pattern?
+- [ ] Repository pattern?
+- [ ] Direct ORM in views/services?
+- [ ] Query optimization patterns?
+
+**Serialization:**
+
+- [ ] DRF Serializers?
+- [ ] Pydantic schemas? (in `schemas/` directory)
+- [ ] Hybrid approach (Pydantic + DRF)?
+- [ ] Custom serialization?
+- [ ] Action-based serializers (create/update/detail)?
+
+**Testing:**
+
+- [ ] Factory pattern (Factory Boy)?
+- [ ] Fixtures?
+- [ ] Test structure mirrors source?
+- [ ] Integration vs unit tests?
+
+### 4. **Architecture Alignment Rules**
+
+#### Rule 1: Follow Existing Patterns
+
+**ALWAYS:**
+
+- Use the same directory structure as existing code
+- Follow the same naming conventions
+- Use the same architectural layers
+- Match the same code organization
+
+**Example:**
+If you see:
+
+```
+app/
+├── models/
+│   └── user.py
+├── services/
+│   └── user.py
+├── serializers/
+│   └── user.py
+└── views/
+    └── user.py
+```
+
+Then create new features following the SAME structure.
+
+#### Rule 2: Layer Responsibilities
+
+**Models:**
+
+- Data structure and relationships ONLY
+- Basic validation (field-level)
+- `__str__`, `__repr__` methods
+- Custom managers for common queries
+- Model methods for model-specific operations
+
+**Services/Business Logic:**
+
+- Complex business rules
+- Multi-step operations
+- Transaction management
+- Cross-model operations
+- External API calls
+- Background task triggers
+
+**Selectors/Queries:**
+
+- ALL read operations
+- Query optimization
+- Complex filtering
+- Aggregations
+- Annotations
+
+**Views/Controllers:**
+
+- HTTP request/response handling
+- Authentication/authorization checks
+- Input validation (via serializers)
+- Calling services/selectors
+- Response formatting
+
+**Serializers:**
+
+- Input validation
+- Output serialization
+- Field transformation
+- Nested serialization
+- Custom validation logic
+
+#### Rule 3: Don't Mix Concerns
+
+**NEVER:**
+
+- Put business logic in models (beyond model-specific operations)
+- Put database queries directly in views (use selectors/services)
+- Put HTTP logic in services (services should be framework-agnostic)
+- Put business logic in serializers (validation only)
+- Put database queries in serializers
+
+### 5. **Context Gathering Workflow**
+
+**Before ANY code change:**
+
+1. **Read Related Files:**
+
+   ```
+   - Models involved (relationships, methods, managers)
+   - Existing serializers (validation patterns)
+   - Existing services (business logic patterns)
+   - Existing selectors (query patterns)
+   - Existing views/controllers (HTTP patterns)
+   - Existing tests (testing patterns)
+   - Existing permissions (authorization patterns)
+   ```
+
+2. **Identify Similar Features:**
+   - Find similar implementations
+   - Understand the pattern used
+   - Reuse existing patterns
+
+3. **Check Dependencies:**
+   - What models are related?
+   - What services might be affected?
+   - What signals/handlers exist?
+   - What tasks might need updating?
+
+4. **Understand Data Flow:**
+
+   ```
+   Request → View → Serializer → Service → Selector → Model → Database
+                ↓
+            Response ← Serializer ← Service ← Selector ← Model
+   ```
+
+### 6. **Universal Django Best Practices**
+
+#### Database
+
+- **Always use ORM:** Never write raw SQL unless absolutely necessary
+- **Use migrations:** Always create migrations for schema changes
+- **Index strategically:** Add indexes for frequently queried fields
+- **Optimize queries:** Use `select_related()` and `prefetch_related()`
+- **Avoid N+1 queries:** Always check query counts in development
+
+#### Security
+
+- **Validate all input:** Use serializers or forms
+- **Use parameterized queries:** ORM handles this automatically
+- **Check permissions:** Always verify user permissions
+- **Sanitize output:** Don't expose sensitive data
+- **Use environment variables:** Never hardcode secrets
+
+#### Performance
+
+- **Lazy evaluation:** Understand QuerySet evaluation
+- **Caching:** Use Django cache framework appropriately
+- **Background tasks:** Use Celery for long-running operations
+- **Database optimization:** Monitor and optimize slow queries
+- **Connection pooling:** Configure appropriately for production
+
+#### Testing
+
+- **Test structure:** Mirror source structure
+- **Use factories:** Don't manually create test data
+- **Test isolation:** Each test should be independent
+- **Coverage:** Aim for high coverage of business logic
+- **Integration tests:** Test full request/response cycles
+
+### 7. **When Architecture is Unclear**
+
+If you cannot determine the architecture pattern:
+
+1. **STOP and ASK:**
+   - "I'm trying to understand the project structure. Can you clarify [specific question]?"
+   - "I see [pattern A] in some places and [pattern B] in others. Which should I follow?"
+   - "This feature could be implemented in [way 1] or [way 2]. Which aligns better with your architecture?"
+
+2. **Document Assumptions:**
+   - State what you've observed
+   - Explain your reasoning
+   - Ask for confirmation
+
+3. **Propose a Pattern:**
+   - Suggest a pattern based on best practices
+   - Explain why it fits
+   - Ask for approval
+
+### 8. **Code Generation Rules**
+
+**Before generating code:**
+
+1. ✅ Identified the correct layer (model/service/view/serializer)
+2. ✅ Found similar existing code to follow
+3. ✅ Understood the data flow
+4. ✅ Identified all dependencies
+5. ✅ Confirmed the pattern to use
+
+**During code generation:**
+
+1. ✅ Follow existing naming conventions
+2. ✅ Use existing patterns and structures
+3. ✅ Include proper error handling
+4. ✅ Add appropriate type hints
+5. ✅ Include docstrings
+
+**After code generation:**
+
+1. ✅ Verify it follows project patterns
+2. ✅ Check for missing dependencies
+3. ✅ Ensure proper imports
+4. ✅ Verify test structure matches
+5. ✅ Confirm migrations if needed
+
+### 9. **Decision Tree for Common Scenarios**
+
+#### Scenario: "Add a new feature"
+
+```
+1. Identify domain/app
+   ↓
+2. Check existing structure
+   ↓
+3. Identify required layers
+   ↓
+4. Check for similar features
+   ↓
+5. Follow existing patterns
+   ↓
+6. Create/update files in correct order:
+   - Models (if new data)
+   - Migrations
+   - Selectors (if read operations)
+   - Services (if business logic)
+   - Serializers
+   - Views/Controllers
+   - URLs
+   - Permissions (if needed)
+   - Tests
+```
+
+#### Scenario: "Fix a bug"
+
+```
+1. Understand the bug
+   ↓
+2. Locate the problematic code
+   ↓
+3. Understand the expected behavior
+   ↓
+4. Check related code (models, services, etc.)
+   ↓
+5. Identify root cause
+   ↓
+6. Fix following existing patterns
+   ↓
+7. Add/update tests
+```
+
+#### Scenario: "Refactor code"
+
+```
+1. Understand current implementation
+   ↓
+2. Identify what needs refactoring
+   ↓
+3. Check if refactoring aligns with architecture
+   ↓
+4. STOP AND ASK if unsure
+   ↓
+5. Refactor maintaining existing patterns
+   ↓
+6. Update all related code
+   ↓
+7. Update tests
+```
+
+### 10. **Red Flags - When to STOP**
+
+**STOP immediately and ask if you encounter:**
+
+- ❌ No clear pattern in the codebase
+- ❌ Conflicting patterns in different parts
+- ❌ Missing architectural components (no services but complex logic)
+- ❌ Unclear where code should live
+- ❌ Breaking changes required
+- ❌ Major architectural decisions needed
+- ❌ Unclear business requirements
+- ❌ Security concerns
+- ❌ Performance implications unclear
+
+### 11. **Questions to Always Ask Yourself**
+
+Before writing code, answer:
+
+1. **Where does this code belong?** (Which layer, which file?)
+2. **What pattern does this follow?** (Is there existing similar code?)
+3. **What are the dependencies?** (What models/services/selectors are needed?)
+4. **What's the data flow?** (How does data move through the system?)
+5. **What could go wrong?** (Error cases, edge cases, validation?)
+6. **How is this tested?** (What test structure should I follow?)
+7. **Does this align with architecture?** (Am I following existing patterns?)
+
+---
+
+## Summary
+
+**Golden Rules:**
+
+1. **Understand before acting:** Always gather context first
+2. **Follow existing patterns:** Don't introduce new patterns without approval
+3. **Ask when uncertain:** Better to ask than assume
+4. **Respect layers:** Keep concerns separated
+5. **Maintain consistency:** Follow the same patterns throughout
+
+**Remember:** Every Django project has its own architecture. Your job is to understand it, respect it, and work within it—not to impose your own patterns.

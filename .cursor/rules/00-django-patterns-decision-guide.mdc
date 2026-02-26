@@ -1,0 +1,545 @@
+---
+description: Django-specific pattern decision guide and conventions
+globs: ["**/*.py"]
+alwaysApply: true
+---
+
+# 🎯 Django Pattern Decision Guide
+
+## When to Use What: Django Component Selection
+
+This guide helps you make the right architectural decisions in Django projects by understanding when to use each component.
+
+### 1. Models: When to Add What
+
+#### Custom Managers vs Model Methods
+
+**Use Custom Managers when:**
+
+- You need queryset-level operations
+- You want to chain filters
+- You need to modify QuerySets before evaluation
+- You want reusable query logic
+
+```python
+# Manager: For queryset operations
+class ActiveUserManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(is_active=True)
+
+class User(models.Model):
+    objects = ActiveUserManager()
+    
+# Usage: User.objects.active()  # Chainable
+```
+
+**Use Model Methods when:**
+
+- Operation is specific to a single instance
+- You need instance-level logic
+- You're modifying the instance itself
+
+```python
+# Model Method: For instance operations
+class User(models.Model):
+    def get_full_name(self):
+        return f"{self.first_name} {self.last_name}"
+    
+    def activate(self):
+        self.is_active = True
+        self.save()
+```
+
+**STOP AND ASK if:**
+
+- You're unsure whether logic should be in manager or method
+- The operation affects multiple instances but isn't a queryset operation
+
+#### Field Types: Decision Guide
+
+**CharField vs TextField:**
+
+- **CharField:** Fixed or bounded length (max_length required)
+  - Names, emails, slugs, codes
+  - Better for indexing and searching
+- **TextField:** Unlimited or very long text
+  - Descriptions, content, notes
+  - Not indexed by default
+
+**STOP AND ASK if:**
+
+- You're unsure about expected data length
+- The field might grow beyond initial expectations
+
+**ForeignKey vs ManyToMany vs OneToOne:**
+
+**ForeignKey (Many-to-One):**
+
+- One model belongs to another
+- Example: `Post.user` (many posts, one user)
+- Use `related_name` for reverse access
+
+**ManyToMany:**
+
+- Many-to-many relationship
+- Example: `Post.tags` (posts can have many tags, tags can be on many posts)
+- Consider through model if you need extra data on relationship
+
+**OneToOne:**
+
+- One-to-one relationship
+- Example: `User.profile` (one user, one profile)
+- Often used for extending models
+
+**STOP AND ASK if:**
+
+- Relationship cardinality is unclear
+- You need extra fields on the relationship (might need through model)
+- You're considering OneToOne vs ForeignKey with unique=True
+
+#### JSONField vs Separate Model
+
+**Use JSONField when:**
+
+- Data structure is flexible/variable
+- Data is rarely queried directly
+- Schema changes frequently
+- Data is mostly read as a whole
+
+**Use Separate Model when:**
+
+- Data needs to be queried/filtered
+- Relationships are needed
+- Data structure is stable
+- You need database-level constraints
+
+**STOP AND ASK if:**
+
+- You need to query JSON data but also need flexibility
+- Data structure might evolve significantly
+
+### 2. Views: FBV vs CBV vs ViewSet
+
+#### Function-Based Views (FBV)
+
+**Use when:**
+
+- Simple, one-off views
+- Custom logic that doesn't fit CBV patterns
+- Legacy codebase using FBV
+- Very specific requirements
+
+```python
+@api_view(['GET', 'POST'])
+def user_detail(request, pk):
+    # Simple, straightforward logic
+    pass
+```
+
+#### Class-Based Views (CBV/APIView)
+
+**Use when:**
+
+- You need method-based logic (GET, POST, etc.)
+- You want to share common logic via mixins
+- You need custom permission/authentication per method
+- You're building REST API with DRF
+
+```python
+class UserDetailView(APIView):
+    def get(self, request, pk):
+        # GET logic
+        pass
+    
+    def post(self, request, pk):
+        # POST logic
+        pass
+```
+
+#### ViewSets (ModelViewSet, ReadOnlyViewSet)
+
+**Use when:**
+
+- Full CRUD operations needed
+- Standard REST patterns
+- You want automatic URL routing
+- You're building a standard API
+
+```python
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    # Automatic: list, create, retrieve, update, destroy
+```
+
+**STOP AND ASK if:**
+
+- Project uses a specific pattern consistently
+- You're unsure which provides better maintainability
+- You need custom actions that might fit better in one pattern
+
+### 3. Business Logic: Where Does It Go?
+
+#### Decision Tree
+
+```
+Is it model-specific?
+├─ Yes → Model method or property
+│
+├─ No → Is it a query/read operation?
+│   ├─ Yes → Selector/Query object
+│   │
+│   └─ No → Is it a write operation?
+│       ├─ Yes → Service layer
+│       │
+│       └─ No → Is it reusable utility?
+│           └─ Yes → Utils/helpers
+```
+
+#### Service Layer Pattern
+
+**Use Services when:**
+
+- Complex business logic
+- Multi-step operations
+- Cross-model operations
+- Transaction management needed
+- External API calls
+- Background task triggers
+
+```python
+class UserService:
+    @staticmethod
+    @transaction.atomic
+    def create_user_with_profile(email, password, profile_data):
+        user = User.objects.create_user(email=email, password=password)
+        Profile.objects.create(user=user, **profile_data)
+        send_welcome_email.delay(user.id)
+        return user
+```
+
+#### Selector/Query Pattern
+
+**Use Selectors when:**
+
+- All read operations
+- Complex queries
+- Query optimization needed
+- Reusable query logic
+
+```python
+def get_active_users_with_profiles():
+    return User.objects.filter(
+        is_active=True
+    ).select_related('profile').prefetch_related('groups')
+```
+
+**STOP AND ASK if:**
+
+- Logic doesn't clearly fit one category
+- You're unsure about transaction boundaries
+- Operation spans multiple concerns
+
+### 4. Serializers: Action-Based vs Single Serializer
+
+#### Action-Based Serializers (Recommended for APIs)
+
+**Use when:**
+
+- Different fields needed for create vs update vs list
+- Different validation rules per action
+- Performance optimization (list vs detail)
+- Security (hide sensitive fields in list)
+
+```python
+# serializers/user.py
+class UserCreateSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True)
+    # Fields for creation
+
+class UserUpdateSerializer(serializers.ModelSerializer):
+    # Fields for update (maybe email is read-only)
+
+class UserListSerializer(serializers.ModelSerializer):
+    # Minimal fields for list view
+
+class UserDetailSerializer(serializers.ModelSerializer):
+    # All fields for detail view
+```
+
+#### Single Serializer
+
+**Use when:**
+
+- Simple CRUD with same fields
+- No performance concerns
+- Same validation for all actions
+- Prototyping/quick development
+
+**STOP AND ASK if:**
+
+- Project consistently uses action-based serializers
+- You need different fields but unsure about structure
+
+### 5. Permissions: View-Level vs Object-Level
+
+#### View-Level Permissions (`has_permission`)
+
+**Use when:**
+
+- Permission applies to entire view
+- Based on user attributes (is_staff, is_active)
+- Based on user relationships (has_subscription)
+- General access control
+
+```python
+class IsActiveUser(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_active
+```
+
+#### Object-Level Permissions (`has_object_permission`)
+
+**Use when:**
+
+- Permission depends on specific object
+- Ownership checks needed
+- Object-specific rules
+- Fine-grained access control
+
+```python
+class IsOwner(permissions.BasePermission):
+    def has_object_permission(self, request, view, obj):
+        return obj.user == request.user
+```
+
+**STOP AND ASK if:**
+
+- You need both view and object level checks
+- Permission logic is complex
+- You're unsure about permission granularity
+
+### 6. Signals: When to Use
+
+#### Use Signals for
+
+✅ **Cross-app communication**
+
+- When one app needs to react to another app's events
+- Example: User creation triggers profile creation
+
+✅ **Audit logging**
+
+- Tracking changes across models
+- Example: Log all model changes
+
+✅ **Cache invalidation**
+
+- When model changes affect cached data
+- Example: Product update invalidates product cache
+
+✅ **Lightweight side effects**
+
+- Simple operations that don't need to be in the main flow
+- Example: Update related counters
+
+#### Don't Use Signals for
+
+❌ **Complex business logic**
+
+- Use services instead
+- Signals make code flow hard to follow
+
+❌ **Critical operations**
+
+- If it must happen, do it explicitly
+- Signals can be disabled or fail silently
+
+❌ **Operations that need to be transactional with main operation**
+
+- Use services with transactions
+
+**STOP AND ASK if:**
+
+- You're using signals for business logic
+- Signal handler is getting complex
+- You need guaranteed execution
+
+### 7. Background Tasks: When to Use Celery
+
+#### Use Celery Tasks for
+
+✅ **Long-running operations**
+
+- Email sending
+- File processing
+- Image resizing
+- Report generation
+
+✅ **External API calls**
+
+- Third-party integrations
+- Webhooks
+- Payment processing
+
+✅ **Periodic tasks**
+
+- Scheduled jobs
+- Cleanup tasks
+- Data synchronization
+
+#### Don't Use Celery for
+
+❌ **Quick operations**
+
+- Simple database updates
+- Fast computations
+- Operations that need immediate response
+
+❌ **Operations that must complete before response**
+
+- Use synchronous code or async views
+
+**STOP AND ASK if:**
+
+- Operation timing is unclear
+- You're unsure about task vs synchronous execution
+- Task needs to be part of transaction
+
+### 8. Testing: What to Test Where
+
+#### Unit Tests
+
+**Test:**
+
+- Model methods
+- Service methods
+- Selector functions
+- Serializer validation
+- Utility functions
+
+**Location:** `tests/models/`, `tests/services/`, `tests/selectors/`
+
+#### Integration Tests
+
+**Test:**
+
+- Full request/response cycles
+- View + Serializer + Service interactions
+- Database operations
+- Authentication/authorization flows
+
+**Location:** `tests/controllers/`, `tests/api/`, `tests/integration/`
+
+#### Test Structure Decision
+
+**Mirror source structure:**
+
+```
+service/accounts/controllers/user/create.py
+→ service/accounts/tests/controllers/test_user_create.py
+```
+
+**STOP AND ASK if:**
+
+- Test structure doesn't match source
+- You're unsure about test type (unit vs integration)
+- Test requires complex setup
+
+### 9. Migrations: Schema vs Data
+
+#### Schema Migrations
+
+**Automatic migrations for:**
+
+- Adding/removing fields
+- Changing field types
+- Adding/removing models
+- Changing relationships
+
+```python
+# Auto-generated
+python manage.py makemigrations
+```
+
+#### Data Migrations
+
+**Manual migrations for:**
+
+- Populating new fields with data
+- Transforming existing data
+- Backfilling relationships
+- Data cleanup
+
+```python
+# Create data migration
+python manage.py makemigrations --empty app_name
+
+# Then write migration logic
+def migrate_data(apps, schema_editor):
+    User = apps.get_model('accounts', 'User')
+    for user in User.objects.all():
+        user.new_field = calculate_value(user)
+        user.save()
+```
+
+**STOP AND ASK if:**
+
+- Migration affects production data
+- Migration might be slow
+- You need to backfill large amounts of data
+- Migration has dependencies
+
+### 10. Query Optimization: When to Optimize
+
+#### Always Use
+
+✅ **select_related()** for ForeignKey/OneToOne
+
+```python
+User.objects.select_related('profile')
+```
+
+✅ **prefetch_related()** for ManyToMany/Reverse FK
+
+```python
+Post.objects.prefetch_related('tags', 'comments')
+```
+
+✅ **only()** or **defer()** when you don't need all fields
+
+```python
+User.objects.only('id', 'email')
+```
+
+#### Check Query Performance
+
+- Use `django-debug-toolbar` in development
+- Use `connection.queries` to see query count
+- Monitor slow queries in production
+
+**STOP AND ASK if:**
+
+- Query is complex and performance is unclear
+- You're unsure about optimization strategy
+- Query involves multiple joins
+
+---
+
+## Quick Reference: Decision Checklist
+
+Before implementing, ask:
+
+- [ ] **Model decision:** Manager, method, or property?
+- [ ] **Field type:** CharField, TextField, or JSONField?
+- [ ] **Relationship:** ForeignKey, ManyToMany, or OneToOne?
+- [ ] **View type:** FBV, CBV, or ViewSet?
+- [ ] **Logic location:** Model, Service, Selector, or Util?
+- [ ] **Serializer:** Action-based or single?
+- [ ] **Permission:** View-level or object-level?
+- [ ] **Side effects:** Signal, service, or inline?
+- [ ] **Background:** Task or synchronous?
+- [ ] **Test type:** Unit or integration?
+- [ ] **Migration:** Schema or data?
+
+**If unsure about any item → STOP AND ASK**

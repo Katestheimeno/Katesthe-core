@@ -1,0 +1,95 @@
+---
+description: Defines naming conventions and module organization for all Django apps.
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# 🧩 Project Naming & Module Organization Rules
+
+## 🔹 Core Concepts
+
+- The project follows **domain-driven modular organization**.
+- Each app groups related functionality by **domain** (e.g., `user`,`vote`, etc).
+- Each domain has multiple modules reflecting architectural layers.
+
+## 📁 Folder Structure & Conventions
+
+Each app (e.g. `accounts`, `game`, etc ) uses these standard submodules:
+
+| Module | Purpose |
+|:--------|:---------|
+| `controllers/` | Django views (usually ViewSets or APIViews) |
+| `services/` | Business logic — creating, updating, or complex operations |
+| `selectors/` | Read operations and data retrieval logic |
+| `serializers/` | DRF serializers |
+| `models/` | Database models grouped by domain |
+| `handlers/` | Signals or event logic |
+| `tests/` | Unit and integration tests per domain |
+| `urls/` | API routing per domain |
+
+## 🧱 Domain Organization inside Modules
+
+### Rich domains (many related models or features)
+
+If a domain is complex, create a subpackage folder, as an example lets take a social_media app:
+
+social_media/models/post/
+init.py
+_index.py # main Post model
+_like.py
+_save.py
+_share.py
+_flag.py
+_view.py
+
+- The `_index.py` file defines the **primary model or entity** of the domain.
+- Other files define secondary models related to that domain (e.g., likes, saves, views).
+
+### Simple domains (single or light model)
+
+If a domain is small or only contains one or two models, use a single file:
+
+social_media/models/_story.py
+
+- Prefix with an underscore `_domain.py`.
+
+### URLs
+
+For `urls/`, follow the same convention:
+
+urls/_post.py
+urls/_story.py
+urls/shared_content.py
+
+If the domain grows, switch to a folder structure:
+
+urls/post/
+init.py
+routes.py
+
+## 🧠 Naming Guidelines
+
+- Domain files use snake_case with leading underscore `_domain.py`.
+- Class names are **PascalCase** (e.g., `Post`, `PostLike`).
+- Serializer, Selector, Service, and Controller names must reflect their layer and domain, e.g.:
+  - `PostSerializer`, `PostSelector`, `PostService`, `PostViewSet`
+- Keep tests parallel to source paths:
+
+tests/models/test_post.py
+tests/controllers/test_post_controller.py
+
+## ⚙️ When creating a new feature
+
+1. Determine the **domain name** (e.g., `post`).
+2. Create the necessary files under each module using the rules above.
+3. If adding tests, mirror the same domain structure inside `tests/`.
+4. Reuse existing factories or create them under `tests/factories/`.
+
+## ✅ Cursor Behavior
+
+When asked to:
+
+- *Add a feature*, *create models*, *write serializers*, or *add tests* →  
+Cursor must identify the **domain**, look at all related files (`models`, `serializers`, `services`, `selectors`, etc.) and maintain consistency.
+- Always prefer grouping by **domain folder** if multiple models are created.
+- For smaller additions, use `_domain.py` naming.

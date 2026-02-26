@@ -1,0 +1,45 @@
+---
+description: Files to reference for project structure understanding
+globs: ["**/*"]
+alwaysApply: false
+---
+
+# 📖 Project Context References
+
+## Key Files to Understand Project Structure
+
+When working on this project, familiarize yourself with:
+
+### Configuration Files
+
+- `config/django/test.py` - Test-specific settings
+- `config/django/test_fast.py` - Fast test settings (if exists)
+- `pyproject.toml` or `setup.py` - Project dependencies
+
+### Core Structure
+
+- `models/` - Database models
+- `controllers/` - Request handlers (views)
+- `services/` - Business logic layer
+- `selectors/` - Retrival logic layer
+- `serializers/` - Data validation and serialization
+- `serializers/` - Data validation and serialization
+- `permissions/` - Shared permissions
+- `handlers/` - Signals of the project
+- `tests/` - Test suite mirroring source structure
+
+## When Starting New Features
+
+1. Review similar existing implementations
+2. Check models for available methods
+3. Look at existing tests for patterns
+4. Follow established patterns
+
+## Project-Specific Patterns
+
+@models/
+@controllers/
+@services/
+@serializers/
+
+Reference these directories to understand the project's architecture and patterns.

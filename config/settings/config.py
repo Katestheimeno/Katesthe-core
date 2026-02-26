@@ -26,7 +26,7 @@ def get_env_file_path() -> str:
     """
     # Check DJANGO_ENV first
     django_env = os.getenv('DJANGO_ENV', '').lower()
-    if django_env in ['local', 'prod', 'test', 'prof']:
+    if django_env in ['local', 'prod', 'test']:
         return str(BASE_DIR / f".env.{django_env}")
     
     # Check DJANGO_SETTINGS_MODULE
@@ -37,8 +37,6 @@ def get_env_file_path() -> str:
         return str(BASE_DIR / '.env.prod')
     elif 'test' in settings_module:
         return str(BASE_DIR / '.env.test')
-    elif 'profiling' in settings_module:
-        return str(BASE_DIR / '.env.prof')
     
     # Default to local
     return str(BASE_DIR / '.env.local')

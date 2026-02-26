@@ -1,0 +1,133 @@
+---
+description: Guidelines for creating and using permission classes
+globs: ["**/permissions.py", "**/permissions/**/*.py", "**/controllers/**/*.py"]
+alwaysApply: true
+---
+
+# 🔐 Permissions Pattern
+
+## Permission Classes
+
+Permissions control who can perform specific actions. Use Django REST Framework's permission classes.
+
+## Structure
+
+```python
+# permissions/user.py or permissions.py
+
+from rest_framework import permissions
+
+
+class IsOwner(permissions.BasePermission):
+    """
+    Permission to only allow owners of an object to access it.
+    """
+    message = "You must be the owner to perform this action."
+    
+    def has_object_permission(self, request, view, obj):
+        # Check if obj has user/owner attribute
+        return obj.user == request.user
+
+
+class IsOwnerOrReadOnly(permissions.BasePermission):
+    """
+    Allow read access to everyone, write access only to owner.
+    """
+    
+    def has_object_permission(self, request, view, obj):
+        # Read permissions for any request
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        
+        # Write permissions only to owner
+        return obj.user == request.user
+
+
+class HasActiveSubscription(permissions.BasePermission):
+    """
+    Check if user has an active subscription.
+    """
+    message = "Active subscription required."
+    
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+        
+        # Use selector to check subscription
+        from selectors.subscription import has_active_subscription
+        return has_active_subscription(request.user.id)
+```
+
+## Permission Levels
+
+### 1. **View-Level Permissions** (`has_permission`)
+
+- Checks before view is executed
+- Used for general access control
+- Example: Authentication, subscription status
+
+### 2. **Object-Level Permissions** (`has_object_permission`)
+
+- Checks on specific object instances
+- Used for ownership checks
+- Example: Can edit own profile, can delete own post
+
+## Usage in Controllers
+
+```python
+# controllers/user/update.py
+
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from permissions.user import IsOwner
+
+
+class UserUpdateView(APIView):
+    permission_classes = [IsAuthenticated, IsOwner]
+    
+    def put(self, request, user_id):
+        # Permissions automatically checked
+        ...
+```
+
+## Composing Permissions
+
+```python
+class IsAdminOrOwnerReadOnly(permissions.BasePermission):
+    """
+    Admin has full access, owners have read-only.
+    """
+    
+    def has_object_permission(self, request, view, obj):
+        # Admin can do everything
+        if request.user.is_staff:
+            return True
+        
+        # Owner can only read
+        if request.method in permissions.SAFE_METHODS:
+            return obj.user == request.user
+        
+        return False
+```
+
+## File Organization
+
+```bash
+permissions/
+├── __init__.py
+├── user.py          # User-related permissions
+├── order.py         # Order-related permissions
+└── common.py        # Shared permissions
+
+# OR single file
+permissions.py
+```
+
+## Best Practices
+
+- Create reusable permission classes
+- Use descriptive names (`IsOwner`, `CanEditOrder`)
+- Provide helpful error messages
+- Compose simple permissions into complex ones
+- Test permissions thoroughly
+- Document what each permission checks

@@ -1,0 +1,67 @@
+---
+description: Enforces planning and context gathering before any implementation
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# 🎯 Planning & Context Gathering Workflow
+
+## CRITICAL: Always Follow This Workflow
+
+Before implementing ANY feature, test, or code change, you MUST:
+
+### 1. **Provide a Detailed Plan**
+
+- Break down the task into clear, actionable steps
+- Identify all files that will be modified or created
+- Explain the approach and reasoning
+- Highlight any potential challenges or considerations
+
+### 2. **Ask Clarifying Questions**
+
+Present a set of questions to ensure full understanding:
+
+- Clarify ambiguous requirements
+- Confirm architectural decisions
+- Verify edge cases and error handling
+- Ask about preferred patterns or conventions
+- Confirm testing requirements
+
+### 3. **Wait for Approval**
+
+- Do NOT proceed with implementation until the user approves the plan
+- Be ready to revise the plan based on feedback
+
+### 4. **Gather Context**
+
+Before writing code, understand the full context:
+
+- Read related files and their implementations
+- Understand the existing patterns in the codebase
+- Check for similar implementations to follow
+
+## Example Interaction
+
+**User:** "Add a new user registration endpoint"
+
+**Assistant:**
+"I'll help you create a user registration endpoint. Let me first provide a plan:
+
+### Plan
+
+1. Create controller in `controllers/user/register.py`
+2. Add serializer validation for registration data
+3. Implement business logic for user creation
+4. Add corresponding test in `tests/controllers/user/test_register.py`
+5. Update URL configuration
+
+### Questions
+
+1. Should we send a verification email after registration?
+2. What fields are required: email, password, name? Any others?
+3. Should we check for duplicate emails/usernames?
+4. What should be the response format (user data, token, etc.)?
+5. Any specific password requirements?
+6. Should we auto-login the user after registration?
+
+Once you approve this plan and answer these questions, I'll proceed with implementation."

@@ -1,0 +1,307 @@
+---
+description: Index and guide for universal Django architecture rules
+globs: ["**/*"]
+alwaysApply: false
+---
+
+# 📚 Universal Django Rules - Quick Reference
+
+## Overview
+
+This set of universal rules helps ensure consistent, architecture-aware development across any Django project. These rules are **project-agnostic** and focus on understanding context, making informed decisions, and knowing when to ask for guidance.
+
+## Rule Files
+
+### 1. `00-universal-django-architecture.mdc` ⭐ **START HERE**
+
+**Purpose:** Foundation for understanding any Django project's architecture
+
+**Key Sections:**
+
+- Context understanding workflow
+- Architecture pattern recognition
+- Layer responsibilities
+- Code generation rules
+- Decision trees
+
+**When to Reference:**
+
+- Starting work on any feature
+- Understanding project structure
+- Making architectural decisions
+- Before writing any code
+
+### 2. `00-django-patterns-decision-guide.mdc`
+
+**Purpose:** Django-specific pattern selection guide
+
+**Key Sections:**
+
+- When to use managers vs methods
+- Field type selection
+- View type selection (FBV/CBV/ViewSet)
+- Business logic placement
+- Serializer patterns
+- Permission patterns
+- Signal usage
+- Background tasks
+- Testing strategies
+
+**When to Reference:**
+
+- Choosing between similar Django components
+- Deciding where code should live
+- Understanding Django best practices
+- Making implementation decisions
+
+### 3. `00-stop-and-ask-scenarios.mdc`
+
+**Purpose:** Explicit scenarios requiring user input
+
+**Key Sections:**
+
+- Architecture decisions
+- Model/database decisions
+- Business logic placement
+- API/serialization decisions
+- Permission/security
+- Testing decisions
+- Performance optimization
+- Error handling
+
+**When to Reference:**
+
+- Before making assumptions
+- When multiple options exist
+- When requirements are unclear
+- Before breaking existing patterns
+
+### 4. `00-pydantic-schemas-pattern.mdc`
+
+**Purpose:** Pydantic schemas pattern for request/response validation alongside DRF serializers
+
+**Key Sections:**
+
+- When to use Pydantic vs DRF serializers
+- Hybrid approach patterns
+- Schema organization (`schemas/` directory)
+- Request/response schema patterns
+- Integration with DRF serializers
+- Query parameter schemas
+- Migration strategy
+
+**When to Reference:**
+
+- Creating new API endpoints
+- Defining request/response contracts
+- Deciding between Pydantic and DRF
+- Organizing schemas
+- Migrating existing endpoints
+
+## Workflow: How to Use These Rules
+
+### Step 1: Understand Context (Architecture Rule)
+
+```
+1. Read 00-universal-django-architecture.mdc
+2. Identify project structure
+3. Map architecture layers
+4. Understand existing patterns
+```
+
+### Step 2: Make Decisions (Pattern Guide)
+
+```
+1. Reference 00-django-patterns-decision-guide.mdc
+2. Use decision trees
+3. Follow Django best practices
+4. Align with project patterns
+```
+
+### Step 3: Know When to Ask (Stop & Ask)
+
+```
+1. Check 00-stop-and-ask-scenarios.mdc
+2. Identify if scenario matches
+3. If yes → STOP and ASK
+4. If no → proceed with decision guide
+```
+
+## Quick Decision Flowchart
+
+```
+Start: User Request
+    ↓
+Understand Context
+    ↓
+Identify Pattern
+    ↓
+Check: Is this a "Stop & Ask" scenario?
+    ├─ Yes → Ask User
+    │   ↓
+    │   Get Answer
+    │   ↓
+    └─ No → Use Decision Guide
+        ↓
+    Follow Existing Patterns
+        ↓
+    Implement
+        ↓
+    Verify Alignment
+```
+
+## Key Principles
+
+### 1. Context First
+
+- Always understand before acting
+- Read related files before writing code
+- Identify patterns before implementing
+
+### 2. Follow Existing Patterns
+
+- Don't introduce new patterns without approval
+- Match existing structure and naming
+- Respect the architecture
+
+### 3. Ask When Uncertain
+
+- Better to ask than assume
+- Use the "Stop & Ask" scenarios as guide
+- Provide context and options when asking
+
+### 4. Respect Layers
+
+- Keep concerns separated
+- Don't mix responsibilities
+- Follow layer boundaries
+
+### 5. Maintain Consistency
+
+- Follow the same patterns throughout
+- Use consistent naming
+- Maintain code organization
+
+## Common Scenarios
+
+### Scenario 1: Adding a New Feature
+
+**Steps:**
+
+1. Read architecture rule → Understand structure
+2. Check pattern guide → Choose components
+3. Check stop & ask → Identify decision points
+4. Gather context → Read related files
+5. Implement → Follow patterns
+
+### Scenario 2: Fixing a Bug
+
+**Steps:**
+
+1. Understand the bug
+2. Locate problematic code
+3. Understand expected behavior
+4. Check related code
+5. Fix following patterns
+
+### Scenario 3: Refactoring
+
+**Steps:**
+
+1. Understand current implementation
+2. Identify refactoring needs
+3. **STOP & ASK** if unsure
+4. Refactor maintaining patterns
+5. Update related code
+
+## Integration with Project-Specific Rules
+
+These universal rules work **alongside** project-specific rules:
+
+- **Universal rules:** Django patterns, decision-making, when to ask
+- **Project rules:** Specific patterns, naming conventions, structure
+
+**Priority:**
+
+1. Project-specific rules (if they exist)
+2. Universal rules (as fallback/guidance)
+3. Django best practices (always)
+
+## Checklist: Before Writing Code
+
+- [ ] Read architecture rule and understood project structure
+- [ ] Identified which patterns are in use
+- [ ] Checked decision guide for component selection
+- [ ] Verified no "stop & ask" scenarios apply
+- [ ] Read related existing code
+- [ ] Understood data flow
+- [ ] Identified all dependencies
+- [ ] Confirmed pattern to follow
+
+## Checklist: When to Stop
+
+- [ ] Architecture pattern is unclear
+- [ ] Multiple valid options exist
+- [ ] Requirements are ambiguous
+- [ ] Breaking changes needed
+- [ ] Security concerns
+- [ ] Performance implications unclear
+- [ ] Business logic is unclear
+
+## Examples
+
+### Example 1: Adding User Profile Feature
+
+```
+1. Architecture Rule:
+   - Identify: Models in models/, services in services/
+   - Pattern: Action-based serializers
+   
+2. Decision Guide:
+   - Model: OneToOne relationship with User
+   - Service: Create UserProfileService
+   - Serializer: ProfileCreateSerializer, ProfileDetailSerializer
+   
+3. Stop & Ask:
+   - Check: Is OneToOne the right relationship? → ASK if unsure
+   - Check: Where should profile creation logic go? → ASK if unclear
+```
+
+### Example 2: Adding Search Endpoint
+
+```
+1. Architecture Rule:
+   - Identify: Controllers in controllers/, selectors in selectors/
+   
+2. Decision Guide:
+   - View: APIView or ViewSet? → Check existing patterns
+   - Logic: Selector for query, service if complex
+   
+3. Stop & Ask:
+   - Check: Should search be in existing endpoint or new? → ASK
+   - Check: What fields to search? → ASK
+```
+
+## Remember
+
+**These rules are tools, not constraints.**
+
+- Use them to make informed decisions
+- Adapt to project-specific needs
+- Always prioritize understanding over assumptions
+- When in doubt, ask
+
+---
+
+## Quick Links
+
+- **Architecture Understanding:** `00-universal-django-architecture.mdc`
+- **Pattern Decisions:** `00-django-patterns-decision-guide.mdc`
+- **When to Ask:** `00-stop-and-ask-scenarios.mdc`
+- **Pydantic Schemas:** `00-pydantic-schemas-pattern.mdc`
+- **Project Analysis:** `ARCHITECTURE_ANALYSIS.md` (project-specific)
+
+---
+
+**Last Updated:** 2025-01-XX  
+**Status:** ✅ Active - Use for all Django development

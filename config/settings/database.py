@@ -43,7 +43,7 @@ try:
         'default': db_config
     }
 except Exception as e:
-    # Fall back to SQLite for profiling environment
+    # Fall back to SQLite if database configuration fails
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',

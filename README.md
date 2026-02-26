@@ -6,7 +6,7 @@ A production-ready Django REST Framework starter with an opinionated, domain-dri
 - **Authentication**: Djoser + SimpleJWT (access/refresh), custom `accounts.User`
 - **API**: DRF with sensible defaults, filtering (`django-filter`), extensions
 - **Docs**: OpenAPI schema + Swagger/Redoc UIs
-- **Background jobs**: Celery worker + beat; Flower dashboard
+- **Background jobs**: Celery worker + beat
 - **Realtime**: Django Channels + Redis (WebSockets)
 - **Storage**: Postgres via `dj-database-url` (SQLite supported via `DATABASE_URL`)
 - **Cache/Broker**: Redis
@@ -78,14 +78,13 @@ The project uses environment-specific configuration files for better separation 
 - **`.env.local`** - Local development environment
 - **`.env.prod`** - Production environment  
 - **`.env.test`** - Testing environment
-- **`.env.prof`** - Profiling environment with PyInstrument
 
 ### Auto-Detection Logic
 
 The system automatically detects which environment file to use based on:
 
-1. **`DJANGO_ENV`** environment variable (`local`, `prod`, `test`, `prof`)
-2. **`DJANGO_SETTINGS_MODULE`** environment variable (contains `local`, `production`, `test`, or `profiling`)
+1. **`DJANGO_ENV`** environment variable (`local`, `prod`, `test`)
+2. **`DJANGO_SETTINGS_MODULE`** environment variable (contains `local`, `production`, or `test`)
 3. **Default** to `.env.local` if neither is set
 
 ### Docker Compose Integration
@@ -101,9 +100,6 @@ ENV_FILE=.env.prod docker compose up
 
 # Use test environment
 ENV_FILE=.env.test docker compose up
-
-# Use profiling environment
-ENV_FILE=.env.prof docker compose --profile profiling up
 ```
 
 ### Manual Setup
@@ -119,262 +115,7 @@ cp .env.prod.example .env.prod
 
 # For testing
 cp .env.test.example .env.test
-
-# For profiling
-cp .env.prof.example .env.prof
 ```
-
-## 🔍 Performance Profiling with PyInstrument
-
-The project includes PyInstrument integration for performance profiling and analysis:
-
-### Features
-- **Real-time Performance Monitoring** - PyInstrument middleware captures request timing
-- **Interactive Profiling UI** - Web-based interface for analyzing performance data
-- **Profile Export** - Save profiling data for offline analysis
-- **Silk Integration** - Combined with Silk for comprehensive performance analysis
-
-### Usage
-
-**Start Profiling Environment:**
-```bash
-# Copy profiling configuration
-cp .env.prof.example .env.prof
-
-# Start with profiling enabled
-ENV_FILE=.env.prof docker compose --profile profiling up
-
-# Or start profiling service only
-docker compose --profile profiling up web_profiling
-```
-
-**Access Profiling Interface:**
-- **Main Application**: `http://localhost:8101` (profiling enabled)
-- **Silk Profiling**: `http://localhost:8101/silk/` (if enabled)
-- **PyInstrument Toolbar**: Visible on all pages when profiling is active
-
-**Profile Output:**
-- **Location**: `./profiles/` directory (mounted in container)
-- **Format**: HTML files for interactive analysis
-- **Naming**: Automatic timestamp-based naming
-
-**Management Commands:**
-```bash
-# Run profiling-specific commands
-docker compose --profile profiling exec web_profiling uv run python manage.py check
-
-# Generate profiling reports
-docker compose --profile profiling exec web_profiling uv run python manage.py shell
-```
-
-### Advanced Profiling with the `profile` Management Command
-
-The project includes a comprehensive profiling management command (`profile`) that provides automated endpoint testing, profile generation, analysis, and a modern web dashboard for performance insights.
-
-#### Features
-
-- **Automated Profile Generation** - Test multiple endpoints concurrently and generate PyInstrument profiles
-- **Interactive Dashboard** - Modern, responsive web interface for analyzing performance data
-- **Profile Analysis** - Detailed statistics and insights about application performance
-- **Endpoint Configuration** - Flexible JSON-based configuration for testing different API endpoints
-- **Browsable Profiles** - In-page profile viewing with navigation and breadcrumbs
-- **Filtering & Sorting** - Advanced filtering by app, method, duration, and search capabilities
-- **Docker Integration** - Seamless integration with Docker containers for profile syncing
-
-#### Configuration
-
-Create a `profiling_config.json` file in your project root to define endpoints and authentication:
-
-```json
-{
-  "auth": {
-    "login_endpoint": "/api/v1/auth/jwt/create/",
-    "email_field": "email",
-    "password_field": "password"
-  },
-  "endpoint_groups": {
-    "main_endpoints": [
-      {
-        "endpoint": "/api/v1/auth/jwt/create/",
-        "method": "POST",
-        "auth": false,
-        "enabled": true,
-        "title": "🔐 JWT Token Creation",
-        "description": "Authenticate user and generate JWT access/refresh tokens"
-      },
-      {
-        "endpoint": "/api/v1/auth/jwt/destroy/",
-        "method": "POST",
-        "auth": true,
-        "enabled": true,
-        "title": "🔐 JWT Token Logout",
-        "description": "Logout user and invalidate JWT tokens"
-      },
-      {
-        "endpoint": "/api/v1/auth/users/activation/dummy/uid/dummy/token/",
-        "method": "POST",
-        "auth": false,
-        "enabled": true,
-        "title": "✉️ User Account Activation",
-        "description": "Activate user account using UID and token"
-      }
-    ],
-    "api_docs": [
-      {
-        "endpoint": "/api/schema/docs/",
-        "method": "GET",
-        "auth": false,
-        "enabled": true,
-        "title": "📚 API Documentation",
-        "description": "Swagger UI for API documentation"
-      }
-    ]
-  }
-}
-```
-
-#### Usage
-
-**Generate Profiles:**
-```bash
-# Generate profiles for all enabled endpoints
-uv run manage.py profile generate --config profiling_config.json
-
-# Generate profiles for specific endpoint groups
-uv run manage.py profile generate --config profiling_config.json --endpoints "main_endpoints,api_docs"
-
-# Generate with custom settings
-uv run manage.py profile generate --config profiling_config.json --concurrent 5 --requests 3 --base-url http://localhost:8101
-```
-
-**Create Interactive Dashboard:**
-```bash
-# Generate and open dashboard
-uv run manage.py profile dashboard --config profiling_config.json
-
-# Auto-sync from Docker before generating dashboard
-uv run manage.py profile dashboard --config profiling_config.json --auto-sync
-
-# Specify custom output location
-uv run manage.py profile dashboard --config profiling_config.json --output custom_dashboard.html
-```
-
-**Analyze Existing Profiles:**
-```bash
-# Show analysis of all profiles
-uv run manage.py profile analyze --config profiling_config.json
-
-# Filter by specific app
-uv run manage.py profile analyze --config profiling_config.json --app auth --limit 10
-
-# Sort by duration
-uv run manage.py profile analyze --config profiling_config.json --sort duration
-```
-
-**Sync from Docker:**
-```bash
-# Sync profiles from Docker container
-uv run manage.py profile sync --container web_profiling
-```
-
-**Clean Old Profiles:**
-```bash
-# Clean profiles older than 7 days
-uv run manage.py profile clean --days 7
-
-# Preview what would be deleted
-uv run manage.py profile clean --days 7 --dry-run
-```
-
-**Serve Profiles via HTTP:**
-```bash
-# Start HTTP server for profiles
-uv run manage.py profile serve --port 8080
-
-# Auto-sync before serving
-uv run manage.py profile serve --port 8080 --auto-sync
-
-# Filter by app and limit results
-uv run manage.py profile serve --port 8080 --app auth --limit 20
-```
-
-#### Dashboard Features
-
-The generated dashboard provides:
-
-- **📊 Statistics Overview** - Total profiles, size, duration metrics
-- **🎯 App Filtering** - Filter profiles by application (auth, health_checks, etc.)
-- **🔍 Search Functionality** - Search profiles by endpoint, title, or description
-- **📈 Performance Charts** - Visual representation of profile distribution
-- **🎨 Modern UI** - Responsive design with dark/light theme support
-- **📱 Browsable Profiles** - Click profiles to view them in-page with navigation
-- **🔄 Sorting Options** - Sort by HTTP method or duration
-- **📂 Collapsible Sections** - Organize profiles by app and endpoint groups
-
-#### Docker Integration
-
-When using Docker, profiles are automatically generated in the container and can be synced to your local machine:
-
-```bash
-# Start profiling environment
-ENV_FILE=.env.prof docker compose --profile profiling up
-
-# Generate profiles in container
-docker compose --profile profiling exec web_profiling uv run python manage.py profile generate --config profiling_config.json
-
-# Sync profiles to local machine
-uv run manage.py profile sync --container web_profiling
-
-# Generate dashboard with synced profiles
-uv run manage.py profile dashboard --auto-sync
-```
-
-#### Environment Variables
-
-Configure the profiling system using these environment variables:
-
-```bash
-# Profiling configuration
-PROFILING_CONFIG_FILE=profiling_config.json
-PROFILING_BASE_URL=http://127.0.0.1:8101
-PROFILING_CONCURRENT_REQUESTS=3
-PROFILING_REQUESTS_PER_ENDPOINT=2
-PROFILING_SERVE_PORT=8080
-PROFILING_SERVE_LIMIT=20
-PROFILING_ANALYZE_LIMIT=20
-PROFILING_CLEAN_DAYS=7
-
-# Authentication
-PROFILING_AUTH_EMAIL=admin@example.com
-PROFILING_AUTH_PASSWORD=admin
-
-# Docker integration
-PROFILING_CONTAINER_NAME=web_profiling
-```
-
-#### Best Practices
-
-1. **Regular Profile Generation** - Set up automated profile generation in your CI/CD pipeline
-2. **Profile Cleanup** - Regularly clean old profiles to manage disk space
-3. **Endpoint Configuration** - Keep your `profiling_config.json` updated with new endpoints
-4. **Performance Monitoring** - Use the dashboard to track performance trends over time
-5. **Docker Workflow** - Use Docker for consistent profiling across different environments
-
-### Configuration
-
-**Environment Variables:**
-```bash
-PROFILING_ENABLED=True          # Enable profiling mode
-PYINSTRUMENT_ENABLED=True       # Enable PyInstrument middleware
-DJANGO_ENV=prof               # Set profiling environment
-DJANGO_SETTINGS_MODULE=config.django.profiling  # Use profiling settings
-```
-
-**PyInstrument Settings:**
-- **Profile Directory**: `./profiles/`
-- **Auto-Profile**: All requests are profiled
-- **Toolbar**: Always visible for debugging
-- **Export**: HTML format for analysis
 
 4) Run management commands inside the web container
 ```bash
@@ -396,7 +137,6 @@ docker compose exec web uv run python manage.py shell
 - Admin: `http://127.0.0.1:${WEB_PORT:-8000}/admin/`
 - Swagger: `http://127.0.0.1:${WEB_PORT:-8000}/api/schema/docs/`
 - Redoc: `http://127.0.0.1:${WEB_PORT:-8000}/api/schema/redoc/`
-- Flower: `http://127.0.0.1:5555`
 
 
 ## Alternative: Host mode (advanced)
@@ -511,14 +251,13 @@ curl http://127.0.0.1:${WEB_PORT:-8000}/api/v1/auth/users/me/ \
 - App: `config/celery.py`
 - Settings: `config/settings/celery.py` (beat schedule, queues, routes placeholders)
 
-With Docker Compose, `celery_worker`, `celery_beat`, and `flower` run automatically.
+With Docker Compose, `celery_worker` and `celery_beat` run automatically.
 
 Useful commands:
 ```bash
 # Tail logs
 docker compose logs -f celery_worker
 docker compose logs -f celery_beat
-docker compose logs -f flower
 
 # (Advanced) run a one-off Celery command inside web
 docker compose exec web uv run celery -A config.celery.app inspect active
@@ -571,7 +310,7 @@ This starter uses an opinionated, domain-driven layout that encourages separatio
 ├─ static/exp_app/            # template app used by starttemplateapp
 ├─ database/                  # sqlite db path (if used)
 ├─ Dockerfile                 # uv-based image
-├─ docker-compose.yml         # db, redis, web, worker, beat, flower
+├─ docker-compose.yml         # db, redis, web, worker, beat
 ├─ pyproject.toml             # deps + dev deps + python version
 ├─ uv.lock                    # locked dependency versions
 └─ manage.py                  # CLI entry
@@ -839,71 +578,6 @@ uv run python manage.py manageprojectapp blog --type project --dry-run
 
 ---
 
-### ⚡ `profile` - Comprehensive PyInstrument Profiling Management
-
-**Purpose**: Comprehensive profiling management tool that provides automated endpoint testing, profile generation, analysis, and a modern web dashboard for performance insights.
-
-**Use Cases**:
-- Automated performance testing of API endpoints
-- Generating PyInstrument profiles for analysis
-- Creating interactive dashboards for performance monitoring
-- Syncing profiles from Docker containers
-- Analyzing existing profile data with statistics
-- Cleaning up old profile files
-- Serving profiles via HTTP for team collaboration
-
-**Features**:
-- **Automated Profile Generation** - Test multiple endpoints concurrently
-- **Interactive Dashboard** - Modern, responsive web interface
-- **Profile Analysis** - Detailed statistics and insights
-- **Endpoint Configuration** - Flexible JSON-based configuration
-- **Browsable Profiles** - In-page profile viewing with navigation
-- **Filtering & Sorting** - Advanced filtering and sorting capabilities
-- **Docker Integration** - Seamless container integration
-
-**Examples**:
-```bash
-# Generate profiles for all enabled endpoints
-uv run manage.py profile generate --config profiling_config.json
-
-# Generate profiles for specific endpoint groups
-uv run manage.py profile generate --config profiling_config.json --endpoints "main_endpoints,api_docs"
-
-# Generate with custom settings
-uv run manage.py profile generate --config profiling_config.json --concurrent 5 --requests 3
-
-# Create and open interactive dashboard
-uv run manage.py profile dashboard --config profiling_config.json
-
-# Auto-sync from Docker before generating dashboard
-uv run manage.py profile dashboard --config profiling_config.json --auto-sync
-
-# Analyze existing profiles
-uv run manage.py profile analyze --config profiling_config.json
-
-# Filter by specific app
-uv run manage.py profile analyze --config profiling_config.json --app auth --limit 10
-
-# Sync profiles from Docker container
-uv run manage.py profile sync --container web_profiling
-
-# Clean profiles older than 7 days
-uv run manage.py profile clean --days 7
-
-# Preview what would be deleted
-uv run manage.py profile clean --days 7 --dry-run
-
-# Start HTTP server for profiles
-uv run manage.py profile serve --port 8080
-
-# Auto-sync before serving
-uv run manage.py profile serve --port 8080 --auto-sync
-```
-
-**Configuration**: Create a `profiling_config.json` file with endpoint definitions, authentication settings, and titles/descriptions for the dashboard.
-
----
-
 ### 🧹 `cleanuppycache` - Remove Python Cache Files
 
 **Purpose**: Remove all `__pycache__` directories from all Django apps in the project to clean up compiled Python bytecode files.
@@ -1128,4 +802,4 @@ class TestMyFeature:
 - Commands failing on host: run them inside containers (`docker compose exec web ...`), or switch to Host mode with correct `DATABASE_URL`/`REDIS_URL`.
 - Database connection errors: verify `DATABASE_URL`. For SQLite, prefer `sqlite:///database/db.sqlite3` and ensure the directory exists (Host mode).
 - 401 Unauthorized: obtain/refresh JWT via Djoser endpoints and send `Authorization: Bearer <token>`.
-- Celery not picking tasks: ensure worker and beat are running and `REDIS_URL` is reachable. Check Flower at `:5555`.
+- Celery not picking tasks: ensure worker and beat are running and `REDIS_URL` is reachable.

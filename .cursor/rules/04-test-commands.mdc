@@ -1,0 +1,94 @@
+---
+description: Defines how to run tests in this Django project
+globs: ["**/tests/**/*.py"]
+alwaysApply: true
+---
+
+# 🧪 Test Execution Commands
+
+## Running Tests
+
+This project supports two test execution methods:
+
+### Method 1: Local Environment (Recommended for development)
+
+```bash
+uv run pytest --ds=config.django.test --cov=. --cov-report=term-missing
+```
+
+**When to use:**
+
+- Running tests locally during development
+- Quick test iterations
+- When you don't need full container environment
+
+**Options:**
+
+- `--ds=config.django.test`: Uses test-specific Django settings
+- `--cov=.`: Generates coverage for entire codebase
+- `--cov-report=term-missing`: Shows which lines are missing coverage
+
+### Method 2: Docker Container (For CI/production parity)
+
+```bash
+uv run manage.py dockerexec pytest -- --ds=config.django.test --cov=. --cov-report=term-missing
+```
+
+**When to use:**
+
+- Testing in isolated container environment
+- Debugging container-specific issues
+- Ensuring tests pass in production-like environment
+
+## Running Specific Tests
+
+### Single Test File
+
+```bash
+uv run pytest tests/controllers/user/test_create.py --ds=config.django.test
+```
+
+### Specific Test Class
+
+```bash
+uv run pytest tests/controllers/user/test_create.py::TestUserCreate --ds=config.django.test
+```
+
+### Specific Test Method
+
+```bash
+uv run pytest tests/controllers/user/test_create.py::TestUserCreate::test_create_success --ds=config.django.test
+```
+
+### With Verbose Output
+
+```bash
+uv run pytest tests/controllers/user/test_create.py --ds=config.django.test -v
+```
+
+### Fast Failure (Stop on First Failure)
+
+```bash
+uv run pytest --ds=config.django.test -x
+```
+
+## Coverage Options
+
+### HTML Coverage Report
+
+```bash
+uv run pytest --ds=config.django.test --cov=. --cov-report=html
+# Open htmlcov/index.html in browser
+```
+
+### Coverage for Specific Module
+
+```bash
+uv run pytest --ds=config.django.test --cov=controllers.user --cov-report=term-missing
+```
+
+## Important Notes
+
+- Always use `--ds=config.django.test` for test settings
+- Coverage reports help identify untested code
+- Use `-v` or `-vv` for more detailed output when debugging

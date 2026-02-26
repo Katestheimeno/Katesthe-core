@@ -26,10 +26,14 @@ RUN uv sync --frozen
 # Copy project code
 COPY . .
 
-# Create non-root user
+# Create non-root user and writable dirs (logs, media, static) so no permission issues when running as django
 RUN useradd -m -u 1000 django && \
-    mkdir -p /app/service/data && \
-    chown -R django:django /app
+    mkdir -p /app/service/data /var/log/app /var/app/media /var/app/staticfiles && \
+    chown -R django:django /app /var/log/app /var/app
+
+ENV LOG_DIR=/var/log/app \
+    MEDIA_ROOT=/var/app/media \
+    STATIC_ROOT=/var/app/staticfiles
 
 USER django
 
@@ -40,7 +44,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s CMD curl -f http://lo
 # only run this in development
 # RUN uv run manage.py collectstatic --no-input
 
-RUN uv add watchfiles
-
-# CMD ["uv", "run", "python", "manage.py", "runserver_plus", "0.0.0.0:${WEB_PORT:-8000}", "--reload", "--reloader", "watchfiles"]
 CMD ["uv", "run", "daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]

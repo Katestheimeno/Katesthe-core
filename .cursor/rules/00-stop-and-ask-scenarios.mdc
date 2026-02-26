@@ -1,0 +1,538 @@
+---
+description: Explicit scenarios when you must stop and ask the user before proceeding
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# 🛑 Stop and Ask: Critical Decision Points
+
+## MANDATORY: You MUST Stop and Ask in These Scenarios
+
+This rule defines explicit situations where you **MUST** pause execution and ask the user for guidance before proceeding.
+
+### 1. Architecture & Structure Decisions
+
+#### 🛑 Creating New Apps
+
+**STOP if:**
+
+- User asks to add a feature but it's unclear which app it belongs to
+- Feature could fit in multiple existing apps
+- You're considering creating a new app
+
+**ASK:**
+
+```
+"I see this feature could belong to [app1] or [app2], or we could create a new [app3] app. 
+Which approach aligns better with your architecture?"
+```
+
+#### 🛑 Introducing New Patterns
+
+**STOP if:**
+
+- Project uses pattern A, but pattern B might be better
+- You want to introduce a new architectural layer
+- Existing code doesn't follow a clear pattern
+
+**ASK:**
+
+```
+"I notice the project uses [existing pattern], but this feature might benefit from [new pattern]. 
+Should I follow the existing pattern or introduce [new pattern]? 
+If introducing, should I refactor existing code to match?"
+```
+
+#### 🛑 Directory Structure
+
+**STOP if:**
+
+- Unclear where a file should be created
+- Multiple locations seem appropriate
+- Project structure is inconsistent
+
+**ASK:**
+
+```
+"I need to create [component]. I see similar code in [location1] and [location2]. 
+Where should I place this to maintain consistency?"
+```
+
+### 2. Model & Database Decisions
+
+#### 🛑 Model Relationships
+
+**STOP if:**
+
+- Relationship type is ambiguous (ForeignKey vs ManyToMany vs OneToOne)
+- Cardinality is unclear
+- You need a through model but unsure
+
+**ASK:**
+
+```
+"I need to model the relationship between [Model1] and [Model2]. 
+Based on the requirements, should this be:
+- ForeignKey (one-to-many)?
+- ManyToMany (many-to-many)?
+- OneToOne (one-to-one)?
+- Or a through model with extra fields?"
+```
+
+#### 🛑 Field Type Selection
+
+**STOP if:**
+
+- Multiple field types could work
+- Data size/type is uncertain
+- Query requirements are unclear
+
+**ASK:**
+
+```
+"For [field_name], I'm considering:
+- CharField (if max length is [X])
+- TextField (if unlimited)
+- JSONField (if structure is flexible)
+- Separate model (if needs querying)
+
+What's the expected data size and query pattern?"
+```
+
+#### 🛑 Migration Strategy
+
+**STOP if:**
+
+- Migration affects production data
+- Data migration is needed
+- Migration might be slow or risky
+
+**ASK:**
+
+```
+"This change requires a migration that will:
+- [Impact description]
+- [Estimated time/risk]
+
+Should I:
+1. Create a schema migration only?
+2. Create a data migration as well?
+3. Split into multiple migrations?
+4. Schedule for low-traffic period?"
+```
+
+### 3. Business Logic Placement
+
+#### 🛑 Where to Put Logic
+
+**STOP if:**
+
+- Logic could go in multiple places (model method, service, manager, etc.)
+- Transaction boundaries are unclear
+- Operation spans multiple concerns
+
+**ASK:**
+
+```
+"This logic could be implemented as:
+- Model method (if model-specific)
+- Service method (if business logic)
+- Manager method (if queryset operation)
+- Selector function (if read operation)
+
+Which aligns with your architecture? Also, does this need to be atomic/transactional?"
+```
+
+#### 🛑 Service vs Inline Logic
+
+**STOP if:**
+
+- Logic is complex but project doesn't have services
+- Logic is simple but project uses services for everything
+- Unclear if logic should be reusable
+
+**ASK:**
+
+```
+"I see [observation about service usage]. For this [operation], should I:
+- Create a service method (for reusability)?
+- Put it inline in the view/controller?
+- Use a different pattern?"
+```
+
+### 4. API & Serialization Decisions
+
+#### 🛑 Serializer Structure
+
+**STOP if:**
+
+- Project uses action-based serializers but you're unsure about structure
+- Need different fields but unclear which serializer to modify
+- Serializer validation logic is complex
+
+**ASK:**
+
+```
+"For [action], I need to:
+- [Requirement]
+
+Should I:
+- Create a new [Action]Serializer?
+- Modify existing [Serializer]?
+- Use serializer method fields?
+
+What fields should be included/excluded?"
+```
+
+#### 🛑 Response Format
+
+**STOP if:**
+
+- Response structure is unclear
+- Need to include related data but unsure how
+- Error response format is inconsistent
+
+**ASK:**
+
+```
+"For this endpoint, what should the response include?
+- [List of potential fields]
+- Should related [models] be nested or referenced?
+- What's the expected error response format?"
+```
+
+### 5. Permission & Security
+
+#### 🛑 Permission Requirements
+
+**STOP if:**
+
+- Permission requirements are unclear
+- Need both view and object level permissions
+- Permission logic is complex
+
+**ASK:**
+
+```
+"For [endpoint/action], who should have access?
+- All authenticated users?
+- Only owners?
+- Staff/admin only?
+- Custom logic?
+
+Should I create a new permission class or use existing ones?"
+```
+
+#### 🛑 Security Concerns
+
+**STOP if:**
+
+- Handling sensitive data
+- Authentication method is unclear
+- Authorization logic is complex
+
+**ASK:**
+
+```
+"This feature handles [sensitive data/operation]. 
+What security measures should be in place?
+- Authentication required?
+- Specific permission checks?
+- Rate limiting?
+- Input sanitization requirements?"
+```
+
+### 6. Testing Decisions
+
+#### 🛑 Test Structure
+
+**STOP if:**
+
+- Test structure doesn't match source
+- Unclear what to test
+- Test setup is complex
+
+**ASK:**
+
+```
+"For testing [component], should I:
+- Follow the existing test structure at [location]?
+- Create tests in [suggested location]?
+- What test coverage is expected?
+- Should I test [specific scenarios]?"
+```
+
+#### 🛑 Test Data
+
+**STOP if:**
+
+- Project uses factories but you're unsure which one
+- Need to create related objects
+- Test data requirements are complex
+
+**ASK:**
+
+```
+"For this test, I need to create [models]. 
+Should I use:
+- [Factory1] and [Factory2]?
+- Create test fixtures?
+- Use setUp methods?
+
+What's the preferred approach in this project?"
+```
+
+### 7. Performance & Optimization
+
+#### 🛑 Query Optimization
+
+**STOP if:**
+
+- Query is complex and might be slow
+- Unclear if optimization is needed
+- Optimization might affect functionality
+
+**ASK:**
+
+```
+"This query [description] might have performance implications. 
+Should I:
+- Optimize with select_related/prefetch_related?
+- Add database indexes?
+- Use annotations/aggregations?
+- Or is current performance acceptable?"
+```
+
+#### 🛑 Caching Strategy
+
+**STOP if:**
+
+- Data changes frequently but might benefit from caching
+- Cache invalidation strategy is unclear
+- Caching might cause stale data issues
+
+**ASK:**
+
+```
+"Should [data/query] be cached?
+- If yes, what's the cache key strategy?
+- How should cache be invalidated?
+- What's the TTL?"
+```
+
+### 8. Background Tasks
+
+#### 🛑 Task vs Synchronous
+
+**STOP if:**
+
+- Operation could be sync or async
+- Task timing requirements are unclear
+- Task needs to be part of transaction
+
+**ASK:**
+
+```
+"For [operation], should this be:
+- Synchronous (blocking request)?
+- Background task (async)?
+- If async, should it be triggered immediately or scheduled?
+
+Does this need to complete before the response?"
+```
+
+#### 🛑 Task Dependencies
+
+**STOP if:**
+
+- Tasks depend on each other
+- Task execution order matters
+- Task might fail and retry strategy is unclear
+
+**ASK:**
+
+```
+"This task [description] has dependencies/requirements:
+- [List dependencies]
+
+What should happen if:
+- A dependency fails?
+- The task times out?
+- Retry is needed?"
+```
+
+### 9. Error Handling
+
+#### 🛑 Error Response Format
+
+**STOP if:**
+
+- Error handling is inconsistent
+- Need custom exceptions
+- Error messages need to be user-friendly
+
+**ASK:**
+
+```
+"For error handling, should I:
+- Use standard DRF exceptions?
+- Create custom exception classes?
+- What error response format should be used?
+- Should errors be logged? Where?"
+```
+
+#### 🛑 Validation Logic
+
+**STOP if:**
+
+- Validation is complex
+- Multiple validation layers needed
+- Validation rules are unclear
+
+**ASK:**
+
+```
+"For [field/operation], what validation is needed?
+- Field-level validation?
+- Object-level validation?
+- Business rule validation?
+- Should validation errors be aggregated or fail-fast?"
+```
+
+### 10. Dependencies & Integration
+
+#### 🛑 External Services
+
+**STOP if:**
+
+- Need to integrate with external API
+- API credentials/configuration unclear
+- Error handling for external calls unclear
+
+**ASK:**
+
+```
+"I need to integrate with [external service]. 
+- Are credentials configured?
+- What's the error handling strategy?
+- Should this be synchronous or async?
+- Is there existing integration code I should use?"
+```
+
+#### 🛑 Third-Party Packages
+
+**STOP if:**
+
+- Considering adding a new package
+- Package might conflict with existing ones
+- Package choice is unclear
+
+**ASK:**
+
+```
+"For [functionality], I'm considering using [package]. 
+- Is this acceptable?
+- Are there existing packages in use for similar functionality?
+- Should I implement it manually instead?"
+```
+
+### 11. Code Organization
+
+#### 🛑 Code Duplication
+
+**STOP if:**
+
+- Similar code exists but structure is different
+- Unclear if code should be shared
+- Refactoring might affect other code
+
+**ASK:**
+
+```
+"I notice similar logic exists in [location1] and [location2]. 
+Should I:
+- Extract to shared utility/service?
+- Keep separate (if contexts differ)?
+- Refactor existing code to match?"
+```
+
+#### 🛑 Naming Conventions
+
+**STOP if:**
+
+- Naming is inconsistent in project
+- Unclear what naming to follow
+- Name conflicts with existing code
+
+**ASK:**
+
+```
+"For [component], I'm considering naming it [name]. 
+- Does this follow project conventions?
+- Is there a preferred naming pattern?
+- Does this conflict with existing code?"
+```
+
+### 12. Documentation & Comments
+
+#### 🛑 Documentation Requirements
+
+**STOP if:**
+
+- Complex logic needs explanation
+- API documentation is required
+- Documentation standards are unclear
+
+**ASK:**
+
+```
+"For [component], what documentation is needed?
+- Docstrings?
+- API documentation (@extend_schema)?
+- Inline comments?
+- README updates?"
+```
+
+---
+
+## How to Ask: Template
+
+When you need to stop and ask, use this structure:
+
+```
+🛑 STOP: [Brief reason]
+
+Context:
+- [What you've observed]
+- [What you understand]
+- [What's unclear]
+
+Options:
+1. [Option 1 with pros/cons]
+2. [Option 2 with pros/cons]
+3. [Option 3 with pros/cons]
+
+Recommendation: [Your suggestion with reasoning]
+
+Question: [Specific question for user]
+```
+
+## Red Flags: Immediate Stop
+
+**STOP IMMEDIATELY if:**
+
+- ❌ You're about to break existing functionality
+- ❌ You're introducing a security vulnerability
+- ❌ You're making assumptions about business logic
+- ❌ You're unsure about data integrity
+- ❌ You're modifying production-critical code without understanding impact
+- ❌ You're about to delete or significantly refactor code
+- ❌ Requirements are ambiguous or contradictory
+
+---
+
+## Remember
+
+**Better to ask 10 times than to make 1 wrong assumption.**
+
+When in doubt, **STOP AND ASK**. The user would rather clarify than have you proceed with incorrect assumptions.

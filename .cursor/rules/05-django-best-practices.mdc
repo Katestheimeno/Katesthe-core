@@ -1,0 +1,183 @@
+---
+description: Django-specific coding standards and best practices
+globs: ["**/*.py"]
+alwaysApply: true
+---
+
+# 🐍 Django Best Practices
+
+## Code Organization
+
+### 1. **Controllers (Views)**
+
+- Keep controllers thin - delegate business logic to services
+- One controller per action (create, update, delete, list, detail)
+- Use appropriate HTTP methods and status codes
+- Always validate input data using serializers
+
+### 2. **Services**
+
+- Encapsulate complex business logic in service layers
+- Services should be reusable across controllers
+- Keep services focused on a single responsibility
+- Services should not handle HTTP concerns
+
+### 3. **Models**
+
+- Use descriptive field names
+- Add helpful docstrings
+- Implement `__str__` method for all models
+- Use model methods for model-specific logic
+- Keep business logic out of models when possible
+
+### 4. **Serializers**
+
+- Use serializers for ALL data validation
+- Create separate serializers for different operations (create, update, list)
+- Use `ModelSerializer` when appropriate
+- Implement custom validation in `validate_<field>` or `validate()` methods
+
+### 6. **Permissions**
+
+- Create reusable permission classes
+- One permission class per logical permission check
+- Permissions should be declarative and composable
+- Use Django's permission framework when appropriate
+- Example: `IsOwnerOrReadOnly`, `IsAdminUser`, `HasSubscription`
+
+### 7. **Handlers (Signals)**
+
+- Use signals for cross-app communication
+- Keep signal handlers lightweight
+- Avoid complex business logic in signal handlers
+- Signal handlers should trigger async tasks for heavy operations
+- Document signal dependencies clearly
+- Example: `post_save` for cache invalidation, audit logging
+
+### 8. **Tasks (Celery/Background Jobs)**
+
+- Use tasks for long-running operations
+- Tasks should be idempotent when possible
+- Keep tasks focused on a single responsibility
+- Use appropriate retry mechanisms
+- Log task execution for debugging
+- Example: Sending emails, processing files, generating reports
+
+### 9. **Filters (Django Filter)**
+
+- Create filter classes for complex filtering logic
+- Use FilterSet for queryset filtering
+- Keep filters reusable across views
+- Document available filter fields
+- Example: `UserFilter`, `OrderFilter` with date ranges, status, etc.
+
+### 10. **Admin**
+
+Organize admin by domain:
+
+**Structure:**
+
+```bash
+admin/
+├── user/
+│   ├── __init__.py
+│   ├── admin.py         # User admin configuration
+│   ├── actions.py       # Custom admin actions
+│   └── filters.py       # Custom admin filters
+├── order/
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── actions.py
+│   └── filters.py
+```
+
+**Guidelines:**
+
+- **admin.py**: Register models and configure admin interface
+- **actions.py**: Custom bulk actions (e.g., bulk approve, export to CSV)
+- **filters.py**: Custom filter classes for admin list views
+- Group related admin functionality by domain
+- Keep admin files focused and maintainable
+
+## Testing Standards
+
+### Test Coverage Requirements
+
+- Aim for 80%+ code coverage
+- Test happy paths AND error cases
+- Test edge cases and boundary conditions
+- Mock external dependencies
+
+### Test Organization
+
+```python
+class TestUserCreate:
+    """Tests for user creation endpoint."""
+    
+    def test_create_success(self):
+        """Test successful user creation."""
+        pass
+    
+    def test_create_missing_email(self):
+        """Test creation fails when email is missing."""
+        pass
+    
+    def test_create_duplicate_email(self):
+        """Test creation fails with duplicate email."""
+        pass
+```
+
+## Code Style
+
+### Import Order
+
+1. Standard library imports
+2. Third-party imports
+3. Django imports
+4. Local application imports
+
+```python
+import json
+from datetime import datetime
+
+import pytest
+from rest_framework.test import APITestCase
+
+from django.contrib.auth import get_user_model
+from django.db import models
+
+from controllers.user.create import UserCreateController
+from services.email import EmailService
+```
+
+### Naming Conventions
+
+- **Classes:** PascalCase (e.g., `UserCreateController`)
+- **Functions/Methods:** snake_case (e.g., `create_user`)
+- **Constants:** UPPER_SNAKE_CASE (e.g., `MAX_LOGIN_ATTEMPTS`)
+- **Private methods:** Leading underscore (e.g., `_validate_password`)
+
+## Error Handling
+
+- Use Django's built-in exceptions when appropriate
+- Return proper HTTP status codes
+- Provide clear error messages
+- Log errors appropriately (but don't log sensitive data)
+
+```python
+from rest_framework.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist
+
+try:
+    user = User.objects.get(email=email)
+except ObjectDoesNotExist:
+    raise ValidationError("User not found")
+```
+
+## Security Best Practices
+
+- Never commit secrets or API keys
+- Use environment variables for configuration
+- Validate and sanitize all user input
+- Use Django's built-in protection against common vulnerabilities
+- Always use parameterized queries (Django ORM does this automatically)

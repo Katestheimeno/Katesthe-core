@@ -12,6 +12,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.views import TokenRefreshView as BaseTokenRefreshView
+from rest_framework_simplejwt.views import TokenVerifyView as BaseTokenVerifyView
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -20,13 +22,71 @@ from djoser import views as djoser_views
 from djoser.conf import settings
 from djoser.utils import ActionViewMixin
 from accounts.serializers.auth import CustomTokenObtainPairSerializer
+from accounts.schemas._user import (
+    CurrentUserResponse,
+    UserCreateRequest,
+    UserDeleteRequest,
+    UserDetailResponse,
+    UserListResponse,
+    UserUpdateRequest,
+)
+from accounts.schemas._token import (
+    ActivationResponse,
+    JWTLogoutRequest,
+    JWTRefreshRequest,
+    JWTRefreshResponse,
+    JWTTokenCreateRequest,
+    JWTTokenCreateResponse,
+    JWTVerifyRequest,
+)
 from django.contrib.auth import get_user_model
 from config.logger import logger
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
+from drf_spectacular.utils import (
+    extend_schema,
+    extend_schema_view,
+    OpenApiParameter,
+    OpenApiExample,
+)
 
 User = get_user_model()
 
 
+@extend_schema_view(
+    list=extend_schema(
+        tags=["Authentication"],
+        summary="List users",
+        responses={200: UserListResponse},
+    ),
+    create=extend_schema(
+        tags=["Authentication"],
+        summary="Register user",
+        request=UserCreateRequest,
+        responses={201: UserDetailResponse},
+    ),
+    retrieve=extend_schema(
+        tags=["Authentication"],
+        summary="Get user detail",
+        responses={200: UserDetailResponse},
+    ),
+    update=extend_schema(
+        tags=["Authentication"],
+        summary="Update user",
+        request=UserUpdateRequest,
+        responses={200: UserDetailResponse},
+    ),
+    partial_update=extend_schema(
+        tags=["Authentication"],
+        summary="Partial update user",
+        request=UserUpdateRequest,
+        responses={200: UserDetailResponse},
+    ),
+    destroy=extend_schema(
+        tags=["Authentication"],
+        summary="Delete user",
+        request=UserDeleteRequest,
+        responses={204: None},
+    ),
+)
 class CustomUserViewSet(djoser_views.UserViewSet):
     """
     Custom User ViewSet that extends Djoser's UserViewSet.
@@ -62,6 +122,26 @@ class CustomUserViewSet(djoser_views.UserViewSet):
         logger.info(f"User successfully deleted: user_id={instance.id}, username={instance.username}")
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @extend_schema(
+        tags=["Authentication"],
+        summary="Current user (me)",
+        methods=["GET"],
+        responses={200: CurrentUserResponse},
+    )
+    @extend_schema(
+        tags=["Authentication"],
+        summary="Update current user",
+        methods=["PUT", "PATCH"],
+        request=UserUpdateRequest,
+        responses={200: CurrentUserResponse},
+    )
+    @extend_schema(
+        tags=["Authentication"],
+        summary="Delete current user",
+        methods=["DELETE"],
+        request=UserDeleteRequest,
+        responses={204: None},
+    )
     @action(["get", "put", "patch", "delete"], detail=False)
     def me(self, request, *args, **kwargs):
         """
@@ -98,6 +178,12 @@ class CustomJWTTokenCreateView(TokenObtainPairView):
     """
     serializer_class = CustomTokenObtainPairSerializer
 
+    @extend_schema(
+        tags=["Authentication"],
+        summary="JWT Login",
+        request=JWTTokenCreateRequest,
+        responses={200: JWTTokenCreateResponse},
+    )
     def post(self, request, *args, **kwargs):
         """Handle JWT token creation with logging."""
         username = request.data.get('username', 'unknown')
@@ -116,33 +202,49 @@ class CustomJWTTokenCreateView(TokenObtainPairView):
 
 
 @extend_schema(
-    tags=['Authentication'],
-    summary='JWT Logout',
-    description='Logout and blacklist the refresh token',
-    request=None,
+    tags=["Authentication"],
+    summary="JWT Token Refresh",
+    request=JWTRefreshRequest,
+    responses={200: JWTRefreshResponse},
+)
+class CustomJWTTokenRefreshView(BaseTokenRefreshView):
+    """JWT token refresh view with Pydantic schema documentation."""
+    pass
+
+
+@extend_schema(
+    tags=["Authentication"],
+    summary="JWT Token Verify",
+    request=JWTVerifyRequest,
+    responses={200: None},
+)
+class CustomJWTTokenVerifyView(BaseTokenVerifyView):
+    """JWT token verification view with Pydantic schema documentation."""
+    pass
+
+
+@extend_schema(
+    tags=["Authentication"],
+    summary="JWT Logout",
+    description="Logout and blacklist the refresh token",
+    request=JWTLogoutRequest,
     responses={
-        204: {
-            'description': 'Successfully logged out',
-            'type': 'object',
-            'properties': {
-                'detail': {'type': 'string', 'example': 'Successfully logged out.'}
-            }
-        },
+        204: None,
         400: {
-            'description': 'Bad request - refresh token required or invalid',
-            'type': 'object',
-            'properties': {
-                'detail': {'type': 'string', 'example': 'Refresh token is required.'}
-            }
-        }
+            "description": "Bad request - refresh token required or invalid",
+            "type": "object",
+            "properties": {
+                "detail": {"type": "string", "example": "Refresh token is required."}
+            },
+        },
     },
     examples=[
         OpenApiExample(
-            'Logout Request',
-            value={'refresh': 'your_refresh_token_here'},
-            request_only=True
+            "Logout Request",
+            value={"refresh": "your_refresh_token_here"},
+            request_only=True,
         )
-    ]
+    ],
 )
 class CustomJWTLogoutView(APIView):
     """
@@ -232,46 +334,32 @@ class CustomTokenDestroyView(djoser_views.TokenDestroyView):
 
 
 @extend_schema(
-    tags=['Authentication'],
-    summary='User Activation',
-    description='Activate user account with UID and token',
+    tags=["Authentication"],
+    summary="User Activation",
+    description="Activate user account with UID and token",
     parameters=[
         OpenApiParameter(
-            name='uid',
+            name="uid",
             location=OpenApiParameter.PATH,
-            description='User ID for activation',
+            description="User ID for activation",
             required=True,
-            type=str
+            type=str,
         ),
         OpenApiParameter(
-            name='token',
+            name="token",
             location=OpenApiParameter.PATH,
-            description='Activation token',
+            description="Activation token",
             required=True,
-            type=str
-        )
+            type=str,
+        ),
     ],
     request=None,
     responses={
-        200: {
-            'description': 'Activation successful or already activated',
-            'type': 'object',
-            'properties': {
-                'success': {'type': 'boolean'},
-                'message': {'type': 'string'}
-            }
-        },
-        400: {
-            'description': 'Activation failed',
-            'type': 'object',
-            'properties': {
-                'success': {'type': 'boolean'},
-                'message': {'type': 'string'}
-            }
-        }
-    }
+        200: ActivationResponse,
+        400: ActivationResponse,
+    },
 )
-@method_decorator(csrf_exempt, name='dispatch')
+@method_decorator(csrf_exempt, name="dispatch")
 class CustomActivationView(ActionViewMixin, APIView):
     """
     Custom activation view that renders an HTML page with activation button.

@@ -1,0 +1,629 @@
+---
+description: Pydantic schemas pattern for request/response validation alongside DRF serializers
+globs: ["**/*.py"]
+alwaysApply: true
+---
+
+# 🎯 Pydantic Schemas Pattern (Hybrid with DRF Serializers)
+
+## Overview
+
+This project uses a **hybrid approach** combining Pydantic schemas with DRF serializers:
+- **Pydantic schemas** (`schemas/`): Type-safe request/response models, API contracts, documentation
+- **DRF serializers** (`serializers/`): Validation, database operations, nested serialization
+
+## Core Principle
+
+**Pydantic for contracts, DRF for operations.**
+
+- Use Pydantic to define **what** the API accepts/returns (type safety, documentation)
+- Use DRF serializers for **how** data is validated and transformed (database operations, business logic)
+
+---
+
+## When to Use Pydantic vs DRF Serializers
+
+### Use Pydantic Schemas For:
+
+✅ **Request/Response Type Definitions**
+- API contract specification
+- Type hints and IDE support
+- OpenAPI/Swagger documentation
+- Request body validation (input)
+- Response schema definition (output)
+
+✅ **Type Safety**
+- Better type checking with mypy/pyright
+- IDE autocomplete and validation
+- Runtime type validation
+
+✅ **API Documentation**
+- Clear schema definitions for OpenAPI
+- Better documentation generation
+- Self-documenting API contracts
+
+### Use DRF Serializers For:
+
+✅ **Database Operations**
+- Model instance creation/updates
+- Nested object handling
+- Related object serialization
+- Database field mapping
+
+✅ **Complex Validation**
+- Cross-field validation
+- Business rule validation
+- Custom validation logic
+- Database constraint validation
+
+✅ **Data Transformation**
+- Computed fields
+- Field transformations
+- Nested serialization
+- Read-only vs write-only fields
+
+---
+
+## Directory Structure
+
+**Pydantic schemas live in `schemas/` directory:**
+
+```
+app/
+├── schemas/
+│   ├── __init__.py
+│   ├── _shop.py          # Shop-related schemas
+│   ├── _user.py          # User-related schemas
+│   └── _booking.py       # Booking-related schemas
+├── serializers/
+│   ├── shop/
+│   │   ├── _create.py    # DRF serializers
+│   │   ├── _update.py
+│   │   └── _detail.py
+└── controllers/
+    └── shop/
+        └── _create.py
+```
+
+**Naming Convention:**
+- Pydantic schemas: `_domain.py` (e.g., `_shop.py`, `_user.py`)
+- Schema classes: `{Domain}{Action}Request` / `{Domain}{Action}Response`
+  - Example: `ShopCreateRequest`, `ShopDetailResponse`, `UserListResponse`
+
+---
+
+## Schema Patterns
+
+### 1. Request Schemas
+
+**Pattern:** `{Domain}{Action}Request`
+
+```python
+# schemas/_shop.py
+from pydantic import BaseModel, Field, field_validator
+from decimal import Decimal
+from typing import Optional
+from datetime import datetime
+
+class ShopCreateRequest(BaseModel):
+    """Request schema for creating a shop."""
+    
+    name: str = Field(..., min_length=1, max_length=100, description="Shop name")
+    description: Optional[str] = Field(None, max_length=1000, description="Shop description")
+    shop_type: str = Field(..., description="Type of shop")
+    address: str = Field(..., min_length=5, description="Shop address")
+    latitude: Decimal = Field(..., ge=-90, le=90, description="Latitude coordinate")
+    longitude: Decimal = Field(..., ge=-180, le=180, description="Longitude coordinate")
+    
+    @field_validator('name')
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError('Name cannot be empty or whitespace only')
+        return v.strip()
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "name": "Elite Barbershop",
+                "description": "Premium barber services",
+                "shop_type": "barbershop",
+                "address": "123 Main St",
+                "latitude": "40.7128",
+                "longitude": "-74.0060"
+            }
+        }
+
+class ShopUpdateRequest(BaseModel):
+    """Request schema for updating a shop."""
+    
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    description: Optional[str] = Field(None, max_length=1000)
+    shop_type: Optional[str] = None
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "name": "Updated Shop Name",
+                "description": "Updated description"
+            }
+        }
+```
+
+### 2. Response Schemas
+
+**Pattern:** `{Domain}{Action}Response`
+
+```python
+# schemas/_shop.py
+from pydantic import BaseModel, Field
+from decimal import Decimal
+from typing import Optional, List
+from datetime import datetime
+
+class ShopBaseResponse(BaseModel):
+    """Base shop response schema."""
+    
+    id: int
+    name: str
+    description: Optional[str] = None
+    shop_type: str
+    rating: Optional[Decimal] = Field(None, ge=0, le=5)
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True  # Allows conversion from ORM models
+
+class ShopDetailResponse(ShopBaseResponse):
+    """Detailed shop response with all fields."""
+    
+    address: str
+    latitude: Decimal
+    longitude: Decimal
+    owner_id: int
+    is_active: bool
+    total_bookings: int = Field(0, description="Total number of bookings")
+    
+    class Config:
+        from_attributes = True
+
+class ShopListResponse(ShopBaseResponse):
+    """Shop list response with minimal fields."""
+    
+    # Inherits from ShopBaseResponse
+    # Add list-specific fields if needed
+    pass
+
+class ShopListPaginatedResponse(BaseModel):
+    """Paginated shop list response."""
+    
+    count: int = Field(..., description="Total number of items")
+    next: Optional[str] = Field(None, description="URL to next page")
+    previous: Optional[str] = Field(None, description="URL to previous page")
+    results: List[ShopListResponse] = Field(..., description="List of shops")
+```
+
+### 3. Query Parameter Schemas
+
+**Pattern:** `{Domain}{Action}QueryParams`
+
+```python
+# schemas/_shop.py
+from pydantic import BaseModel, Field
+from typing import Optional
+from datetime import date
+
+class ShopListQueryParams(BaseModel):
+    """Query parameters for shop list endpoint."""
+    
+    search: Optional[str] = Field(None, description="Search term")
+    shop_type: Optional[str] = Field(None, description="Filter by shop type")
+    min_rating: Optional[float] = Field(None, ge=0, le=5, description="Minimum rating")
+    is_active: Optional[bool] = Field(None, description="Filter by active status")
+    ordering: Optional[str] = Field(None, description="Ordering field")
+    page: Optional[int] = Field(1, ge=1, description="Page number")
+    page_size: Optional[int] = Field(20, ge=1, le=100, description="Page size")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "search": "barber",
+                "shop_type": "barbershop",
+                "min_rating": 4.0,
+                "page": 1,
+                "page_size": 20
+            }
+        }
+```
+
+---
+
+## Integration with DRF Serializers
+
+### Pattern: Pydantic → DRF → Database
+
+```
+Request (Pydantic) → Validation → DRF Serializer → Service → Database
+                                                              ↓
+Response (Pydantic) ← Serialization ← DRF Serializer ← Model Instance
+```
+
+### Example: Controller Using Both
+
+```python
+# controllers/shop/_create.py
+from drf_spectacular.utils import extend_schema
+from rest_framework.viewsets import ModelViewSet
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework import status
+
+from schemas._shop import ShopCreateRequest, ShopDetailResponse
+from serializers.shop._create import ShopCreateSerializer
+from services.shop import ShopService
+
+class ShopViewSet(ModelViewSet):
+    """Shop management viewset."""
+    
+    @extend_schema(
+        tags=["Shop Management"],
+        request=ShopCreateRequest,  # Pydantic schema for request
+        responses={201: ShopDetailResponse},  # Pydantic schema for response
+    )
+    def create(self, request):
+        """Create a new shop."""
+        # 1. Validate with Pydantic (type checking, basic validation)
+        request_schema = ShopCreateRequest(**request.data)
+        
+        # 2. Use DRF serializer for database operations
+        serializer = ShopCreateSerializer(data=request_schema.model_dump())
+        serializer.is_valid(raise_exception=True)
+        
+        # 3. Business logic in service
+        shop = ShopService.create_shop(
+            user=request.user,
+            validated_data=serializer.validated_data
+        )
+        
+        # 4. Return Pydantic response
+        response_schema = ShopDetailResponse.model_validate(shop)
+        return Response(
+            response_schema.model_dump(),
+            status=status.HTTP_201_CREATED
+        )
+```
+
+### Alternative: Direct Pydantic Validation in Serializer
+
+```python
+# serializers/shop/_create.py
+from rest_framework import serializers
+from schemas._shop import ShopCreateRequest
+from models import Shop
+
+class ShopCreateSerializer(serializers.ModelSerializer):
+    """DRF serializer for shop creation."""
+    
+    class Meta:
+        model = Shop
+        fields = ['name', 'description', 'shop_type', 'address', 'latitude', 'longitude']
+    
+    def validate(self, attrs):
+        # Validate with Pydantic first
+        try:
+            pydantic_data = ShopCreateRequest(**attrs)
+            # Pydantic validation passed, now do DRF-specific validation
+            return super().validate(attrs)
+        except ValidationError as e:
+            raise serializers.ValidationError(e.errors())
+    
+    def create(self, validated_data):
+        # Database operation
+        return Shop.objects.create(**validated_data)
+```
+
+---
+
+## Best Practices
+
+### 1. Schema Organization
+
+**Group related schemas in the same file:**
+```python
+# schemas/_shop.py contains:
+# - ShopCreateRequest
+# - ShopUpdateRequest
+# - ShopDetailResponse
+# - ShopListResponse
+# - ShopListQueryParams
+```
+
+**Separate files for complex domains:**
+```python
+# schemas/shop/
+# ├── __init__.py
+# ├── request.py    # All request schemas
+# ├── response.py   # All response schemas
+# └── query.py      # Query parameter schemas
+```
+
+### 2. Field Definitions
+
+**Always use Field() for documentation:**
+```python
+name: str = Field(..., description="Shop name", min_length=1, max_length=100)
+```
+
+**Use appropriate validators:**
+```python
+from pydantic import field_validator, model_validator
+
+@field_validator('email')
+@classmethod
+def validate_email(cls, v: str) -> str:
+    # Custom validation
+    return v.lower().strip()
+
+@model_validator(mode='after')
+def validate_model(self):
+    # Cross-field validation
+    if self.start_date > self.end_date:
+        raise ValueError('start_date must be before end_date')
+    return self
+```
+
+### 3. Response Conversion
+
+**Use `from_attributes = True` for ORM models:**
+```python
+class ShopResponse(BaseModel):
+    id: int
+    name: str
+    
+    class Config:
+        from_attributes = True  # Allows: ShopResponse.model_validate(shop_instance)
+```
+
+**Or use `model_validate()`:**
+```python
+shop = Shop.objects.get(id=1)
+response = ShopResponse.model_validate(shop)
+```
+
+### 4. Error Handling
+
+**Pydantic validation errors:**
+```python
+from pydantic import ValidationError
+
+try:
+    request_schema = ShopCreateRequest(**request.data)
+except ValidationError as e:
+    return Response(
+        {"errors": e.errors()},
+        status=status.HTTP_400_BAD_REQUEST
+    )
+```
+
+---
+
+## Decision Guide: When to Use What
+
+### Use Pydantic Schema When:
+
+✅ Defining API contract (request/response structure)
+✅ Type safety is important
+✅ OpenAPI documentation needs clear schemas
+✅ Request body validation (before DRF)
+✅ Response serialization (after DRF)
+✅ Query parameter validation
+
+### Use DRF Serializer When:
+
+✅ Creating/updating database models
+✅ Complex nested object handling
+✅ Business rule validation
+✅ Database field mapping
+✅ Computed/read-only fields
+✅ Related object serialization
+
+### Use Both When:
+
+✅ You need type safety AND database operations
+✅ You want clear API contracts AND complex validation
+✅ You need OpenAPI docs AND business logic
+
+---
+
+## STOP AND ASK Scenarios
+
+### 🛑 Schema Organization
+
+**STOP if:**
+- Unclear where to place a schema
+- Schema could belong to multiple domains
+- Need to decide between single file vs directory structure
+
+**ASK:**
+```
+"I need to create schemas for [domain]. Should I:
+- Add to existing schemas/_domain.py?
+- Create new schemas/_domain.py?
+- Create schemas/domain/ directory structure?
+
+What's the preferred organization for [complexity level]?"
+```
+
+### 🛑 Pydantic vs DRF Decision
+
+**STOP if:**
+- Unclear whether to use Pydantic, DRF, or both
+- Validation logic is complex
+- Need to handle nested objects
+
+**ASK:**
+```
+"For [endpoint], I need to:
+- [Requirement]
+
+Should I:
+- Use Pydantic schema only?
+- Use DRF serializer only?
+- Use both (Pydantic for contract, DRF for operations)?
+
+What's the validation complexity?"
+```
+
+### 🛑 Schema Reuse
+
+**STOP if:**
+- Similar schemas exist but slightly different
+- Need to decide between inheritance vs composition
+- Schema structure is unclear
+
+**ASK:**
+```
+"I see [existing schema] exists. For [new requirement], should I:
+- Extend existing schema?
+- Create new schema?
+- Use composition/inheritance?
+
+What fields overlap?"
+```
+
+### 🛑 Response Schema Design
+
+**STOP if:**
+- Unclear what fields to include in response
+- Need to decide between multiple response schemas
+- Performance concerns (too many fields)
+
+**ASK:**
+```
+"For [endpoint] response, what should be included?
+- All fields (detail response)?
+- Minimal fields (list response)?
+- Different fields per action?
+
+What's the performance consideration?"
+```
+
+---
+
+## Migration Strategy
+
+### For New Endpoints:
+
+1. ✅ Create Pydantic schemas first (`schemas/_domain.py`)
+2. ✅ Create DRF serializer (`serializers/domain/_action.py`)
+3. ✅ Use both in controller
+4. ✅ Document with `@extend_schema`
+
+### For Existing Endpoints:
+
+1. ⚠️ **STOP AND ASK** before migrating
+2. Create Pydantic schemas matching existing DRF serializer
+3. Gradually introduce Pydantic validation
+4. Update OpenAPI documentation
+5. Test thoroughly
+
+---
+
+## Examples: Complete Flow
+
+### Example 1: Create Endpoint
+
+```python
+# 1. Pydantic Request Schema
+# schemas/_shop.py
+class ShopCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = None
+
+# 2. DRF Serializer
+# serializers/shop/_create.py
+class ShopCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Shop
+        fields = ['name', 'description']
+    
+    def create(self, validated_data):
+        return Shop.objects.create(**validated_data)
+
+# 3. Controller
+# controllers/shop/_create.py
+@extend_schema(
+    request=ShopCreateRequest,
+    responses={201: ShopDetailResponse}
+)
+def create(self, request):
+    # Validate with Pydantic
+    request_schema = ShopCreateRequest(**request.data)
+    
+    # Use DRF for database operations
+    serializer = ShopCreateSerializer(data=request_schema.model_dump())
+    serializer.is_valid(raise_exception=True)
+    shop = serializer.save()
+    
+    # Return Pydantic response
+    return Response(
+        ShopDetailResponse.model_validate(shop).model_dump(),
+        status=201
+    )
+```
+
+### Example 2: List Endpoint with Query Params
+
+```python
+# 1. Query Params Schema
+# schemas/_shop.py
+class ShopListQueryParams(BaseModel):
+    search: Optional[str] = None
+    page: int = Field(1, ge=1)
+    page_size: int = Field(20, ge=1, le=100)
+
+# 2. Response Schema
+class ShopListResponse(BaseModel):
+    id: int
+    name: str
+    rating: Optional[Decimal] = None
+
+# 3. Controller
+@extend_schema(
+    parameters=[OpenApiParameter('search', str)],
+    responses={200: ShopListResponse}
+)
+def list(self, request):
+    # Validate query params with Pydantic
+    query_params = ShopListQueryParams(**request.query_params.dict())
+    
+    # Use selector for query
+    shops = ShopSelector.get_shops(
+        search=query_params.search,
+        limit=query_params.page_size
+    )
+    
+    # Return Pydantic responses
+    return Response([
+        ShopListResponse.model_validate(shop).model_dump()
+        for shop in shops
+    ])
+```
+
+---
+
+## Summary
+
+**Key Rules:**
+
+1. ✅ **Pydantic schemas in `schemas/` directory**
+2. ✅ **Use Pydantic for API contracts and type safety**
+3. ✅ **Use DRF serializers for database operations**
+4. ✅ **Use both together for best of both worlds**
+5. ✅ **Always document with `@extend_schema`**
+6. ✅ **STOP AND ASK before migrating existing endpoints**
+
+**Remember:**
+- Pydantic = **What** (contract, type, documentation)
+- DRF = **How** (validation, transformation, database)

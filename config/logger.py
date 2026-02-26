@@ -9,10 +9,10 @@ from pathlib import Path
 import os
 import socket
 # ------------------------------------------------------------
-# Setup directories
+# Setup directories (use LOG_DIR env in Docker so logs go to writable path)
 # ------------------------------------------------------------
-LOG_DIR = Path("logs")
-LOG_DIR.mkdir(exist_ok=True)
+LOG_DIR = Path(os.getenv("LOG_DIR", "logs"))
+LOG_DIR.mkdir(parents=True, exist_ok=True)
 # ------------------------------------------------------------
 # Helper: environment-based log level
 # ------------------------------------------------------------

@@ -1,0 +1,155 @@
+---
+description: Guidelines for using selectors to handle database queries
+globs: ["**/selectors.py", "**/selectors/**/*.py", "**/services/**/*.py", "**/controllers/**/*.py"]
+alwaysApply: true
+---
+
+# 🔍 Selectors Pattern
+
+## What Are Selectors?
+
+Selectors are functions that handle ALL database READ operations. They encapsulate query logic and keep it separate from business logic.
+
+## Key Principles
+
+### 1. **All Queries Go Through Selectors**
+
+- Never write queries directly in controllers or services
+- All `Model.objects.filter()`, `get()`, `all()` calls belong in selectors
+- Controllers and services should call selectors for data retrieval
+
+### 2. **Selector Naming Conventions**
+
+```python
+# Good naming patterns
+def get_user_by_email(email: str) -> User:
+    """Get a single user by email."""
+    
+def get_active_users() -> QuerySet[User]:
+    """Get all active users."""
+    
+def get_users_by_role(role: str) -> QuerySet[User]:
+    """Get users filtered by role."""
+    
+def list_user_orders(user_id: int) -> QuerySet[Order]:
+    """List all orders for a specific user."""
+```
+
+### 3. **Selector Structure**
+
+```python
+# selectors/user.py or selectors.py
+
+from django.db.models import QuerySet, Prefetch
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+
+def get_user_by_id(user_id: int) -> User:
+    """
+    Get user by ID.
+    
+    Args:
+        user_id: The user's ID
+        
+    Returns:
+        User instance
+        
+    Raises:
+        User.DoesNotExist: If user not found
+    """
+    return User.objects.get(id=user_id)
+
+
+def get_active_users() -> QuerySet[User]:
+    """Get all active users with optimized queries."""
+    return User.objects.filter(
+        is_active=True
+    ).select_related(
+        'profile'
+    ).prefetch_related(
+        'groups'
+    )
+
+
+def get_users_with_orders() -> QuerySet[User]:
+    """Get users who have placed orders."""
+    return User.objects.filter(
+        orders__isnull=False
+    ).distinct()
+```
+
+### 4. **Optimization in Selectors**
+
+- Use `select_related()` for ForeignKey relationships
+- Use `prefetch_related()` for Many-to-Many and reverse ForeignKey
+- Add `.only()` or `.defer()` when appropriate
+- Use `.exists()` for existence checks instead of counting
+
+```python
+def has_active_subscription(user_id: int) -> bool:
+    """Check if user has active subscription efficiently."""
+    return Subscription.objects.filter(
+        user_id=user_id,
+        is_active=True
+    ).exists()  # Don't use .count() > 0
+```
+
+### 5. **Return Types**
+
+- Return `QuerySet` when multiple objects expected
+- Return model instance for single objects
+- Return `bool` for existence checks
+- Raise `DoesNotExist` for missing required objects
+- Return `None` for optional single objects
+
+## File Structure
+
+```bash
+selectors/
+├── __init__.py
+├── user.py          # User-related queries
+├── order.py         # Order-related queries
+└── product.py       # Product-related queries
+
+# OR single file for smaller apps
+selectors.py
+```
+
+## Integration with Services
+
+```python
+# services/user.py
+from selectors.user import get_user_by_email, get_active_users
+from models import User
+
+
+def create_user_service(email: str, password: str) -> User:
+    """Service to create a new user."""
+    # Check if user exists using selector
+    if get_user_by_email(email):
+        raise ValidationError("User already exists")
+    
+    # Business logic here
+    user = User.objects.create_user(email=email, password=password)
+    return user
+```
+
+## When to Create a Selector
+
+Create a selector when you need to:
+
+- Query the database
+- Apply complex filters
+- Optimize queries with select_related/prefetch_related
+- Reuse query logic across multiple places
+- Encapsulate query complexity
+
+## What NOT to Put in Selectors
+
+- Business logic
+- Data manipulation
+- HTTP handling
+- Data validation
+- Write operations (create, update, delete)

@@ -1,0 +1,210 @@
+---
+description: Guidelines for using Django signals and handlers
+globs: ["**/handlers.py", "**/signals.py", "**/handlers/**/*.py"]
+alwaysApply: true
+---
+
+# 📡 Handlers (Signals) Pattern
+
+## When to Use Signals
+
+Use signals for:
+
+- Cross-app communication
+- Audit logging
+- Cache invalidation
+- Triggering background tasks
+- Decoupled event handling
+
+## Signal Handler Structure
+
+```python
+# handlers/user.py or handlers.py
+
+from django.db.models.signals import post_save, pre_delete
+from django.dispatch import receiver
+from django.contrib.auth import get_user_model
+from tasks.email import send_welcome_email_task
+
+User = get_user_model()
+
+
+@receiver(post_save, sender=User)
+def user_created_handler(sender, instance, created, **kwargs):
+    """
+    Handle user creation.
+    Sends welcome email and creates related records.
+    """
+    if created:
+        # Trigger async task for heavy operations
+        send_welcome_email_task.delay(instance.id)
+        
+        # Create related records
+        from models import UserProfile
+        UserProfile.objects.create(user=instance)
+
+
+@receiver(pre_delete, sender=User)
+def user_deleted_handler(sender, instance, **kwargs):
+    """
+    Handle user deletion.
+    Clean up related data and log the event.
+    """
+    # Audit logging
+    from services.audit import log_user_deletion
+    log_user_deletion(instance)
+    
+    # Cache invalidation
+    from django.core.cache import cache
+    cache.delete(f'user_{instance.id}')
+```
+
+## Key Principles
+
+### 1. **Keep Handlers Lightweight**
+
+- Avoid complex business logic
+- Delegate heavy operations to background tasks
+- Don't make multiple database queries
+
+### 2. **Use Async Tasks for Heavy Work**
+
+```python
+@receiver(post_save, sender=Order)
+def order_created_handler(sender, instance, created, **kwargs):
+    if created:
+        # Good: Delegate to async task
+        from tasks.order import process_order_task
+        process_order_task.delay(instance.id)
+        
+        # Bad: Heavy operation in signal
+        # generate_invoice(instance)  # Don't do this!
+```
+
+### 3. **Avoid Signal Recursion**
+
+```python
+@receiver(post_save, sender=User)
+def update_user_stats(sender, instance, **kwargs):
+    # Bad: Can cause infinite loop
+    # instance.login_count += 1
+    # instance.save()  # Triggers post_save again!
+    
+    # Good: Use update() to avoid triggering signal
+    User.objects.filter(id=instance.id).update(
+        login_count=instance.login_count + 1
+    )
+```
+
+### 4. **Document Signal Dependencies**
+
+```python
+@receiver(post_save, sender=Order)
+def order_saved_handler(sender, instance, created, **kwargs):
+    """
+    Handle order save events.
+    
+    Dependencies:
+    - Requires tasks.notification to be configured
+    - Depends on inventory service being available
+    
+    Triggers:
+    - Inventory update task
+    - Customer notification
+    - Analytics event
+    """
+    ...
+```
+
+## Signal Registration
+
+### Method 1: Using @receiver decorator (Recommended)
+
+```python
+# handlers/user.py
+
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+@receiver(post_save, sender=User)
+def handler_name(sender, instance, created, **kwargs):
+    ...
+```
+
+### Method 2: Manual connection
+
+```python
+# apps.py
+
+from django.apps import AppConfig
+
+class MyAppConfig(AppConfig):
+    name = 'myapp'
+    
+    def ready(self):
+        from handlers import user  # Import to register signals
+```
+
+## File Organization
+
+```bash
+handlers/
+├── __init__.py
+├── user.py          # User-related signals
+├── order.py         # Order-related signals
+└── payment.py       # Payment-related signals
+
+# OR single file
+handlers.py
+# OR
+signals.py
+```
+
+## Common Signal Patterns
+
+### Audit Logging
+
+```python
+@receiver(post_save)
+def log_model_change(sender, instance, created, **kwargs):
+    """Log all model changes to audit table."""
+    from models import AuditLog
+    AuditLog.objects.create(
+        model=sender.__name__,
+        object_id=instance.pk,
+        action='created' if created else 'updated'
+    )
+```
+
+### Cache Invalidation
+
+```python
+@receiver(post_save, sender=Product)
+@receiver(post_delete, sender=Product)
+def invalidate_product_cache(sender, instance, **kwargs):
+    """Invalidate product cache on changes."""
+    from django.core.cache import cache
+    cache.delete(f'product_{instance.id}')
+    cache.delete('product_list')
+```
+
+### Related Object Creation
+
+```python
+@receiver(post_save, sender=User)
+def create_user_profile(sender, instance, created, **kwargs):
+    """Create profile when user is created."""
+    if created:
+        from models import UserProfile
+        UserProfile.objects.create(user=instance)
+```
+
+## Best Practices
+
+- Use signals sparingly - they can make code flow hard to follow
+- Prefer explicit service calls when possible
+- Document all signal handlers and their effects
+- Use async tasks for any heavy processing
+- Avoid circular signal dependencies
+- Test signal handlers independently
+- Consider using `update_fields` to limit signal triggers
