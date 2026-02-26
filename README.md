@@ -69,6 +69,8 @@ docker compose up --build
 ENV_FILE=.env.local docker compose up --build
 ```
 
+**Docker stack (services):** `db` (PostgreSQL 15), `redis`, **pgbouncer** (connection pooler), `web` (Django + Daphne), `celery_worker`, `celery_beat`. The web and Celery services connect to Postgres **via PgBouncer**; PgBouncer connects to `db`. Use `env.docker.example` as the basis for `.env.local` (it points the app at `pgbouncer:5432` inside the network). For PgBouncer config and optional host access, see **`config/pgbouncer/README.md`**.
+
 ## Environment Configuration
 
 The project uses environment-specific configuration files for better separation of concerns:
@@ -117,9 +119,19 @@ cp .env.prod.example .env.prod
 cp .env.test.example .env.test
 ```
 
-4) Run management commands inside the web container
+4) **Web container startup** (`entrypoint.sh`)
+
+   When the `web` service starts, it runs in order:
+   - `uv sync --frozen` — install/sync dependencies
+   - `migrate` — apply database migrations
+   - `collectstatic --noinput` — gather static files into `STATIC_ROOT` for serving
+   - **Daphne** ASGI server on `${WEB_PORT:-8000}` with `--application-close-timeout 30` (reduces "took too long to shut down" warnings when the browser cancels static requests, e.g. on refresh or redirect)
+
+   You do not need to run `collectstatic` manually for normal Docker runs.
+
+5) Run management commands inside the web container
 ```bash
-# migrations
+# migrations (also run automatically at startup)
 docker compose exec web uv run python manage.py migrate
 
 # superuser
@@ -132,7 +144,7 @@ docker compose exec web uv run python manage.py makemigrations
 docker compose exec web uv run python manage.py shell
 ```
 
-5) Access services
+6) Access services
 - Web: `http://127.0.0.1:${WEB_PORT:-8000}`
 - Admin: `http://127.0.0.1:${WEB_PORT:-8000}/admin/`
 - Swagger: `http://127.0.0.1:${WEB_PORT:-8000}/api/schema/docs/`
@@ -143,15 +155,15 @@ docker compose exec web uv run python manage.py shell
 If you prefer running Django on your host (outside Docker), you must point your environment file to services reachable from your host, not the Docker DNS names.
 
 Two options:
-- Use the Dockerized Postgres/Redis but connect via localhost (ports are published by compose):
+- Use the Dockerized Postgres/Redis but connect via localhost (ports are published by compose). To talk to Postgres directly (no PgBouncer): use port 5432; to use the pooler from the host: use port 6432 (see `config/pgbouncer/README.md`).
   ```env
-  # .env.local overrides for HOST MODE
+  # .env.local overrides for HOST MODE (direct Postgres)
   DATABASE_URL=postgresql://postgres:postgres@localhost:5432/drf_starter
   REDIS_URL=redis://localhost:6379/0
   ```
   Then:
   ```bash
-  # Ensure db and redis are up
+  # Ensure db and redis are up (pgbouncer optional if you use localhost:6432 from host)
   docker compose up -d db redis
 
   # Host virtualenv using uv
@@ -165,7 +177,7 @@ Two options:
 - Or install Postgres/Redis locally and set `DATABASE_URL`/`REDIS_URL` accordingly.
 
 Important:
-- Do not use `db` or `redis` hostnames from your host; those names only resolve inside Docker networks. Use `localhost` with the published ports.
+- Do not use `db`, `pgbouncer`, or `redis` hostnames from your host; those names only resolve inside Docker networks. Use `localhost` with the published ports (Postgres: 5432, PgBouncer: 6432, Redis: 6379).
 
 
 ## Configuration (Environment)
@@ -203,7 +215,7 @@ The project centralizes env handling in `config/env.py`. Key variables:
 
 ### **Database**
 - `DATABASE_URL`: e.g. `postgresql://user:pass@host:5432/dbname` or `sqlite:///database/db.sqlite3`
-- `POSTGRES_*`: used to build `DATABASE_URL` if not set
+- `POSTGRES_*`: used to build `DATABASE_URL` if not set. In Docker, the app connects to Postgres via PgBouncer (`POSTGRES_HOST=pgbouncer`, `POSTGRES_PORT=5432` inside the network); see `env.docker.example` and `config/pgbouncer/README.md`.
 
 ### **Cache/Broker**
 - `REDIS_URL`: e.g. `redis://localhost:6379/0`
@@ -284,6 +296,7 @@ This starter uses an opinionated, domain-driven layout that encourages separatio
 │  │  └─ __init__.py          # imports the modular settings
 │  ├─ env.py                  # environment loader (django-environ)
 │  ├─ celery.py               # Celery app setup
+│  ├─ pgbouncer/              # PgBouncer config (ini, userlist); see README there
 │  ├─ urls.py                 # root URLs (admin, api, docs)
 │  ├─ asgi.py / wsgi.py
 │  └─ logger.py               # Loguru-based structured logging
@@ -310,7 +323,8 @@ This starter uses an opinionated, domain-driven layout that encourages separatio
 ├─ static/exp_app/            # template app used by starttemplateapp
 ├─ database/                  # sqlite db path (if used)
 ├─ Dockerfile                 # uv-based image
-├─ docker-compose.yml         # db, redis, web, worker, beat
+├─ entrypoint.sh              # web startup: uv sync, migrate, collectstatic, daphne
+├─ docker-compose.yml        # db, redis, pgbouncer, web, celery_worker, celery_beat
 ├─ pyproject.toml             # deps + dev deps + python version
 ├─ uv.lock                    # locked dependency versions
 └─ manage.py                  # CLI entry
@@ -791,11 +805,11 @@ class TestMyFeature:
 
 ## Production notes
 - Switch settings: `DJANGO_SETTINGS_MODULE=config.django.production`
-- Use a real DB and Redis service; run `collectstatic` when serving static assets:
+- Use a real DB and Redis service. Static files are collected automatically when the web container starts (see `entrypoint.sh`). If you deploy without that entrypoint (e.g. custom image or CI), run:
   ```bash
   docker compose exec web uv run python manage.py collectstatic --noinput
   ```
-- Configure a proper ASGI/WSGI server (e.g., `gunicorn`, `uvicorn`) behind a reverse proxy.
+- The web service runs **Daphne** (ASGI) with `--application-close-timeout 30`. For production, put Daphne (or gunicorn/uvicorn) behind a reverse proxy (e.g. Nginx, Caddy).
 
 
 ## Troubleshooting
