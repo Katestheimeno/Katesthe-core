@@ -217,23 +217,25 @@ else
 fi
 
 # Pyproject slug: prompt (interactive), env/flag, or derive from display name
-if [[ "$EXPLICIT_PYPROJECT" == "0" ]] && [[ "$NONINTERACTIVE" != "1" ]]; then
-  _d=$(slugify_pyproject_name "$PROJECT_NAME")
-  _r=$(prompt "Pyproject / package name (PEP 508)" "$_d")
-  if ! is_blank "$_r"; then
-    PYPROJECT_NAME=$(slugify_pyproject_name "$_r")
+# (Nested if/else only — avoids if/elif edge cases in older bash.)
+if [[ "$EXPLICIT_PYPROJECT" == "0" ]]; then
+  if [[ "$NONINTERACTIVE" != "1" ]]; then
+    _d=$(slugify_pyproject_name "$PROJECT_NAME")
+    _r=$(prompt "Pyproject / package name (PEP 508)" "$_d")
+    if ! is_blank "$_r"; then
+      PYPROJECT_NAME=$(slugify_pyproject_name "$_r")
+    else
+      PYPROJECT_NAME="$_d"
+    fi
   else
-    PYPROJECT_NAME="$_d"
+    PYPROJECT_NAME=$(slugify_pyproject_name "$PROJECT_NAME")
   fi
-elif [[ "$EXPLICIT_PYPROJECT" == "0" ]]; then
-  PYPROJECT_NAME=$(slugify_pyproject_name "$PROJECT_NAME")
 fi
 if [[ -z "$PYPROJECT_NAME" ]]; then
   PYPROJECT_NAME=$(slugify_pyproject_name "$PROJECT_NAME")
 fi
-# bash 3.2: store regex in a variable for =~ (see Chet Ramey notes on [[ =~ ]])
-_py_slug_re='^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$'
-if ! [[ "$PYPROJECT_NAME" =~ $_py_slug_re ]]; then
+# Portable PEP 508-style name check (grep -E; avoids [[ =~ ]] differences across bash 3.2/4+/zsh).
+if ! printf '%s\n' "$PYPROJECT_NAME" | grep -E -q '^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$'; then
   echo "Invalid --pyproject-name / SETUP_PYPROJECT_NAME: use lowercase letters, digits, dots, hyphens (PEP 508)." >&2
   exit 1
 fi
@@ -301,16 +303,16 @@ echo "  CONTACT_URL=$CONTACT_URL"
 echo "  CLONE_URL=$REPO_URL"
 echo ""
 
-# --- clone ---
-TMPDIR="tmp-core-$$"
-git clone "$REPO_URL" "$TMPDIR"
+# --- clone (do not use name TMPDIR — it overwrites the standard temp env var) ---
+SETUP_CLONE_DIR="tmp-core-$$"
+git clone "$REPO_URL" "$SETUP_CLONE_DIR"
 
-rm -rf "${TMPDIR:?}/.git"
+rm -rf "${SETUP_CLONE_DIR:?}/.git"
 
 shopt -s dotglob
-mv "$TMPDIR"/* .
+mv "$SETUP_CLONE_DIR"/* .
 shopt -u dotglob
-rm -rf "$TMPDIR"
+rm -rf "$SETUP_CLONE_DIR"
 
 # --- replace branding (longest strings first) ---
 apply_perl_subst() {

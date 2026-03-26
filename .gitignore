@@ -1,3 +1,6 @@
+# Local setup.sh integration test output
+testclone/workspace/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
