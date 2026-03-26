@@ -37,10 +37,31 @@ Because this project is fully dockerized, run Django and management commands ins
 
 ## 🚀 Quick Start
 
-1. You can set up the starter in one command:
-```bash
-curl -LsSf https://raw.githubusercontent.com/Katestheimeno/Katesthe-core/main/setup.sh | sh
-```
+1. **Install the template** into an empty directory. The script clones this repo, removes `.git`, applies your project name and metadata, updates `pyproject.toml`, and runs `uv lock` when `uv` is available. Requires **bash**, **git**, **perl**, and **Python 3** (for safe `pyproject.toml` edits).
+
+   Interactive (prompts for display name, pyproject slug, contact fields, description):
+   ```bash
+   curl -LsSf https://raw.githubusercontent.com/Yeeloman/Katesthe-core/main/setup.sh | bash
+   ```
+
+   Non-interactive (CI or scripting): set `SETUP_NONINTERACTIVE=1` and at least `SETUP_PROJECT_NAME`. Optional: `SETUP_REPO_URL`, `SETUP_PYPROJECT_NAME`, `SETUP_PYPROJECT_DESCRIPTION`, `SETUP_CONTACT_*`, `SETUP_PROFILING_EMAIL`, or pass flags after `--`:
+   ```bash
+   curl -LsSf https://raw.githubusercontent.com/Yeeloman/Katesthe-core/main/setup.sh | bash -s -- --non-interactive \
+     --project-name "My API" \
+     --pyproject-name "my-api" \
+     --repo-url "https://github.com/myorg/my-api.git"
+   ```
+
+   Equivalent with environment variables:
+   ```bash
+   SETUP_NONINTERACTIVE=1 \
+   SETUP_PROJECT_NAME="My API" \
+   SETUP_PYPROJECT_NAME="my-api" \
+   SETUP_REPO_URL="https://github.com/myorg/my-api.git" \
+   curl -LsSf https://raw.githubusercontent.com/Yeeloman/Katesthe-core/main/setup.sh | bash
+   ```
+
+   Options and env var names are listed in `./setup.sh --help` after you clone, or in the script header.
 
 2) **Create environment configuration**
 ```bash

@@ -1,6 +1,6 @@
 """
 cleanuppycache.py: Management command to remove all __pycache__ directories from all Django apps in the project
-Path: /home/katestheimeno/dev/DRF-starter/utils/management/commands/cleanuppycache.py
+Path: utils/management/commands/cleanuppycache.py (project-relative)
 """
 
 from django.core.management.base import BaseCommand

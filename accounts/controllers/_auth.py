@@ -42,6 +42,7 @@ from accounts.schemas._token import (
 from django.contrib.auth import get_user_model
 from config.db_router import force_primary_for_request
 from config.db_utils import read_from_primary
+from config.settings.config import settings
 from config.logger import logger
 from drf_spectacular.utils import (
     extend_schema,
@@ -388,7 +389,7 @@ class CustomActivationView(ActionViewMixin, APIView):
             'uid': uid,
             'token': token,
             'activation_url': f'/api/v1/auth/users/activation/{uid}/{token}/',
-            'app_name': 'Katesthe-core'
+            'app_name': settings.PROJECT_NAME
         }
         return render(request, 'accounts/activation.html', context)
     
