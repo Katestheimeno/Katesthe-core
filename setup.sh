@@ -15,7 +15,7 @@ readonly TPL_PROFILING_EMAIL="admin@katesthe-core.com"
 readonly TPL_PROJECT_DESCRIPTION='A Django REST Framework starter project with ready-to-use authentication, custom user management, and modular app structure.'
 readonly TPL_PYPROJECT_NAME="drf-starter"
 readonly TPL_PYPROJECT_DESCRIPTION="Add your description here"
-readonly DEFAULT_CLONE_URL="https://github.com/Yeeloman/Katesthe-core.git"
+readonly DEFAULT_CLONE_URL="https://github.com/Katestheimeno/Katesthe-core.git"
 
 usage() {
   sed -n '1,80p' <<'EOF'
