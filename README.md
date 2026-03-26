@@ -8,7 +8,7 @@ A production-ready Django REST Framework starter with an opinionated, domain-dri
 - **Docs**: OpenAPI schema + Swagger/Redoc UIs
 - **Background jobs**: Celery worker + beat
 - **Realtime**: Django Channels + Redis (WebSockets)
-- **Storage**: Postgres via `dj-database-url` (SQLite supported via `DATABASE_URL`)
+- **Storage**: Postgres via explicit `DB_PRIMARY_*` (optional read replicas); SQLite when `USE_SQLITE=true` or when `DB_PRIMARY_HOST` is unset
 - **Cache/Broker**: Redis
 - **Admin**: Unfold (modern UI) + structured logging via Loguru
 - **Dev UX**: uv for env/deps, `django-extensions`, `silk`, `rosetta`, pytest stack
@@ -158,7 +158,12 @@ Two options:
 - Use the Dockerized Postgres/Redis but connect via localhost (ports are published by compose). To talk to Postgres directly (no PgBouncer): use port 5432; to use the pooler from the host: use port 6432 (see `config/pgbouncer/README.md`).
   ```env
   # .env.local overrides for HOST MODE (direct Postgres)
-  DATABASE_URL=postgresql://postgres:postgres@localhost:5432/drf_starter
+  USE_SQLITE=false
+  DB_PRIMARY_HOST=localhost
+  DB_PRIMARY_PORT=5432
+  DB_PRIMARY_NAME=drf_starter
+  DB_PRIMARY_USER=postgres
+  DB_PRIMARY_PASSWORD=postgres
   REDIS_URL=redis://localhost:6379/0
   ```
   Then:
@@ -174,7 +179,7 @@ Two options:
   uv run python manage.py runserver 0.0.0.0:${WEB_PORT:-8000}
   ```
 
-- Or install Postgres/Redis locally and set `DATABASE_URL`/`REDIS_URL` accordingly.
+- Or install Postgres/Redis locally and set `DB_PRIMARY_*`/`REDIS_URL` accordingly.
 
 Important:
 - Do not use `db`, `pgbouncer`, or `redis` hostnames from your host; those names only resolve inside Docker networks. Use `localhost` with the published ports (Postgres: 5432, PgBouncer: 6432, Redis: 6379).
@@ -214,15 +219,27 @@ The project centralizes env handling in `config/env.py`. Key variables:
 - `THEME_ACCENT_COLOR`: Accent theme color in hex format (default: "#4b0082")
 
 ### **Database**
-- `DATABASE_URL`: e.g. `postgresql://user:pass@host:5432/dbname` or `sqlite:///database/db.sqlite3`
-- `POSTGRES_*`: used to build `DATABASE_URL` if not set. In Docker, the app connects to Postgres via PgBouncer (`POSTGRES_HOST=pgbouncer`, `POSTGRES_PORT=5432` inside the network); see `env.docker.example` and `config/pgbouncer/README.md`.
+- `USE_SQLITE`: when `true`, Django uses SQLite (file under `database/`); takes precedence over Postgres.
+- `DB_PRIMARY_HOST`, `DB_PRIMARY_PORT`, `DB_PRIMARY_NAME`, `DB_PRIMARY_USER`, `DB_PRIMARY_PASSWORD`: primary Postgres connection (no `DATABASE_URL`).
+- `DB_REPLICA_HOSTS`: comma-separated replica hostnames; optional `DB_REPLICA_PORT`, `DB_REPLICA_USER`, `DB_REPLICA_PASSWORD`, `DB_REPLICA_NAME` (default to primary when empty).
+- `DB_ROUTING_ENABLED`: defaults to **`true`** — registers `PrimaryReplicaRouter`. **Reads** go to replicas only when `DB_REPLICA_HOSTS` lists hosts; if empty, reads stay on the primary. Set to `false` to disable the router entirely. See `docs/db-primary-replica.md` and `config/db_router.py`.
+- `REPLICATOR_PASSWORD`: used only by Docker Compose for Postgres streaming replication (`db` + `db_replica`); must match between primary init and replica `pg_basebackup` (default in examples: `replicator_dev`).
+- In Docker, use `DB_PRIMARY_HOST=db` and `DB_PRIMARY_PORT=5432` for direct Postgres; optional PgBouncer is `pgbouncer` — see `env.docker.example` and `config/pgbouncer/README.md`. For **read traffic splitting**, set `DB_REPLICA_HOSTS=db_replica` to use the bundled streaming standby (`docker-compose.yml`). If you add replication **after** an existing primary volume was created, run `docker compose down -v` once so the primary runs init scripts that create the `replicator` role (or add that user manually).
+
+**Check routing in a running container**:
+
+```bash
+docker compose exec web uv run python manage.py shell -c "from django.conf import settings; print('DATABASES:', list(settings.DATABASES.keys())); print('DATABASE_ROUTERS:', settings.DATABASE_ROUTERS); print('DB_ROUTING_ENABLED:', settings.DB_ROUTING_ENABLED); print('REPLICA_DATABASE_ALIASES:', settings.REPLICA_DATABASE_ALIASES)"
+```
+
+With `DB_REPLICA_HOSTS=db_replica` (default in `env.docker.example`): expect `DATABASES` to include `default` and `replica_0`, `REPLICA_DATABASE_ALIASES: ['replica_0']`, and reads to use the replica when healthy. With no replicas: `REPLICA_DATABASE_ALIASES: []` — reads stay on the primary. Set `DB_ROUTING_ENABLED=false` to unregister the router.
 
 ### **Cache/Broker**
 - `REDIS_URL`: e.g. `redis://localhost:6379/0`
 
 **Notes:**
 - `manage.py` defaults to `config.django.local` settings; Production can use `DJANGO_SETTINGS_MODULE=config.django.production`.
-- Database configuration uses `dj-database-url`.
+- Database configuration uses explicit `DB_PRIMARY_*` in `config/settings/database.py`.
 - Use `DJANGO_DEBUG` (boolean) for Django's debug toggle. The example environment files include `DEBUG` for Compose convenience; prefer `DJANGO_DEBUG`.
 - All branding and theme variables can be customized via environment variables for easy project personalization.
 
@@ -629,7 +646,7 @@ uv run python manage.py cleanuppycache --dry-run --verbose
 - Core: `django`, `djangorestframework`, `django-filter`, `drf-extensions`
 - Auth: `djangorestframework-simplejwt`, `djoser`
 - Jobs: `celery`, `django-celery-beat`, `redis`
-- DB/Config: `dj-database-url`, `psycopg2-binary`, `django-environ`
+- DB/Config: `psycopg2-binary`, `pydantic-settings`
 - Admin/UI: `django-unfold`, `django-cors-headers`
 - Docs: `drf-spectacular`
 - Logging/Debug: `loguru`, `icecream`
@@ -813,7 +830,7 @@ class TestMyFeature:
 
 
 ## Troubleshooting
-- Commands failing on host: run them inside containers (`docker compose exec web ...`), or switch to Host mode with correct `DATABASE_URL`/`REDIS_URL`.
-- Database connection errors: verify `DATABASE_URL`. For SQLite, prefer `sqlite:///database/db.sqlite3` and ensure the directory exists (Host mode).
+- Commands failing on host: run them inside containers (`docker compose exec web ...`), or switch to Host mode with correct `DB_PRIMARY_*`/`REDIS_URL`.
+- Database connection errors: verify `DB_PRIMARY_HOST`, credentials, and port. For SQLite (`USE_SQLITE=true`), ensure the `database/` directory exists.
 - 401 Unauthorized: obtain/refresh JWT via Djoser endpoints and send `Authorization: Bearer <token>`.
 - Celery not picking tasks: ensure worker and beat are running and `REDIS_URL` is reachable.

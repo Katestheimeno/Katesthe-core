@@ -12,6 +12,8 @@ from django.utils import timezone
 from django.conf import settings
 from django.core.serializers.json import DjangoJSONEncoder
 
+from config.db_utils import read_from_primary
+
 imports = []
 
 imports += ["HistoryModel"]
@@ -109,7 +111,9 @@ class HistoryModel(models.Model):
     def _track_changes(self, changed_by=None, category=None, note=None):
         """Internal method to track changes with enhanced features"""
         try:
-            old = self.__class__.objects.get(pk=self.pk)
+            # Reuses read_from_primary — compare against primary row before update (replica may lag).
+            with read_from_primary():
+                old = self.__class__.objects.get(pk=self.pk)
         except self.__class__.DoesNotExist:
             return
 

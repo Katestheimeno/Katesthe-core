@@ -37,9 +37,9 @@ ENV LOG_DIR=/var/log/app \
 
 USER django
 
-EXPOSE ${WEB_PORT:-8000}
-
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s CMD curl -f http://localhost:${WEB_PORT:-8000}/ || exit 1
+# Daphne listens on WEB_PORT from entrypoint (default 8000). Health checks belong in docker-compose.yml
+# (web only). Celery worker/beat inherit this image and must not curl :8000.
+EXPOSE 8000
 
 # only run this in development
 # RUN uv run manage.py collectstatic --no-input

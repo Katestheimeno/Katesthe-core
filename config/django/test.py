@@ -13,6 +13,11 @@ DATABASES = {
     }
 }
 
+# Primary/replica routing is not used under test settings
+REPLICA_DATABASE_ALIASES = []
+DB_ROUTING_ENABLED = False
+DATABASE_ROUTERS = []
+
 # Disable logging during tests
 LOGGING = {
     'version': 1,

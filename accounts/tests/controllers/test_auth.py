@@ -4,7 +4,7 @@ Path: accounts/tests/controllers/test_auth.py
 """
 
 import pytest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
@@ -1884,5 +1884,47 @@ class TestDirectLineCoverage:
             response = view.post(request, uid, token)
             assert response.status_code == 400
             assert 'Invalid activation link' in response.content.decode()
-    
+
+
+class TestCustomUserViewSetReadAfterWritePrimaryPin:
+    """After writes, force ORM reads onto primary (read-after-write / replica lag safety)."""
+
+    @pytest.mark.django_db
+    def test_perform_create_calls_force_primary(self):
+        from accounts.controllers._auth import CustomUserViewSet
+        from djoser import views as djoser_views
+
+        serializer = MagicMock()
+        view = CustomUserViewSet()
+        with patch.object(djoser_views.UserViewSet, "perform_create") as mock_super:
+            with patch("accounts.controllers._auth.force_primary_for_request") as mock_pin:
+                view.perform_create(serializer)
+        mock_super.assert_called_once_with(serializer)
+        mock_pin.assert_called_once()
+
+    @pytest.mark.django_db
+    def test_perform_update_calls_force_primary(self):
+        from accounts.controllers._auth import CustomUserViewSet
+        from djoser import views as djoser_views
+
+        serializer = MagicMock()
+        view = CustomUserViewSet()
+        with patch.object(djoser_views.UserViewSet, "perform_update") as mock_super:
+            with patch("accounts.controllers._auth.force_primary_for_request") as mock_pin:
+                view.perform_update(serializer)
+        mock_super.assert_called_once_with(serializer)
+        mock_pin.assert_called_once()
+
+    @pytest.mark.django_db
+    def test_perform_destroy_calls_force_primary(self):
+        from accounts.controllers._auth import CustomUserViewSet
+        from djoser import views as djoser_views
+
+        instance = MagicMock()
+        view = CustomUserViewSet()
+        with patch.object(djoser_views.UserViewSet, "perform_destroy") as mock_super:
+            with patch("accounts.controllers._auth.force_primary_for_request") as mock_pin:
+                view.perform_destroy(instance)
+        mock_super.assert_called_once_with(instance)
+        mock_pin.assert_called_once()
 

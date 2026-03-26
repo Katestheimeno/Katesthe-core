@@ -2,14 +2,16 @@
 Database and cache configuration.
 Path: config/settings/database.py
 
-Uses dj-database-url to parse DATABASE_URL and configures Redis cache.
+Builds DATABASES from explicit DB_PRIMARY_* / DB_REPLICA_* (no DATABASE_URL).
+Configures Redis cache.
 """
+
+import logging
 
 from config.settings import SQLITE_DATABASE_PATH
 from config.settings.config import settings
-from icecream import ic
-import dj_database_url
 
+logger = logging.getLogger(__name__)
 
 # ------------------------------------------------------------
 # Imports Collector
@@ -17,80 +19,79 @@ import dj_database_url
 imports = []
 
 
+def _use_postgres() -> bool:
+    if settings.USE_SQLITE:
+        return False
+    return bool(settings.DB_PRIMARY_HOST and settings.DB_PRIMARY_HOST.strip())
+
+
+def _primary_postgres() -> dict:
+    """PgBouncer-friendly primary connection (transaction pooling)."""
+    return {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": settings.DB_PRIMARY_NAME,
+        "USER": settings.DB_PRIMARY_USER,
+        "PASSWORD": settings.DB_PRIMARY_PASSWORD,
+        "HOST": settings.DB_PRIMARY_HOST.strip(),
+        "PORT": settings.DB_PRIMARY_PORT,
+        "CONN_MAX_AGE": 0,
+        "DISABLE_SERVER_SIDE_CURSORS": True,
+        "CONN_HEALTH_CHECKS": True,
+    }
+
+
+def _replica_postgres(host: str) -> dict:
+    cfg = _primary_postgres()
+    cfg["HOST"] = host.strip()
+    port = settings.DB_REPLICA_PORT if settings.DB_REPLICA_PORT is not None else settings.DB_PRIMARY_PORT
+    cfg["PORT"] = port
+    cfg["USER"] = settings.DB_REPLICA_USER or settings.DB_PRIMARY_USER
+    cfg["PASSWORD"] = (
+        settings.DB_REPLICA_PASSWORD
+        if settings.DB_REPLICA_PASSWORD
+        else settings.DB_PRIMARY_PASSWORD
+    )
+    cfg["NAME"] = settings.DB_REPLICA_NAME or settings.DB_PRIMARY_NAME
+    cfg["TEST"] = {"MIRROR": "default"}
+    return cfg
+
+
 # ------------------------------------------------------------
 # Database Settings
 # ------------------------------------------------------------
-# SQLite is lightweight and ideal for local development and testing.
-# For production, replace this with PostgreSQL, MySQL, or another RDBMS.
 imports += ["DATABASES"]
 
-# Handle database configuration with fallback to SQLite
-try:
-    database_url = settings.database.DATABASE_URL
-    
-    # Parse the database URL
-    db_config = dj_database_url.config(
-        default=database_url,
-        conn_max_age=600,
-        conn_health_checks=True,
-    )
-    
-    # Check if the configuration is valid
-    if not db_config or not db_config.get('ENGINE'):
-        raise ValueError(f"Invalid database configuration: {db_config}")
-    
+if _use_postgres():
+    DATABASES: dict = {"default": _primary_postgres()}
+    hosts = [h.strip() for h in settings.DB_REPLICA_HOSTS.split(",") if h.strip()]
+    REPLICA_DATABASE_ALIASES: list[str] = []
+    for i, host in enumerate(hosts):
+        alias = f"replica_{i}"
+        DATABASES[alias] = _replica_postgres(host)
+        REPLICA_DATABASE_ALIASES.append(alias)
+
+    # Mirrors env flag: router is active when True; with no replicas, reads still resolve to primary.
+    DB_ROUTING_ENABLED: bool = bool(settings.DB_ROUTING_ENABLED)
+    if DB_ROUTING_ENABLED:
+        DATABASE_ROUTERS = ["config.db_router.PrimaryReplicaRouter"]
+    else:
+        DATABASE_ROUTERS = []
+    imports += ["REPLICA_DATABASE_ALIASES", "DB_ROUTING_ENABLED", "DATABASE_ROUTERS"]
+else:
     DATABASES = {
-        'default': db_config
-    }
-except Exception as e:
-    # Fall back to SQLite if database configuration fails
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': str(SQLITE_DATABASE_PATH / 'db.sqlite3'),
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": str(SQLITE_DATABASE_PATH / "db.sqlite3"),
         }
     }
-
-# if DATABASE_URL:
-#     # Try to use PostgreSQL from environment
-#     try:
-#         DATABASES = {
-#             'default': dj_database_url.config(
-#                 default=DATABASE_URL,
-#                 conn_max_age=600,
-#                 conn_health_checks=True,
-#             )
-#         }
-#         # Test the connection
-#         import psycopg2
-#         conn = psycopg2.connect(DATABASE_URL)
-#         conn.close()
-#         ic("✅ Connected to PostgreSQL")
-#     except Exception as e:
-#         ic(f"⚠️  PostgreSQL connection failed: {e}")
-#         ic("🔄 Falling back to SQLite")
-#         DATABASES = {
-#             'default': {
-#                 'ENGINE': 'django.db.backends.sqlite3',
-#                 'NAME': SQLITE_DATABASE_PATH / 'db.sqlite3',
-#             }
-#         }
-# else:
-#     # Default to SQLite
-#     ic("📦 Using SQLite (no DATABASE_URL found)")
-#     DATABASES = {
-#         'default': {
-#             'ENGINE': 'django.db.backends.sqlite3',
-#             'NAME': SQLITE_DATABASE_PATH / 'db.sqlite3',
-#         }
-#     }
-
+    REPLICA_DATABASE_ALIASES = []
+    DB_ROUTING_ENABLED = False
+    DATABASE_ROUTERS = []
+    imports += ["REPLICA_DATABASE_ALIASES", "DB_ROUTING_ENABLED", "DATABASE_ROUTERS"]
 
 # ------------------------------------------------------------
 # Default Primary Key Field Type
 # ------------------------------------------------------------
-# By default, Django uses BigAutoField for primary keys.
-# This avoids issues with ID limits on large tables.
 imports += ["DEFAULT_AUTO_FIELD"]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
@@ -99,24 +100,23 @@ imports += ["CACHES"]
 # Cache configuration (Redis with fallback to local memory)
 try:
     CACHES = {
-        'default': {
-            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-            'LOCATION': settings.REDIS_URL,
-            'KEY_PREFIX': 'django_cache',
-            'TIMEOUT': 300,
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": settings.REDIS_URL,
+            "KEY_PREFIX": "django_cache",
+            "TIMEOUT": 300,
         }
     }
 except Exception as e:
-    ic(f"⚠️  Redis cache configuration failed: {e}")
-    ic("🔄 Falling back to local memory cache")
+    logger.warning("Redis cache configuration failed: %s — using locmem", e)
     CACHES = {
-        'default': {
-            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-            'LOCATION': 'unique-snowflake',
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "unique-snowflake",
         }
     }
+
 # ------------------------------------------------------------
 # Explicit Exports
 # ------------------------------------------------------------
 __all__ = imports
-

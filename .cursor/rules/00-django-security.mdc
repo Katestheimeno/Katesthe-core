@@ -135,7 +135,7 @@ if file.size > 5 * 1024 * 1024:  # 5MB
 ## Hardcoded Secrets
 - **Never** hardcode API keys, passwords, or tokens in source code.
 - Use environment variables via `django-environ` or `python-decouple`.
-- Ensure `SECRET_KEY`, `DATABASE_URL`, and third-party credentials are loaded from env.
+- Ensure `SECRET_KEY`, `DB_PRIMARY_*` (or SQLite/`USE_SQLITE`), and third-party credentials are loaded from env.
 
 ```python
 # ✅

@@ -7,16 +7,63 @@ services:
       - ${ENV_FILE:-.env.local}
     environment:
       POSTGRES_HOST_AUTH_METHOD: md5
-    command: ["postgres", "-c", "password_encryption=md5"]
+      POSTGRES_USER: ${DB_PRIMARY_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PRIMARY_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_PRIMARY_NAME:-drf_starter}
+      # Used by docker/postgres/primary/02-replication-user.sh (first init only)
+      REPLICATOR_PASSWORD: ${REPLICATOR_PASSWORD:-replicator_dev}
+    command:
+      - postgres
+      - -c
+      - hba_file=/etc/postgresql/pg_hba.conf
+      - -c
+      - password_encryption=md5
+      - -c
+      - wal_level=replica
+      - -c
+      - max_wal_senders=10
+      - -c
+      - max_replication_slots=10
+      - -c
+      - hot_standby=on
+      - -c
+      - listen_addresses=*
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/primary/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ./docker/postgres/primary:/docker-entrypoint-initdb.d:ro
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_PRIMARY_USER:-postgres}"]
       interval: 30s
       timeout: 10s
       retries: 3
+    stop_grace_period: 30s
+
+  # Streaming standby (read replica). Django routes ORM reads here when DB_REPLICA_HOSTS=db_replica.
+  # First-time setup: primary volume must have been initialized with replication scripts — if you already
+  # had a DB volume from before replication was added, run: docker compose down -v && docker compose up -d
+  db_replica:
+    image: postgres:15
+    env_file:
+      - ${ENV_FILE:-.env.local}
+    environment:
+      REPLICATOR_PASSWORD: ${REPLICATOR_PASSWORD:-replicator_dev}
+    user: postgres
+    entrypoint: ["/bin/bash", "/docker-entrypoint-replica.sh"]
+    volumes:
+      - postgres_replica_data:/var/lib/postgresql/data
+      - ./docker/postgres/replica/docker-entrypoint-replica.sh:/docker-entrypoint-replica.sh:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_PRIMARY_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 180s
     stop_grace_period: 30s
 
   redis:
@@ -37,8 +84,8 @@ services:
     env_file:
       - ${ENV_FILE:-.env.local}
     environment:
-      # Override DATABASE_URL so entrypoint generates backend=db (not pgbouncer from app URL)
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-drf_starter}
+      # PgBouncer image only: backend URL to Postgres (not used by Django app)
+      - DATABASE_URL=postgresql://${DB_PRIMARY_USER:-postgres}:${DB_PRIMARY_PASSWORD:-postgres}@db:5432/${DB_PRIMARY_NAME:-drf_starter}
       - PGBOUNCER_POOL_MODE=transaction
       - PGBOUNCER_MAX_CLIENT_CONN=2000
       - PGBOUNCER_DEFAULT_POOL_SIZE=100
@@ -66,10 +113,19 @@ services:
     env_file:
       - ${ENV_FILE:-.env.local}
     depends_on:
-      pgbouncer:
+      db:
+        condition: service_healthy
+      db_replica:
         condition: service_healthy
       redis:
         condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://127.0.0.1:8000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
 
   celery_worker:
     build: .
@@ -80,31 +136,45 @@ services:
     env_file:
       - ${ENV_FILE:-.env.local}
     depends_on:
-      pgbouncer:
+      db:
+        condition: service_healthy
+      db_replica:
         condition: service_healthy
       redis:
         condition: service_healthy
+      web:
+        condition: service_healthy
     restart: unless-stopped
     stop_grace_period: 30s
+    healthcheck:
+      disable: true
 
   celery_beat:
     build: .
-    command: uv run celery -A config.celery.app beat --loglevel=info
+    # DatabaseScheduler: schedule in Postgres (django_celery_beat) — avoids celerybeat-schedule file on /app volume (permission denied).
+    command: uv run celery -A config.celery.app beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
     volumes:
       - .:/app
       - celery_venv:/app/.venv
     env_file:
       - ${ENV_FILE:-.env.local}
     depends_on:
-      pgbouncer:
+      db:
+        condition: service_healthy
+      db_replica:
         condition: service_healthy
       redis:
         condition: service_healthy
+      web:
+        condition: service_healthy
     restart: unless-stopped
     stop_grace_period: 30s
+    healthcheck:
+      disable: true
 
 volumes:
   postgres_data:
+  postgres_replica_data:
   redis_data:
   web_venv:
   celery_venv:

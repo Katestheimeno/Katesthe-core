@@ -6,7 +6,20 @@ echo "Syncing dependencies..."
 uv sync --frozen
 
 echo "Running migrations..."
-uv run python manage.py migrate
+# Retry: DNS for compose service names (e.g. pgbouncer) can lag right after containers start.
+attempt=1
+while [ "$attempt" -le 30 ]; do
+  if uv run python manage.py migrate; then
+    break
+  fi
+  if [ "$attempt" -eq 30 ]; then
+    echo "migrate failed after 30 attempts"
+    exit 1
+  fi
+  echo "migrate failed (attempt $attempt/30), retrying in 2s..."
+  attempt=$((attempt + 1))
+  sleep 2
+done
 
 echo "Collecting static files..."
 uv run python manage.py collectstatic --noinput

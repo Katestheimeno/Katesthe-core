@@ -40,6 +40,8 @@ from accounts.schemas._token import (
     JWTVerifyRequest,
 )
 from django.contrib.auth import get_user_model
+from config.db_router import force_primary_for_request
+from config.db_utils import read_from_primary
 from config.logger import logger
 from drf_spectacular.utils import (
     extend_schema,
@@ -92,6 +94,18 @@ class CustomUserViewSet(djoser_views.UserViewSet):
     Custom User ViewSet that extends Djoser's UserViewSet.
     Handles user CRUD operations with JWT-specific logout logic.
     """
+
+    def perform_create(self, serializer):
+        super().perform_create(serializer)
+        force_primary_for_request()
+
+    def perform_update(self, serializer):
+        super().perform_update(serializer)
+        force_primary_for_request()
+
+    def perform_destroy(self, instance):
+        super().perform_destroy(instance)
+        force_primary_for_request()
 
     def destroy(self, request, *args, **kwargs):
         """
@@ -386,57 +400,80 @@ class CustomActivationView(ActionViewMixin, APIView):
             from djoser.utils import decode_uid
             from django.contrib.auth.tokens import default_token_generator
             from django.contrib.auth import get_user_model
-            
+
             User = get_user_model()
-            
-            # Decode the UID
-            try:
-                decoded_uid = decode_uid(uid)
-                logger.debug(f"UID decoded successfully: {uid} -> {decoded_uid}")
-            except Exception as e:
-                logger.warning(f"UID decode failed for uid={uid}: {e}")
-                return JsonResponse({
-                    'success': False,
-                    'message': 'Invalid activation link.'
-                }, status=400)
-            
-            # Get the user
-            try:
-                user = User.objects.get(pk=decoded_uid)
-                logger.debug(f"User found for activation: user_id={user.id}, username={user.username}")
-            except User.DoesNotExist:
-                logger.warning(f"User not found for activation: decoded_uid={decoded_uid}")
-                return JsonResponse({
-                    'success': False,
-                    'message': 'User not found.'
-                }, status=400)
-            
-            # Check if user is already active
-            if user.is_active:
-                logger.info(f"User already activated: user_id={user.id}, username={user.username}")
-                return JsonResponse({
-                    'success': True,
-                    'message': 'Account is already activated!'
-                })
-            
-            # Verify the token
-            if not default_token_generator.check_token(user, token):
-                logger.warning(f"Invalid activation token for user_id={user.id}, username={user.username}")
-                return JsonResponse({
-                    'success': False,
-                    'message': 'Invalid or expired activation token.'
-                }, status=400)
-            
-            # Activate the user
-            user.is_active = True
-            user.save()
-            logger.info(f"User successfully activated: user_id={user.id}, username={user.username}")
-            
-            return JsonResponse({
-                'success': True,
-                'message': 'Account activated successfully! You can now log in.'
-            })
-                
+
+            # Reuses PrimaryReplicaRouter: activation reads must see rows on primary (replica can lag).
+            with read_from_primary():
+                # Decode the UID
+                try:
+                    decoded_uid = decode_uid(uid)
+                    logger.debug(f"UID decoded successfully: {uid} -> {decoded_uid}")
+                except Exception as e:
+                    logger.warning(f"UID decode failed for uid={uid}: {e}")
+                    return JsonResponse(
+                        {
+                            "success": False,
+                            "message": "Invalid activation link.",
+                        },
+                        status=400,
+                    )
+
+                # Get the user
+                try:
+                    user = User.objects.get(pk=decoded_uid)
+                    logger.debug(
+                        f"User found for activation: user_id={user.id}, username={user.username}"
+                    )
+                except User.DoesNotExist:
+                    logger.warning(f"User not found for activation: decoded_uid={decoded_uid}")
+                    return JsonResponse(
+                        {
+                            "success": False,
+                            "message": "User not found.",
+                        },
+                        status=400,
+                    )
+
+                # Check if user is already active
+                if user.is_active:
+                    logger.info(
+                        f"User already activated: user_id={user.id}, username={user.username}"
+                    )
+                    return JsonResponse(
+                        {
+                            "success": True,
+                            "message": "Account is already activated!",
+                        }
+                    )
+
+                # Verify the token
+                if not default_token_generator.check_token(user, token):
+                    logger.warning(
+                        f"Invalid activation token for user_id={user.id}, username={user.username}"
+                    )
+                    return JsonResponse(
+                        {
+                            "success": False,
+                            "message": "Invalid or expired activation token.",
+                        },
+                        status=400,
+                    )
+
+                # Activate the user
+                user.is_active = True
+                user.save()
+                logger.info(
+                    f"User successfully activated: user_id={user.id}, username={user.username}"
+                )
+
+                return JsonResponse(
+                    {
+                        "success": True,
+                        "message": "Account activated successfully! You can now log in.",
+                    }
+                )
+
         except Exception as e:
             logger.error(f"User activation error for uid={uid}: {e}")
             return JsonResponse({
