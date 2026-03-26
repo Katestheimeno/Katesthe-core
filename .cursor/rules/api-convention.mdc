@@ -1,0 +1,985 @@
+---
+alwaysApply: true
+---
+### 1. Core Philosophy
+
+The backend is a **machine interface**, not a message bus for humans. It emits structured, versioned, namespaced codes. The frontend owns all human-readable text and i18n. There are **no exceptions** to this rule.
+
+**Never return:**
+```json
+{ "error": "User not found" }
+{ "message": "Invalid credentials. Please try again." }
+{ "detail": "This field is required." }
+```
+
+**Always return:**
+```json
+{ "success": false, "error": { "code": "USER__NOT_FOUND" } }
+{ "success": false, "error": { "code": "AUTH__INVALID_CREDENTIALS" } }
+{ "success": false, "error": { "code": "VALIDATION__MISSING_FIELD", "details": { "field": "email" } } }
+```
+
+---
+
+### 2. Naming Convention
+
+#### Format Rules (strict)
+- **UPPER_SNAKE_CASE only** — no camelCase, no kebab-case, no lowercase
+- **Namespaced with double underscore `__`** — domain separator only, never in error names
+- **Verb-last where applicable** — `NOT_FOUND`, `ALREADY_EXISTS`, `EXPIRED`, `FAILED`
+- **No redundant suffixes** — never append `_ERROR`, `_FAILURE`, `_EXCEPTION`
+- **Max depth: 2 levels** — `DOMAIN__ERROR_NAME`, never `DOMAIN__SUB__ERROR_NAME`
+
+#### Good Examples
+```
+AUTH__INVALID_CREDENTIALS
+AUTH__TOKEN_EXPIRED
+AUTH__TOKEN_REVOKED
+USER__NOT_FOUND
+USER__ALREADY_EXISTS
+PAYMENT__INSUFFICIENT_FUNDS
+COURSE__ENROLLMENT_LIMIT_REACHED
+VALIDATION__MISSING_FIELD
+VALIDATION__INVALID_FORMAT
+```
+
+#### Anti-Patterns (forbidden)
+```
+❌ USER_NOT_FOUND_ERROR        — redundant _ERROR suffix
+❌ ERROR_USER_NOT_FOUND        — domain-first inversion
+❌ userNotFound                — camelCase forbidden
+❌ user__not__found            — deep nesting forbidden
+❌ AUTH_ERROR                  — too generic, no specificity
+❌ USER__DOES_NOT_EXIST        — duplicate of USER__NOT_FOUND
+❌ INVALID_USER_PASSWORD       — missing namespace, ambiguous
+```
+
+---
+
+### 3. Namespace Taxonomy (Authoritative)
+
+Namespaces are **stable, finite, and registered**. You do not invent new top-level namespaces without updating the central registry.
+
+| Namespace       | Scope                                              |
+|----------------|----------------------------------------------------|
+| `AUTH`         | Authentication, tokens, sessions, permissions      |
+| `USER`         | User entity CRUD and profile operations            |
+| `ACCOUNT`      | Account-level settings, billing info, preferences  |
+| `PAYMENT`      | Payments, subscriptions, invoices, refunds         |
+| `MEDIA`        | File uploads, images, videos, storage              |
+| `COURSE`       | Course content, enrollment, progress (domain-specific) |
+| `NOTIFICATION` | Emails, push, SMS delivery                         |
+| `VALIDATION`   | Input validation, schema errors, field constraints |
+| `RATE_LIMIT`   | Throttling, quota, abuse prevention                |
+| `PERMISSION`   | RBAC, feature flags, access control                |
+| `INTEGRATION`  | Third-party APIs, webhooks, OAuth providers        |
+| `INTERNAL`     | System-level errors, unrecoverable states          |
+
+**Rules:**
+- Domain names are **singular** (`USER` not `USERS`)
+- New domains require a PR to the central error catalog
+- Domain names must be consistent across all services
+
+---
+
+### 4. Standard Response Envelope
+
+Every API response — success or failure — uses the same envelope.
+
+#### Success Response
+```json
+{
+  "success": true,
+  "data": { ... },
+  "meta": {
+    "request_id": "req_01HX7Z...",
+    "version": "v1"
+  }
+}
+```
+
+#### Error Response (minimal)
+```json
+{
+  "success": false,
+  "error": {
+    "code": "USER__NOT_FOUND"
+  },
+  "meta": {
+    "request_id": "req_01HX7Z...",
+    "version": "v1"
+  }
+}
+```
+
+#### Error Response (with machine-readable details)
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION__MISSING_FIELD",
+    "details": {
+      "field": "email",
+      "location": "body"
+    }
+  },
+  "meta": {
+    "request_id": "req_01HX7Z...",
+    "version": "v1"
+  }
+}
+```
+
+#### Error Response (multi-error, e.g. form validation)
+```json
+{
+  "success": false,
+  "errors": [
+    {
+      "code": "VALIDATION__MISSING_FIELD",
+      "details": { "field": "email", "location": "body" }
+    },
+    {
+      "code": "VALIDATION__INVALID_FORMAT",
+      "details": { "field": "phone", "location": "body", "expected_format": "E.164" }
+    }
+  ],
+  "meta": {
+    "request_id": "req_01HX7Z...",
+    "version": "v1"
+  }
+}
+```
+
+#### Field Rules
+| Field         | Required     | Notes                                                      |
+|---------------|--------------|------------------------------------------------------------|
+| `success`     | Always       | Boolean. Never omit.                                       |
+| `data`        | On success   | Null or absent on error.                                   |
+| `error`       | On single error | Use `errors[]` for multi-error.                         |
+| `errors`      | On multi-error | Array. Minimum 2 items; use `error` for single.          |
+| `error.code`  | Always       | Namespaced UPPER_SNAKE_CASE code.                          |
+| `error.details` | Conditional | Machine-readable context. Never human strings.            |
+| `meta`        | Always       | Request tracking. Must include `request_id`.               |
+
+**`error.message` is ABOLISHED.** The original guide mirrored `code` into `message`. This is noise — it adds a field that duplicates another with zero additional information. Remove it entirely.
+
+---
+
+### 5. HTTP Status Code Mapping
+
+HTTP status codes are **not a substitute** for error codes, but they must be consistent.
+
+| HTTP Status | Usage                                         | Example Codes                              |
+|-------------|-----------------------------------------------|--------------------------------------------|
+| `200`       | Success                                       | —                                          |
+| `201`       | Resource created                              | —                                          |
+| `400`       | Client input error                            | `VALIDATION__*`, `AUTH__INVALID_*`         |
+| `401`       | Authentication required / failed              | `AUTH__UNAUTHENTICATED`, `AUTH__TOKEN_EXPIRED` |
+| `403`       | Authenticated but not authorized              | `PERMISSION__DENIED`, `AUTH__UNAUTHORIZED` |
+| `404`       | Resource not found                            | `USER__NOT_FOUND`, `COURSE__NOT_FOUND`     |
+| `409`       | Conflict / duplicate                          | `USER__ALREADY_EXISTS`, `COURSE__ALREADY_ENROLLED` |
+| `422`       | Semantically invalid input                    | `VALIDATION__FAILED`, `VALIDATION__INVALID_FORMAT` |
+| `429`       | Rate limiting / throttle                      | `RATE_LIMIT__EXCEEDED`                     |
+| `500`       | Internal server error                         | `INTERNAL__ERROR`                          |
+| `503`       | Downstream service unavailable                | `INTEGRATION__UNAVAILABLE`, `INTERNAL__SERVICE_UNAVAILABLE` |
+
+---
+
+### 6. Versioning Strategy
+
+Error codes are part of your API contract. Treat them with the same rigor as your endpoint schema.
+
+#### Code Versioning
+- Error codes are **immutable once released to production**
+- Deprecations require a **minimum 2-version notice period**
+- Renamed codes must be aliased for backward compatibility
+- New codes are **additive only** — never remove a code without deprecation
+
+#### Deprecation Pattern
+```json
+{
+  "success": false,
+  "error": {
+    "code": "AUTH__INVALID_CREDENTIALS",
+    "deprecated": {
+      "replaced_by": null,
+      "sunset_version": null
+    }
+  }
+}
+```
+
+When renaming:
+```python
+# errors/catalog.py
+DEPRECATED_CODES = {
+    "INVALID_CREDENTIALS": "AUTH__INVALID_CREDENTIALS",  # deprecated in v2, removed in v4
+}
+```
+
+#### API Versioning in `meta`
+Always include the API version in `meta.version` so clients can adapt their error handling logic per version.
+
+---
+
+### 7. Cross-Service Consistency (Multi-Service Architectures)
+
+In microservice or multi-team environments:
+
+1. **Central error registry** — a shared package/repo owns all error codes. Services import, never redefine.
+2. **Service-prefixed internal errors** — for internal service boundaries (not exposed to clients), prefix with service name: `SVC_AUTH__TOKEN_PARSE_FAILED`
+3. **Gateway normalization** — API gateways/BFFs must normalize all upstream errors into the standard envelope before returning to clients
+4. **Error catalog as a contract** — version-control the catalog independently. Changelogs are mandatory.
+
+---
+
+### 8. The `details` Object — Rules
+
+`details` carries **machine-readable context** only. It is consumed by:
+- Frontend for dynamic error rendering (e.g., highlighting the right form field)
+- Logging systems for debugging
+- Monitoring/alerting dashboards
+
+**Permitted in `details`:**
+```json
+{ "field": "email" }
+{ "field": "price", "min": 0, "max": 10000, "received": -5 }
+{ "resource_id": "usr_123", "resource_type": "user" }
+{ "limit": 100, "current": 100, "reset_at": "2024-10-01T00:00:00Z" }
+{ "allowed_types": ["image/jpeg", "image/png"], "received_type": "image/gif" }
+```
+
+**Forbidden in `details`:**
+```json
+{ "message": "The email address is already taken." }  ❌ human string
+{ "hint": "Try logging in with Google instead." }     ❌ human string
+{ "description": "Password must be at least 8 chars" } ❌ human string
+```
+
+---
+
+### 9. Central Error Registry (Implementation)
+
+All error codes live in a single source of truth.
+
+```python
+# errors/catalog.py
+
+from dataclasses import dataclass
+from typing import Optional
+import http
+
+@dataclass(frozen=True)
+class ErrorCode:
+    code: str
+    http_status: int
+    description: str  # ONLY for internal docs/tooling — never sent to clients
+    since_version: str = "v1"
+    deprecated_in: Optional[str] = None
+    replaced_by: Optional[str] = None
+
+
+AUTH = {
+    "INVALID_CREDENTIALS":      ErrorCode("AUTH__INVALID_CREDENTIALS",     400, "Submitted credentials are incorrect", "v1"),
+    "TOKEN_EXPIRED":             ErrorCode("AUTH__TOKEN_EXPIRED",            401, "JWT or session token has expired", "v1"),
+    "TOKEN_REVOKED":             ErrorCode("AUTH__TOKEN_REVOKED",            401, "Token explicitly revoked (logout/blacklist)", "v1"),
+    "TOKEN_MALFORMED":           ErrorCode("AUTH__TOKEN_MALFORMED",          400, "Token structure is invalid", "v1"),
+    "UNAUTHENTICATED":           ErrorCode("AUTH__UNAUTHENTICATED",          401, "No credentials provided", "v1"),
+    "UNAUTHORIZED":              ErrorCode("AUTH__UNAUTHORIZED",             403, "Credentials valid but action not permitted", "v1"),
+    "MFA_REQUIRED":              ErrorCode("AUTH__MFA_REQUIRED",             403, "Action requires MFA verification", "v1"),
+    "MFA_INVALID_CODE":          ErrorCode("AUTH__MFA_INVALID_CODE",         400, "MFA code is wrong or expired", "v1"),
+    "SESSION_EXPIRED":           ErrorCode("AUTH__SESSION_EXPIRED",          401, "User session timed out", "v1"),
+    "OAUTH_PROVIDER_FAILED":     ErrorCode("AUTH__OAUTH_PROVIDER_FAILED",    502, "OAuth provider returned an error", "v1"),
+}
+
+USER = {
+    "NOT_FOUND":                 ErrorCode("USER__NOT_FOUND",                404, "User record does not exist", "v1"),
+    "ALREADY_EXISTS":            ErrorCode("USER__ALREADY_EXISTS",           409, "User with this identifier already registered", "v1"),
+    "EMAIL_ALREADY_EXISTS":      ErrorCode("USER__EMAIL_ALREADY_EXISTS",     409, "Email address already in use", "v1"),
+    "ACCOUNT_SUSPENDED":         ErrorCode("USER__ACCOUNT_SUSPENDED",        403, "Account is suspended", "v1"),
+    "ACCOUNT_DELETED":           ErrorCode("USER__ACCOUNT_DELETED",          410, "Account has been deleted", "v1"),
+    "PROFILE_INCOMPLETE":        ErrorCode("USER__PROFILE_INCOMPLETE",       422, "Required profile fields missing", "v1"),
+}
+
+VALIDATION = {
+    "FAILED":                    ErrorCode("VALIDATION__FAILED",             422, "Generic validation failure (use specific codes when possible)", "v1"),
+    "MISSING_FIELD":             ErrorCode("VALIDATION__MISSING_FIELD",      422, "Required field absent from request", "v1"),
+    "INVALID_FORMAT":            ErrorCode("VALIDATION__INVALID_FORMAT",     422, "Field value doesn't match expected format", "v1"),
+    "OUT_OF_RANGE":              ErrorCode("VALIDATION__OUT_OF_RANGE",       422, "Numeric value outside permitted range", "v1"),
+    "TOO_LONG":                  ErrorCode("VALIDATION__TOO_LONG",           422, "String exceeds maximum length", "v1"),
+    "TOO_SHORT":                 ErrorCode("VALIDATION__TOO_SHORT",          422, "String below minimum length", "v1"),
+    "INVALID_ENUM":              ErrorCode("VALIDATION__INVALID_ENUM",       422, "Value not in allowed set", "v1"),
+    "INVALID_TYPE":              ErrorCode("VALIDATION__INVALID_TYPE",       422, "Wrong data type provided", "v1"),
+    "DUPLICATE_VALUE":           ErrorCode("VALIDATION__DUPLICATE_VALUE",    409, "Value must be unique but duplicate found", "v1"),
+}
+
+PAYMENT = {
+    "FAILED":                    ErrorCode("PAYMENT__FAILED",                402, "Generic payment failure", "v1"),
+    "INSUFFICIENT_FUNDS":        ErrorCode("PAYMENT__INSUFFICIENT_FUNDS",    402, "Card/account has insufficient balance", "v1"),
+    "CARD_DECLINED":             ErrorCode("PAYMENT__CARD_DECLINED",         402, "Payment provider declined the card", "v1"),
+    "SUBSCRIPTION_EXPIRED":      ErrorCode("PAYMENT__SUBSCRIPTION_EXPIRED",  402, "User subscription has lapsed", "v1"),
+    "SUBSCRIPTION_NOT_FOUND":    ErrorCode("PAYMENT__SUBSCRIPTION_NOT_FOUND", 404, "No active subscription found", "v1"),
+    "INVOICE_ALREADY_PAID":      ErrorCode("PAYMENT__INVOICE_ALREADY_PAID",  409, "Invoice payment attempted twice", "v1"),
+    "REFUND_WINDOW_EXPIRED":     ErrorCode("PAYMENT__REFUND_WINDOW_EXPIRED", 422, "Past the eligible refund window", "v1"),
+}
+
+PERMISSION = {
+    "DENIED":                    ErrorCode("PERMISSION__DENIED",             403, "User lacks required permission", "v1"),
+    "ROLE_REQUIRED":             ErrorCode("PERMISSION__ROLE_REQUIRED",      403, "Operation requires a specific role", "v1"),
+    "FEATURE_NOT_AVAILABLE":     ErrorCode("PERMISSION__FEATURE_NOT_AVAILABLE", 403, "Feature not in user's plan", "v1"),
+    "OWNERSHIP_REQUIRED":        ErrorCode("PERMISSION__OWNERSHIP_REQUIRED", 403, "User doesn't own this resource", "v1"),
+}
+
+RATE_LIMIT = {
+    "EXCEEDED":                  ErrorCode("RATE_LIMIT__EXCEEDED",           429, "Too many requests", "v1"),
+    "DAILY_QUOTA_EXCEEDED":      ErrorCode("RATE_LIMIT__DAILY_QUOTA_EXCEEDED", 429, "Daily usage quota exhausted", "v1"),
+}
+
+MEDIA = {
+    "UPLOAD_FAILED":             ErrorCode("MEDIA__UPLOAD_FAILED",           500, "File upload to storage failed", "v1"),
+    "INVALID_FILE_TYPE":         ErrorCode("MEDIA__INVALID_FILE_TYPE",       422, "Uploaded file type not allowed", "v1"),
+    "FILE_TOO_LARGE":            ErrorCode("MEDIA__FILE_TOO_LARGE",          413, "File exceeds size limit", "v1"),
+    "FILE_NOT_FOUND":            ErrorCode("MEDIA__FILE_NOT_FOUND",          404, "Referenced file does not exist", "v1"),
+}
+
+INTEGRATION = {
+    "UNAVAILABLE":               ErrorCode("INTEGRATION__UNAVAILABLE",       503, "Third-party service is unreachable", "v1"),
+    "INVALID_RESPONSE":          ErrorCode("INTEGRATION__INVALID_RESPONSE",  502, "Third-party returned unexpected response", "v1"),
+    "WEBHOOK_DELIVERY_FAILED":   ErrorCode("INTEGRATION__WEBHOOK_DELIVERY_FAILED", 500, "Webhook could not be delivered", "v1"),
+}
+
+INTERNAL = {
+    "ERROR":                     ErrorCode("INTERNAL__ERROR",                500, "Unhandled server exception", "v1"),
+    "SERVICE_UNAVAILABLE":       ErrorCode("INTERNAL__SERVICE_UNAVAILABLE",  503, "Internal service dependency is down", "v1"),
+    "DATABASE_ERROR":            ErrorCode("INTERNAL__DATABASE_ERROR",       500, "Database operation failed", "v1"),
+    "CONFIGURATION_ERROR":       ErrorCode("INTERNAL__CONFIGURATION_ERROR",  500, "Server misconfiguration detected", "v1"),
+}
+```
+
+---
+
+### 10. Missing Concepts (Critical Additions)
+
+#### 10.1 Request ID Tracing
+Every response must include a `request_id` for end-to-end observability. Generate at the gateway or view layer, propagate through all layers.
+
+#### 10.2 Retry Hints
+For transient errors, include machine-readable retry guidance:
+```json
+{
+  "success": false,
+  "error": {
+    "code": "RATE_LIMIT__EXCEEDED",
+    "details": {
+      "retry_after_seconds": 30,
+      "reset_at": "2024-10-01T12:00:00Z"
+    }
+  }
+}
+```
+
+#### 10.3 Error Severity Classification
+Errors should be internally classified for monitoring (not exposed to clients):
+- `CLIENT_ERROR` — 4xx, user fixable
+- `SERVER_ERROR` — 5xx, requires engineering attention
+- `TRANSIENT_ERROR` — retry-eligible
+
+#### 10.4 Pagination Errors
+```json
+{ "code": "VALIDATION__INVALID_CURSOR" }
+{ "code": "VALIDATION__PAGE_OUT_OF_RANGE" }
+```
+
+---
+
+## PART 2 — CURSOR RULE
+
+---
+
+```
+---
+description: Enforce structured, machine-readable API error responses. No human-readable strings. Namespaced codes only. Consistent envelope. Applies to all API views, serializers, and exception handlers.
+globs:
+  - "**/*.py"
+  - "**/views/**/*.py"
+  - "**/serializers/**/*.py"
+  - "**/exceptions/**/*.py"
+  - "**/handlers/**/*.py"
+alwaysApply: true
+---
+
+# API Error Code Enforcement Rule
+
+## ABSOLUTE PROHIBITIONS
+
+NEVER write any of the following in API response code:
+
+### Forbidden: Human-readable strings in responses
+```python
+# ❌ NEVER
+return Response({"error": "User not found"}, status=404)
+return Response({"message": "Invalid credentials"}, status=400)
+return Response({"detail": "This field is required."}, status=422)
+raise ValidationError("Password must be at least 8 characters.")
+raise PermissionDenied("You do not have permission to perform this action.")
+```
+
+### Forbidden: Unstructured response shapes
+```python
+# ❌ NEVER
+return Response({"status": "error", "msg": "something went wrong"})
+return Response({"code": 404, "text": "not found"})
+return Response("Unauthorized", status=401)
+```
+
+### Forbidden: Non-namespaced codes
+```python
+# ❌ NEVER
+code = "NOT_FOUND"        # missing namespace
+code = "error_user"       # wrong case, wrong order
+code = "UserNotFound"     # camelCase forbidden
+code = "USER_NOT_FOUND_ERROR"  # redundant suffix
+```
+
+---
+
+## MANDATORY PATTERNS
+
+### Standard error response (single error)
+```python
+# ✅ CORRECT
+from rest_framework.response import Response
+from errors.catalog import USER
+
+def get_user(request, user_id):
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response(
+            {
+                "success": False,
+                "error": {
+                    "code": USER["NOT_FOUND"].code,
+                },
+                "meta": {"request_id": request.id, "version": "v1"},
+            },
+            status=404,
+        )
+    return Response({"success": True, "data": UserSerializer(user).data})
+```
+
+### Validation errors (multi-error)
+```python
+# ✅ CORRECT — multiple field errors
+from errors.catalog import VALIDATION
+
+errors = [
+    {"code": VALIDATION["MISSING_FIELD"].code, "details": {"field": "email", "location": "body"}},
+    {"code": VALIDATION["INVALID_FORMAT"].code, "details": {"field": "phone", "location": "body", "expected_format": "E.164"}},
+]
+return Response(
+    {"success": False, "errors": errors, "meta": {"request_id": request.id, "version": "v1"}},
+    status=422,
+)
+```
+
+### DRF custom exception handler
+```python
+# ✅ CORRECT — global exception handler
+from errors.catalog import INTERNAL, VALIDATION, AUTH
+
+def custom_exception_handler(exc, context):
+    request = context.get("request")
+    request_id = getattr(request, "id", "unknown")
+    meta = {"request_id": request_id, "version": "v1"}
+
+    if isinstance(exc, NotAuthenticated):
+        return Response(
+            {"success": False, "error": {"code": AUTH["UNAUTHENTICATED"].code}, "meta": meta},
+            status=401,
+        )
+    if isinstance(exc, PermissionDenied):
+        return Response(
+            {"success": False, "error": {"code": "PERMISSION__DENIED"}, "meta": meta},
+            status=403,
+        )
+    if isinstance(exc, ValidationError):
+        errors = _normalize_drf_validation_errors(exc.detail)
+        return Response(
+            {"success": False, "errors": errors, "meta": meta},
+            status=422,
+        )
+    # Fallback — never leak exception messages
+    return Response(
+        {"success": False, "error": {"code": INTERNAL["ERROR"].code}, "meta": meta},
+        status=500,
+    )
+```
+
+---
+
+## NAMING RULES (ENFORCED)
+
+When generating new error codes:
+
+1. Identify the domain. Use only registered namespaces:
+   AUTH | USER | ACCOUNT | PAYMENT | MEDIA | COURSE | NOTIFICATION |
+   VALIDATION | RATE_LIMIT | PERMISSION | INTEGRATION | INTERNAL
+
+2. Name the condition in UPPER_SNAKE_CASE (no namespace prefix in the name part)
+   - Conditions ending in state: NOT_FOUND, ALREADY_EXISTS, EXPIRED, REVOKED, SUSPENDED
+   - Conditions describing action failure: FAILED, REJECTED, DECLINED
+   - Conditions describing input: MISSING_FIELD, INVALID_FORMAT, OUT_OF_RANGE
+
+3. Combine: DOMAIN__CONDITION
+   USER__NOT_FOUND ✅
+   PAYMENT__CARD_DECLINED ✅
+   VALIDATION__MISSING_FIELD ✅
+
+4. Before creating a new code: search `errors/catalog.py` for semantically equivalent codes.
+   If an existing code covers the situation — use it. No duplicates.
+
+---
+
+## BEFORE CREATING A NEW CODE — CHECKLIST
+
+Ask these questions in order:
+
+- [ ] Does an existing code in `errors/catalog.py` already describe this condition?
+- [ ] Is there a generic code that applies (e.g., `VALIDATION__FAILED`) I should use instead?
+- [ ] Is this code reusable across multiple endpoints, or hyper-specific to one call?
+- [ ] Have I chosen the right namespace from the registered list?
+- [ ] Is the name free of `_ERROR`, `_FAILURE`, `_EXCEPTION` suffixes?
+- [ ] Is the HTTP status code consistent with the catalog entry?
+
+Only after all checks pass: add the code to `errors/catalog.py` with `description`, `http_status`, and `since_version`.
+
+---
+
+## AUTO-REWRITE RULES (Pattern Recognition)
+
+When reviewing code, apply these automatic transformations:
+
+| Detected pattern in response | Auto-convert to |
+|-------------------------------|-----------------|
+| `"not found"` / `"does not exist"` | `{DOMAIN}__NOT_FOUND` |
+| `"already exists"` / `"duplicate"` / `"taken"` | `{DOMAIN}__ALREADY_EXISTS` or `VALIDATION__DUPLICATE_VALUE` |
+| `"invalid"` + credentials/password/token | `AUTH__INVALID_CREDENTIALS` or `AUTH__TOKEN_MALFORMED` |
+| `"expired"` + token/session | `AUTH__TOKEN_EXPIRED` or `AUTH__SESSION_EXPIRED` |
+| `"permission"` / `"not allowed"` / `"forbidden"` | `PERMISSION__DENIED` |
+| `"required"` / `"missing"` + field | `VALIDATION__MISSING_FIELD` |
+| `"invalid format"` / `"invalid email"` / `"must be"` | `VALIDATION__INVALID_FORMAT` |
+| `"too long"` / `"max length"` | `VALIDATION__TOO_LONG` |
+| `"too short"` / `"min length"` | `VALIDATION__TOO_SHORT` |
+| `"rate limit"` / `"too many requests"` | `RATE_LIMIT__EXCEEDED` |
+| `"unauthorized"` (no auth) | `AUTH__UNAUTHENTICATED` |
+| `"unauthorized"` (has auth, no permission) | `AUTH__UNAUTHORIZED` or `PERMISSION__DENIED` |
+| `"server error"` / `"something went wrong"` | `INTERNAL__ERROR` |
+| `"unavailable"` / `"maintenance"` | `INTERNAL__SERVICE_UNAVAILABLE` |
+| `"insufficient funds"` / `"payment failed"` | `PAYMENT__INSUFFICIENT_FUNDS` / `PAYMENT__FAILED` |
+
+---
+
+## DOMAIN INFERENCE GUIDE
+
+When code context is ambiguous, infer the domain:
+
+- File is in `auth/`, `authentication/`, token views → `AUTH__`
+- File operates on User model → `USER__`
+- File is a serializer or form → `VALIDATION__`
+- File handles Stripe/payments → `PAYMENT__`
+- File handles file upload → `MEDIA__`
+- File is a catch-all / middleware / handler → `INTERNAL__`
+- File gates features or roles → `PERMISSION__`
+- File calls external APIs → `INTEGRATION__`
+
+---
+
+## RESPONSE STRUCTURE SCHEMA (never deviate)
+
+```typescript
+// Success
+{
+  success: true,
+  data: object | array | null,
+  meta: { request_id: string, version: string }
+}
+
+// Single Error
+{
+  success: false,
+  error: {
+    code: string,              // DOMAIN__CONDITION — REQUIRED
+    details?: object           // machine-readable context only — OPTIONAL
+  },
+  meta: { request_id: string, version: string }
+}
+
+// Multi Error (validation)
+{
+  success: false,
+  errors: Array<{
+    code: string,
+    details?: object
+  }>,
+  meta: { request_id: string, version: string }
+}
+```
+
+Fields `error.message`, `error.description`, `error.text` are BANNED from all response bodies.
+```
+
+---
+
+## PART 3 — EXAMPLE TRANSFORMATIONS
+
+---
+
+### 3.1 Basic Not Found
+
+**❌ BAD**
+```python
+def get_user(request, user_id):
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=404)
+    return Response(UserSerializer(user).data)
+```
+
+**✅ GOOD**
+```python
+def get_user(request, user_id):
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response(
+            {
+                "success": False,
+                "error": {"code": "USER__NOT_FOUND", "details": {"user_id": user_id}},
+                "meta": {"request_id": request.id, "version": "v1"},
+            },
+            status=404,
+        )
+    return Response({"success": True, "data": UserSerializer(user).data, "meta": {"request_id": request.id, "version": "v1"}})
+```
+
+---
+
+### 3.2 Login Endpoint
+
+**❌ BAD**
+```python
+def login(request):
+    user = authenticate(email=data["email"], password=data["password"])
+    if not user:
+        return Response({"message": "Invalid email or password. Please try again."}, status=400)
+```
+
+**✅ GOOD**
+```python
+def login(request):
+    user = authenticate(email=data.get("email"), password=data.get("password"))
+    if not user:
+        return Response(
+            {
+                "success": False,
+                "error": {"code": "AUTH__INVALID_CREDENTIALS"},
+                "meta": {"request_id": request.id, "version": "v1"},
+            },
+            status=400,
+        )
+```
+
+---
+
+### 3.3 DRF Serializer Validation
+
+**❌ BAD**
+```python
+class RegisterSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField()
+
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("This email is already taken.")
+        return value
+
+    def validate_password(self, value):
+        if len(value) < 8:
+            raise serializers.ValidationError("Password must be at least 8 characters long.")
+        return value
+```
+
+**✅ GOOD**
+```python
+from errors.exceptions import AppValidationError
+
+class RegisterSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    password = serializers.CharField()
+
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise AppValidationError(
+                code="USER__EMAIL_ALREADY_EXISTS",
+                details={"field": "email"}
+            )
+        return value
+
+    def validate_password(self, value):
+        if len(value) < 8:
+            raise AppValidationError(
+                code="VALIDATION__TOO_SHORT",
+                details={"field": "password", "min_length": 8, "received_length": len(value)}
+            )
+        return value
+```
+
+---
+
+### 3.4 Multi-Field Validation Errors (DRF)
+
+**❌ BAD**
+```json
+{
+  "email": ["This field is required."],
+  "password": ["This field may not be blank."]
+}
+```
+
+**✅ GOOD**
+```json
+{
+  "success": false,
+  "errors": [
+    {
+      "code": "VALIDATION__MISSING_FIELD",
+      "details": { "field": "email", "location": "body" }
+    },
+    {
+      "code": "VALIDATION__MISSING_FIELD",
+      "details": { "field": "password", "location": "body" }
+    }
+  ],
+  "meta": { "request_id": "req_01HX7Z...", "version": "v1" }
+}
+```
+
+---
+
+### 3.5 Permission / RBAC Check
+
+**❌ BAD**
+```python
+if not request.user.is_admin:
+    return Response({"error": "You don't have permission to do that."}, status=403)
+```
+
+**✅ GOOD**
+```python
+if not request.user.is_admin:
+    return Response(
+        {
+            "success": False,
+            "error": {
+                "code": "PERMISSION__ROLE_REQUIRED",
+                "details": {"required_role": "admin", "current_role": request.user.role}
+            },
+            "meta": {"request_id": request.id, "version": "v1"},
+        },
+        status=403,
+    )
+```
+
+---
+
+### 3.6 Rate Limiting
+
+**❌ BAD**
+```python
+return Response({"message": "Too many requests. Try again later."}, status=429)
+```
+
+**✅ GOOD**
+```python
+return Response(
+    {
+        "success": False,
+        "error": {
+            "code": "RATE_LIMIT__EXCEEDED",
+            "details": {
+                "limit": 100,
+                "window_seconds": 3600,
+                "retry_after_seconds": 42,
+                "reset_at": "2024-10-01T12:00:00Z"
+            }
+        },
+        "meta": {"request_id": request.id, "version": "v1"},
+    },
+    status=429,
+)
+```
+
+---
+
+### 3.7 Third-Party Integration Failure
+
+**❌ BAD**
+```python
+except StripeError as e:
+    return Response({"error": str(e)}, status=500)  # Leaks Stripe error message!
+```
+
+**✅ GOOD**
+```python
+except stripe.error.CardError:
+    return Response(
+        {
+            "success": False,
+            "error": {"code": "PAYMENT__CARD_DECLINED"},
+            "meta": {"request_id": request.id, "version": "v1"},
+        },
+        status=402,
+    )
+except stripe.error.StripeError:
+    # Log the actual Stripe error internally; never expose it
+    logger.exception("Stripe error", extra={"request_id": request.id})
+    return Response(
+        {
+            "success": False,
+            "error": {"code": "PAYMENT__FAILED"},
+            "meta": {"request_id": request.id, "version": "v1"},
+        },
+        status=402,
+    )
+```
+
+---
+
+## PART 4 — EXPANDED ERROR CATALOG
+
+```
+# ============================================================
+# COMPLETE ERROR CATALOG — v1.0
+# ============================================================
+# Format: CODE | HTTP | Description | Since
+# ============================================================
+
+# ─── AUTH ────────────────────────────────────────────────────
+AUTH__INVALID_CREDENTIALS           | 400 | Wrong email/password combination | v1
+AUTH__TOKEN_EXPIRED                 | 401 | Access/refresh token has expired | v1
+AUTH__TOKEN_REVOKED                 | 401 | Token was explicitly revoked | v1
+AUTH__TOKEN_MALFORMED               | 400 | Token structure is invalid or unparseable | v1
+AUTH__UNAUTHENTICATED               | 401 | No authentication credentials provided | v1
+AUTH__UNAUTHORIZED                  | 403 | Credentials valid, action not permitted | v1
+AUTH__SESSION_EXPIRED               | 401 | User session timed out | v1
+AUTH__MFA_REQUIRED                  | 403 | Multi-factor auth must be completed | v1
+AUTH__MFA_INVALID_CODE              | 400 | OTP/MFA code is invalid or expired | v1
+AUTH__OAUTH_PROVIDER_FAILED         | 502 | OAuth provider returned an error | v1
+AUTH__REFRESH_TOKEN_INVALID         | 401 | Refresh token is invalid or already used | v1
+AUTH__ACCOUNT_LOCKED                | 403 | Account locked after failed attempts | v1
+
+# ─── USER ────────────────────────────────────────────────────
+USER__NOT_FOUND                     | 404 | User record does not exist | v1
+USER__ALREADY_EXISTS                | 409 | User with given identifier exists | v1
+USER__EMAIL_ALREADY_EXISTS          | 409 | Email address already registered | v1
+USER__ACCOUNT_SUSPENDED             | 403 | Account suspended by admin | v1
+USER__ACCOUNT_DELETED               | 410 | Account permanently deleted | v1
+USER__PROFILE_INCOMPLETE            | 422 | Required profile fields are missing | v1
+USER__UNVERIFIED_EMAIL              | 403 | Email address not yet verified | v1
+
+# ─── VALIDATION ──────────────────────────────────────────────
+VALIDATION__FAILED                  | 422 | Generic validation failure | v1
+VALIDATION__MISSING_FIELD           | 422 | Required field not present | v1
+VALIDATION__INVALID_FORMAT          | 422 | Value doesn't match expected format | v1
+VALIDATION__OUT_OF_RANGE            | 422 | Numeric value outside allowed range | v1
+VALIDATION__TOO_LONG                | 422 | String exceeds maximum length | v1
+VALIDATION__TOO_SHORT               | 422 | String below minimum length | v1
+VALIDATION__INVALID_ENUM            | 422 | Value not in allowed options set | v1
+VALIDATION__INVALID_TYPE            | 422 | Wrong data type provided | v1
+VALIDATION__DUPLICATE_VALUE         | 409 | Unique constraint violated | v1
+VALIDATION__INVALID_CURSOR          | 422 | Pagination cursor is invalid | v1
+VALIDATION__CONFLICTING_FIELDS      | 422 | Mutually exclusive fields both provided | v1
+VALIDATION__IMMUTABLE_FIELD         | 422 | Attempt to modify a read-only field | v1
+
+# ─── PERMISSION ──────────────────────────────────────────────
+PERMISSION__DENIED                  | 403 | User lacks required permission | v1
+PERMISSION__ROLE_REQUIRED           | 403 | Specific role required for action | v1
+PERMISSION__FEATURE_NOT_AVAILABLE   | 403 | Feature not in user's subscription plan | v1
+PERMISSION__OWNERSHIP_REQUIRED      | 403 | User does not own this resource | v1
+PERMISSION__REGION_BLOCKED          | 403 | Action not allowed in user's region | v1
+
+# ─── PAYMENT ─────────────────────────────────────────────────
+PAYMENT__FAILED                     | 402 | Generic payment processing failure | v1
+PAYMENT__INSUFFICIENT_FUNDS         | 402 | Insufficient balance | v1
+PAYMENT__CARD_DECLINED              | 402 | Payment provider declined the card | v1
+PAYMENT__SUBSCRIPTION_EXPIRED       | 402 | Subscription has lapsed | v1
+PAYMENT__SUBSCRIPTION_NOT_FOUND     | 404 | No active subscription found | v1
+PAYMENT__INVOICE_ALREADY_PAID       | 409 | Invoice was already paid | v1
+PAYMENT__REFUND_WINDOW_EXPIRED      | 422 | Past the eligible refund window | v1
+PAYMENT__INVALID_PROMO_CODE         | 422 | Promo code is invalid or expired | v1
+PAYMENT__PLAN_NOT_FOUND             | 404 | Billing plan does not exist | v1
+
+# ─── MEDIA ───────────────────────────────────────────────────
+MEDIA__UPLOAD_FAILED                | 500 | File upload to storage failed | v1
+MEDIA__INVALID_FILE_TYPE            | 422 | File type not permitted | v1
+MEDIA__FILE_TOO_LARGE               | 413 | File exceeds size limit | v1
+MEDIA__FILE_NOT_FOUND               | 404 | Referenced file does not exist | v1
+MEDIA__PROCESSING_FAILED            | 500 | Async media processing job failed | v1
+MEDIA__QUOTA_EXCEEDED               | 422 | User storage quota exhausted | v1
+
+# ─── RATE_LIMIT ───────────────────────────────────────────────
+RATE_LIMIT__EXCEEDED                | 429 | Too many requests in window | v1
+RATE_LIMIT__DAILY_QUOTA_EXCEEDED    | 429 | Daily usage quota exhausted | v1
+RATE_LIMIT__CONCURRENT_LIMIT        | 429 | Too many concurrent operations | v1
+
+# ─── INTEGRATION ─────────────────────────────────────────────
+INTEGRATION__UNAVAILABLE            | 503 | Third-party service is unreachable | v1
+INTEGRATION__INVALID_RESPONSE       | 502 | Third-party returned unexpected response | v1
+INTEGRATION__WEBHOOK_DELIVERY_FAILED| 500 | Webhook delivery failed | v1
+INTEGRATION__TIMEOUT                | 504 | Third-party service timed out | v1
+INTEGRATION__AUTH_FAILED            | 502 | Credentials rejected by third-party | v1
+
+# ─── INTERNAL ────────────────────────────────────────────────
+INTERNAL__ERROR                     | 500 | Unhandled server exception | v1
+INTERNAL__SERVICE_UNAVAILABLE       | 503 | Internal dependency is down | v1
+INTERNAL__DATABASE_ERROR            | 500 | Database operation failed | v1
+INTERNAL__CONFIGURATION_ERROR       | 500 | Server misconfiguration | v1
+INTERNAL__TIMEOUT                   | 504 | Internal operation timed out | v1
+
+# ─── COURSE (domain-specific example) ───────────────────────
+COURSE__NOT_FOUND                   | 404 | Course does not exist | v1
+COURSE__ALREADY_ENROLLED            | 409 | User is already enrolled | v1
+COURSE__ENROLLMENT_LIMIT_REACHED    | 409 | Course is at capacity | v1
+COURSE__NOT_ENROLLED                | 403 | User is not enrolled in this course | v1
+COURSE__ACCESS_EXPIRED              | 403 | Enrollment period has ended | v1
+COURSE__PREREQUISITE_NOT_MET        | 422 | Required prerequisite course not completed | v1
+```
+
+---
+
+## QUICK REFERENCE — Decision Tree
+
+```
+New error code needed?
+│
+├─ Does an existing code cover this case? ──► YES → Use it. Done.
+│
+└─ NO → Pick namespace:
+         ├─ Auth/token/session issue? ──────────► AUTH__
+         ├─ User entity operation? ─────────────► USER__
+         ├─ Input/form validation? ─────────────► VALIDATION__
+         ├─ Access control / roles? ────────────► PERMISSION__
+         ├─ Billing / subscription? ────────────► PAYMENT__
+         ├─ File / storage? ────────────────────► MEDIA__
+         ├─ External API / webhook? ────────────► INTEGRATION__
+         ├─ Too many requests? ─────────────────► RATE_LIMIT__
+         └─ Everything else / unhandled? ───────► INTERNAL__
+
+Name the condition: UPPER_SNAKE_CASE, verb-last, no _ERROR suffix
+Combine: NAMESPACE__CONDITION
+Add to errors/catalog.py with http_status + description + since_version
+```
