@@ -2,6 +2,7 @@
 # Interactive installer: clone this template, apply project identity, refresh lockfile.
 # Usage:
 #   curl -LsSf https://raw.githubusercontent.com/OWNER/REPO/main/setup.sh | bash
+#   (Interactive prompts read from /dev/tty so they do not consume the script on stdin.)
 #   curl ... | bash -s -- --help
 #   SETUP_NONINTERACTIVE=1 SETUP_PROJECT_NAME="My App" SETUP_REPO_URL="https://github.com/me/repo.git" bash setup.sh
 set -euo pipefail
@@ -122,18 +123,21 @@ parse_github_owner_repo() {
 }
 
 prompt() {
+  # With `curl ... | bash`, stdin is the script; `read` must use /dev/tty or it eats the script.
   local msg="$1"
   local default="${2:-}"
   local reply
+  local _in=/dev/stdin
+  [[ -r /dev/tty ]] && _in=/dev/tty
   if [[ -n "$default" ]]; then
-    read -r -p "$msg [$default]: " reply || true
+    read -r -p "$msg [$default]: " reply < "$_in" || true
     if is_blank "$reply"; then
       printf '%s' "$default"
     else
       printf '%s' "$reply"
     fi
   else
-    read -r -p "$msg: " reply || true
+    read -r -p "$msg: " reply < "$_in" || true
     printf '%s' "$reply"
   fi
 }

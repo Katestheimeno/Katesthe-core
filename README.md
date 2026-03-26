@@ -41,14 +41,26 @@ Because this project is fully dockerized, run Django and management commands ins
 
    **What it does:** `setup.sh` clones this repository into your **current directory** (start from an **empty folder**), removes `.git`, applies your project name and metadata, updates `pyproject.toml`, and runs `uv lock` when `uv` is available.
 
-   **Requirements on your machine:** **bash**, **git**, **perl**, and **Python 3**. Use **`bash`** to run the script (e.g. pipe to `bash`). Do **not** pipe to `sh` — on many Linux systems `sh` is `dash`, which does not run this script correctly. The script is written for **bash 3.2+** (including the default `/bin/bash` on macOS).
+   **Requirements on your machine:** **bash**, **git**, **perl**, and **Python 3**. Run the script with **`bash`**, not **`sh`** (on many Linux systems `sh` is `dash`). The script targets **bash 3.2+** (including macOS `/bin/bash`).
 
-   **Interactive install (default)** — run the command below; you will be prompted for display name, pyproject package name, contact fields, and description:
+   **Interactive install (default)** — create an **empty** directory, then either:
+
+   **Option A (recommended):** download the script, then run it so prompts use your terminal (avoids stdin issues when piping):
+
+   ```bash
+   mkdir my-project && cd my-project
+   curl -LsSf https://raw.githubusercontent.com/Katestheimeno/Katesthe-core/main/setup.sh -o setup.sh
+   bash setup.sh
+   ```
+
+   **Option B:** pipe straight to bash — `setup.sh` reads prompts from `/dev/tty`, so this is safe for interactive use:
 
    ```bash
    mkdir my-project && cd my-project
    curl -LsSf https://raw.githubusercontent.com/Katestheimeno/Katesthe-core/main/setup.sh | bash
    ```
+
+   You will be prompted for display name, pyproject package name, contact fields, and description.
 
    **Non-interactive** (CI or scripting): set `SETUP_NONINTERACTIVE=1` and at least `SETUP_PROJECT_NAME`. Optional: `SETUP_REPO_URL`, `SETUP_PYPROJECT_NAME`, `SETUP_PYPROJECT_DESCRIPTION`, `SETUP_CONTACT_*`, `SETUP_PROFILING_EMAIL`, or pass flags after `--`:
 
@@ -69,7 +81,7 @@ Because this project is fully dockerized, run Django and management commands ins
    curl -LsSf https://raw.githubusercontent.com/Katestheimeno/Katesthe-core/main/setup.sh | bash
    ```
 
-   Full options: run `curl -LsSf https://raw.githubusercontent.com/Katestheimeno/Katesthe-core/main/setup.sh | bash -s -- --help`, or `./setup.sh --help` after cloning the repo.
+   Full options: `curl ... | bash -s -- --help`, or `./setup.sh --help` after downloading or cloning the repo.
 
 2) **Create environment configuration**
 ```bash
