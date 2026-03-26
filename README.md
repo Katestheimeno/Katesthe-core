@@ -41,7 +41,7 @@ Because this project is fully dockerized, run Django and management commands ins
 
    **What it does:** `setup.sh` clones this repository into your **current directory** (start from an **empty folder**), removes `.git`, applies your project name and metadata, updates `pyproject.toml`, and runs `uv lock` when `uv` is available.
 
-   **Requirements on your machine:** **bash**, **git**, **perl**, and **Python 3**. Use **`bash`** to run the script (e.g. pipe to `bash`). Do **not** pipe to `sh` — on many Linux systems `sh` is `dash`, which does not run this script correctly.
+   **Requirements on your machine:** **bash**, **git**, **perl**, and **Python 3**. Use **`bash`** to run the script (e.g. pipe to `bash`). Do **not** pipe to `sh` — on many Linux systems `sh` is `dash`, which does not run this script correctly. The script is written for **bash 3.2+** (including the default `/bin/bash` on macOS).
 
    **Interactive install (default)** — run the command below; you will be prompted for display name, pyproject package name, contact fields, and description:
 

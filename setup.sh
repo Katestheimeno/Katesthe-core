@@ -54,6 +54,11 @@ Examples:
 EOF
 }
 
+# Empty or whitespace-only (bash 3.2–safe; do not use ${var// } — requires bash 4+).
+is_blank() {
+  case "${1-}" in *[![:space:]]*) return 1 ;; *) return 0 ;; esac
+}
+
 slugify_pyproject_name() {
   local s="${1:?}"
   s=$(printf '%s' "$s" | tr '[:upper:]' '[:lower:]')
@@ -122,7 +127,7 @@ prompt() {
   local reply
   if [[ -n "$default" ]]; then
     read -r -p "$msg [$default]: " reply || true
-    if [[ -z "${reply// }" ]]; then
+    if is_blank "$reply"; then
       printf '%s' "$default"
     else
       printf '%s' "$reply"
@@ -215,7 +220,7 @@ fi
 if [[ "$EXPLICIT_PYPROJECT" == "0" ]] && [[ "$NONINTERACTIVE" != "1" ]]; then
   _d=$(slugify_pyproject_name "$PROJECT_NAME")
   _r=$(prompt "Pyproject / package name (PEP 508)" "$_d")
-  if [[ -n "${_r// }" ]]; then
+  if ! is_blank "$_r"; then
     PYPROJECT_NAME=$(slugify_pyproject_name "$_r")
   else
     PYPROJECT_NAME="$_d"
@@ -226,7 +231,9 @@ fi
 if [[ -z "$PYPROJECT_NAME" ]]; then
   PYPROJECT_NAME=$(slugify_pyproject_name "$PROJECT_NAME")
 fi
-if ! [[ "$PYPROJECT_NAME" =~ ^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$ ]]; then
+# bash 3.2: store regex in a variable for =~ (see Chet Ramey notes on [[ =~ ]])
+_py_slug_re='^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$'
+if ! [[ "$PYPROJECT_NAME" =~ $_py_slug_re ]]; then
   echo "Invalid --pyproject-name / SETUP_PYPROJECT_NAME: use lowercase letters, digits, dots, hyphens (PEP 508)." >&2
   exit 1
 fi
