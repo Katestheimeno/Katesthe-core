@@ -1,0 +1,299 @@
+---
+description: Django Testing Discipline — enforces mandatory pytest test generation, 100% branch coverage for new/modified code, and mirrored test architecture. Activates only after the audit loop rule has completed. No backend logic is finalized without tests.
+globs: **/*.py
+alwaysApply: true
+---
+
+# Django Testing Discipline (pytest + coverage)
+
+## Activation Constraint — This Rule Runs Last
+
+**This rule may only execute after both of the following rules have fully completed:**
+
+1. ✅ `django-reuse-awareness` — Feature reuse check passed
+2. ✅ `django-audit-loop` — All 3 audit/fix iterations completed
+
+> Do not generate any tests until implementation is finalized and audited.  
+> Do not finalize any implementation without then generating its tests.
+
+---
+
+## Mandatory Test Creation Triggers
+
+Tests **must** be created or updated when any of the following are new or modified:
+
+| Trigger | Required Test File |
+|---|---|
+| `models.py` — new model or method | `test_models.py` |
+| `services/*.py` — new or modified service | `test_<service_name>.py` |
+| `serializers.py` — new or modified serializer | `test_serializers.py` |
+| `views.py` / `viewsets.py` — new or modified view | `test_views.py` |
+| `managers.py` / `querysets.py` | `test_managers.py` |
+| `utils/` / `helpers/` | `test_<module_name>.py` |
+| `validators.py` | `test_validators.py` |
+| `permissions.py` | `test_permissions.py` |
+| `signals.py` | `test_signals.py` |
+| `tasks.py` (Celery) | `test_tasks.py` |
+| Any new branch / conditional added to existing code | New test case in corresponding existing test file |
+
+**No new backend logic ships without a corresponding test. No exceptions.**
+
+---
+
+## Test Architecture Mirroring
+
+Test file location must **exactly mirror** the main project structure.
+
+```
+# Main code location → Required test location
+
+apps/users/models.py
+→ tests/apps/users/test_models.py
+
+apps/users/services/registration.py
+→ tests/apps/users/services/test_registration.py
+
+apps/orders/serializers.py
+→ tests/apps/orders/test_serializers.py
+
+apps/orders/views.py
+→ tests/apps/orders/test_views.py
+
+apps/payments/utils/currency.py
+→ tests/apps/payments/utils/test_currency.py
+```
+
+### Before Creating Any Test File
+
+1. **Inspect the existing `tests/` directory structure.**
+2. Identify the mirrored path for the file being tested.
+3. Check whether a test file already exists at that path.
+   - If yes → **add new test cases** to it. Do not create a duplicate file.
+   - If no → create the file with the correct `test_` prefix at the correct path.
+4. Check `tests/conftest.py` and app-level `conftest.py` files for **existing fixtures**.
+5. Reuse existing fixtures before creating new ones.
+
+### Naming Conventions
+
+```python
+# File:     test_registration.py
+# Class:    TestUserRegistrationService
+# Methods:  test_<scenario>_<expected_outcome>
+
+class TestUserRegistrationService:
+    def test_valid_data_creates_user(self, ...): ...
+    def test_duplicate_email_raises_validation_error(self, ...): ...
+    def test_inactive_account_cannot_register(self, ...): ...
+    def test_registration_sends_welcome_email(self, ...): ...
+```
+
+---
+
+## Required Test Case Categories
+
+For every tested unit, the following scenarios **must** be covered. Check each off explicitly:
+
+```
+□ Happy path              — correct input produces correct output
+□ Edge cases              — empty string, zero, None, boundary values, empty queryset
+□ Failure / error cases   — invalid input, missing required fields, malformed data
+□ Permission scenarios     — unauthenticated, wrong role, correct role, object-level access
+□ Validation logic         — every validator and serializer-level validate_* method
+□ Queryset behavior        — correct filtering, ordering, annotation, exclusion
+□ Side effects             — signals fired, cache invalidated, tasks enqueued, emails sent
+□ Authorization boundaries — user cannot access another user's resource (IDOR)
+□ Branch coverage          — every if/else, try/except, and early return exercised
+```
+
+---
+
+## Coverage Enforcement
+
+Coverage must reach **100% for all newly added or modified code blocks.**
+
+### What Must Be Covered
+
+- Every new function and method body
+- Every new branch (`if`, `elif`, `else`, `try`, `except`, `finally`)
+- Every new conditional expression
+- Every new early `return` or `raise`
+- Every new queryset filter path
+
+### Coverage Anti-Patterns to Flag
+
+```python
+# ❌ Dead code — unreachable branch (flag and remove or test it)
+def get_status(order):
+    if order.status == "pending":
+        return "waiting"
+    elif order.status == "shipped":
+        return "in transit"
+    else:
+        return "unknown"  # ← if this branch has no test, it must be covered or removed
+
+# ❌ Untested exception handler
+try:
+    result = risky_operation()
+except SomeError:
+    logger.error("failed")  # ← this branch must be explicitly tested
+    return None
+```
+
+### Coverage Verification Checklist (run mentally after writing tests)
+
+```
+□ Every new function has at least one test
+□ Every branch in new code has a test that exercises it
+□ No new `if` block exists without a test for both the true and false path
+□ No new `except` block exists without a test that triggers the exception
+□ No new early return exists without a test that reaches it
+□ Parametrized tests replace repetitive near-identical test cases
+```
+
+---
+
+## Test Quality Standards
+
+### Isolation
+- Each test must be independent — no shared mutable state between tests.
+- Use `@pytest.mark.django_db` only when DB access is actually required.
+- Use `pytest-mock` / `unittest.mock` to isolate external dependencies (email, tasks, APIs).
+
+### Factories & Fixtures
+- Use `factory_boy` factories for model creation — no hardcoded raw `MyModel.objects.create(...)` in tests.
+- Reuse fixtures from `conftest.py` — do not re-declare fixtures already defined project-wide.
+- Prefer **fixture composition** over monolithic setup fixtures.
+
+```python
+# ✅ Factory-based, no hardcoded values
+@pytest.mark.django_db
+def test_order_total_excludes_cancelled_items(order_factory, item_factory):
+    order = order_factory()
+    item_factory(order=order, status="active", price=Decimal("50.00"))
+    item_factory(order=order, status="cancelled", price=Decimal("20.00"))
+    assert order.calculate_total() == Decimal("50.00")
+```
+
+### Parametrization
+Use `@pytest.mark.parametrize` when the same logic must be verified against multiple inputs:
+
+```python
+# ✅ Clean parametrized test
+@pytest.mark.parametrize("email", [
+    "",
+    "notanemail",
+    "missing@",
+    "@nodomain.com",
+])
+def test_invalid_email_rejected(email):
+    serializer = UserSerializer(data={"email": email})
+    assert not serializer.is_valid()
+    assert "email" in serializer.errors
+```
+
+### Assertion Clarity
+- One logical assertion per test (multiple `assert` lines are fine if they test the same concept).
+- Use descriptive variable names — avoid `result`, `data`, `obj` as the only name.
+- Assert the **specific value**, not just truthiness.
+
+```python
+# ❌ Vague
+assert result
+
+# ✅ Explicit
+assert response.status_code == status.HTTP_201_CREATED
+assert response.data["email"] == "user@example.com"
+assert User.objects.filter(email="user@example.com").exists()
+```
+
+### Determinism
+- Never use `datetime.now()` directly in tests — use `freezegun` or fixed factory values.
+- Never rely on queryset ordering unless `order_by` is explicitly set.
+- Never generate random data without a fixed seed.
+
+---
+
+## Test File Template
+
+Use this structure for every new test file:
+
+```python
+"""
+Tests for: apps/<app>/<module>.py
+Covers:
+  - <Scenario 1>
+  - <Scenario 2>
+  - Edge cases: <list>
+  - Failure cases: <list>
+  - Permission scenarios: <list>
+"""
+
+import pytest
+from decimal import Decimal
+from django.urls import reverse
+from rest_framework import status
+
+# Import factories and fixtures from conftest — do not redeclare here
+# from tests.factories import UserFactory, OrderFactory
+
+
+@pytest.mark.django_db
+class Test<ClassName>:
+
+    # --- Happy Path ---
+
+    def test_<action>_<expected_outcome>(self, <fixtures>):
+        # Arrange
+        ...
+        # Act
+        ...
+        # Assert
+        ...
+
+    # --- Edge Cases ---
+
+    def test_<action>_with_empty_input_raises_validation_error(self, <fixtures>):
+        ...
+
+    # --- Failure Cases ---
+
+    def test_<action>_with_invalid_data_returns_400(self, <fixtures>):
+        ...
+
+    # --- Permission Scenarios ---
+
+    def test_unauthenticated_request_returns_401(self, api_client):
+        ...
+
+    def test_non_owner_cannot_access_resource_returns_403(self, api_client, user_factory):
+        ...
+
+    # --- Side Effects ---
+
+    def test_<action>_triggers_<signal_or_task>(self, <fixtures>, mocker):
+        ...
+```
+
+---
+
+## Final Checklist — Before Marking Implementation Complete
+
+```
+□ All trigger conditions checked (model / service / serializer / view / util / signal)
+□ Test file exists at the mirrored path with correct test_ prefix
+□ Existing fixtures reused from conftest.py — no duplicates created
+□ Happy path covered
+□ Edge cases covered
+□ Failure cases covered
+□ Permission and authorization scenarios covered
+□ All new branches and conditionals have explicit test coverage
+□ Parametrize used where multiple similar inputs are tested
+□ No hardcoded values — factories used throughout
+□ All tests are isolated and deterministic
+□ No unnecessary DB hits — mocks used for external side effects
+□ Coverage mentally verified: every new line and branch is exercised
+□ Audit summary from django-audit-loop updated to include test status
+```
+
+> ✅ Implementation is only **finalized** when every item above is checked.  
+> ❌ Code without tests is **not complete** — it is a draft.

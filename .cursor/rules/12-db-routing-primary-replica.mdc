@@ -1,0 +1,77 @@
+---
+description: Primary/Replica DB routing for reads/writes (stale-read safety)
+globs: **/*.py
+alwaysApply: true
+---
+
+# Primary/Replica DB Routing Rule
+
+## Core behavior (matches `config/db_router.py`)
+- **Writes** always go to **primary** (`default`) via `db_for_write`.
+- **Reads** go to a **healthy replica** by default (`db_for_read`), when `DB_ROUTING_ENABLED` and `REPLICA_DATABASE_ALIASES` are configured.
+- Reads go to **primary** when either:
+  - router hint is used: `hints={"primary": True}`
+  - request/thread is pinned to primary: `force_primary_for_request()`
+
+## Default: let the router pick (replica for reads)
+Use the default behavior when:
+- The query is **read-only** and does **not** depend on a write performed earlier in the same request/task code path.
+- You’re implementing list/detail GET endpoints, searches, and general `exists()/count()` checks.
+
+Avoid forcing replica or primary explicitly for ordinary reads.
+
+## After writes: prevent stale reads (route the follow-up read to primary)
+Use **one** of these patterns when you need read-after-write consistency:
+
+### Preferred: `with read_from_primary(): ...` (scoped)
+- After `save()`, `create()`, `update()`, `delete()`, or any operation where replication lag could affect a subsequent read.
+- Around any `refresh_from_db()`.
+- Around any re-fetch used to build the response.
+
+Example:
+```python
+from config.db_utils import read_from_primary
+
+obj = MyModel.objects.create(...)
+
+with read_from_primary():
+    obj = MyModel.objects.get(pk=obj.pk)  # guarantees it sees the write
+```
+
+### Request-wide pin: `force_primary_for_request()` (use sparingly)
+- When an endpoint writes and then performs multiple reads/serializations that must all see the new state.
+- Prefer the scoped context manager when possible to reduce replica load.
+- For normal HTTP requests, `DBConsistencyMiddleware` clears this automatically at request start/end.
+
+Example:
+```python
+from config.db_router import force_primary_for_request
+
+force_primary_for_request()
+# serialize response using freshly written state
+```
+
+## Background tasks
+If a Celery task runs **immediately after** a write (triggered post-commit or right after calling `.delay()`), treat it as read-after-write:
+- Wrap the initial entity fetch and any `refresh_from_db()`/follow-up reads in `with read_from_primary(): ...`.
+
+## Don’t hardcode replica aliases
+- Do **not** use `.using("replica_0")` / `.using("replica_1")`.
+- For primary, use `read_from_primary()` or `.using("default")` only when you truly need to pin an already-constructed queryset.
+
+If you need to pin an existing queryset to primary:
+```python
+from config.db_utils import queryset_on_primary
+
+qs = queryset_on_primary(MyModel.objects.filter(...))
+```
+
+## Evaluate inside the correct scope
+Be careful not to evaluate querysets before entering `read_from_primary()`:
+- Build querysets outside is usually fine.
+- **Evaluate** (`list(qs)`, iteration, `.get()`, `.first()`, `refresh_from_db()`, etc.) inside the context when you need primary consistency.
+
+## Migrations
+- Migrations should run on primary only.
+- In `RunPython` migrations, prefer explicit `.using("default")` for clarity/future-proofing.
+

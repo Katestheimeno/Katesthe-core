@@ -1,0 +1,156 @@
+---
+description: Django Feature Reuse & Project Awareness — forces discovery and reuse of existing project logic before creating anything new. Prevents duplication, scattered validation, and parallel implementations across all Django backend code.
+globs: **/*.py
+alwaysApply: true
+---
+
+# Django Feature Reuse & Project Awareness
+
+## Core Principle
+**Before writing a single line of new code, search the project.** Creation is the last resort. Reuse, extension, and refactoring always take precedence over duplication.
+
+---
+
+## Mandatory Pre-Implementation Discovery Protocol
+
+Before implementing any feature, function, method, query, serializer, service, or utility, you **must** complete the following discovery steps in order:
+
+### Step 1 — Scan These Locations First
+
+| Layer | Where to Look |
+|---|---|
+| **Utilities** | `utils/`, `helpers/`, `common/`, `core/` |
+| **Services** | `services/`, `*_service.py` |
+| **Model logic** | `models.py` → methods, properties, `clean()` |
+| **Managers & Querysets** | `managers.py`, `querysets.py`, custom `objects =` |
+| **Mixins** | `mixins.py`, base view classes, serializer mixins |
+| **Serializers** | existing serializers for the same model or related model |
+| **Signals** | `signals.py` — check if behavior already fires post-save/delete |
+| **Validators** | `validators.py`, serializer-level `validate_*` methods |
+| **Permissions** | `permissions.py` — reuse before writing inline checks |
+| **View logic** | base views, generic views, existing endpoints for the same resource |
+
+### Step 2 — Answer These Questions Before Proceeding
+
+1. **Does this logic already exist?**
+   Search for synonyms, abbreviations, and related terms — not just the exact name.
+
+2. **Does this behavior already exist under a different name or in a different module?**
+   Example: a `get_active_users()` util when you need "non-deleted users" — likely the same thing.
+
+3. **Can the requested behavior be composed from two or more existing functions?**
+   Prefer composition over creation.
+
+4. **Can the existing logic be extended with a parameter or subclass instead of duplicated?**
+   A `filter_by_status(status)` is better than `get_active()` + `get_inactive()` as separate functions.
+
+5. **Does the existing code solve 80%+ of the requirement?**
+   Refactor the shared abstraction — don't create a parallel implementation for the remaining 20%.
+
+---
+
+## Decision Tree
+
+```
+Need to implement logic?
+        │
+        ▼
+Search project for existing logic
+        │
+        ├── Exact match found ──────────────────► USE IT. Do not recreate.
+        │
+        ├── Similar logic found ────────────────► EXTEND or REFACTOR into shared abstraction.
+        │                                          Move to utils/service/manager as appropriate.
+        │
+        ├── Partial match (shares core logic) ──► COMPOSE from existing pieces.
+        │
+        └── Truly new (no overlap found) ───────► CREATE, but place in the correct layer:
+                                                   - Business rule → service or model method
+                                                   - DB access pattern → Manager/QuerySet
+                                                   - Shared validation → validator or serializer mixin
+                                                   - Cross-cutting concern → middleware or mixin
+```
+
+---
+
+## Placement Rules for New Code
+
+When creation is justified, place logic in the correct architectural layer:
+
+```python
+# ✅ Business rules belong in services or model methods — NOT in views
+# services/order_service.py
+def cancel_order(order: Order, cancelled_by: User) -> Order:
+    """Cancel an order and notify the customer. Reuse from views and tasks."""
+    ...
+
+# ✅ Reusable DB access belongs in Managers/QuerySets — NOT inline in views
+class OrderQuerySet(models.QuerySet):
+    def pending(self):
+        return self.filter(status="pending", is_deleted=False)
+
+# ✅ Shared serializer logic belongs in mixins — NOT repeated across serializers
+class TimestampMixin(serializers.Serializer):
+    created_at = serializers.DateTimeField(read_only=True)
+    updated_at = serializers.DateTimeField(read_only=True)
+```
+
+---
+
+## Anti-Patterns to Actively Prevent
+
+```python
+# ❌ Inline queryset logic duplicating an existing Manager method
+def my_view(request):
+    orders = Order.objects.filter(status="pending", is_deleted=False)  # already in OrderQuerySet.pending()
+
+# ❌ Reimplementing validation that already exists in a serializer or model.clean()
+def my_view(request):
+    if not request.data.get("email"):  # EmailSerializer already validates this
+        return Response({"error": "Email required"}, status=400)
+
+# ❌ Copying permission logic instead of reusing the permission class
+def my_view(request):
+    if request.user != obj.owner and not request.user.is_staff:  # IsOwnerOrAdmin already exists
+        raise PermissionDenied
+
+# ❌ Parallel service functions for the same domain concept
+def send_welcome_email(user): ...      # already exists
+def send_registration_email(user): ... # duplicate — extend the first
+```
+
+---
+
+## Refactoring Trigger Conditions
+
+Refactor into a shared abstraction when **any** of the following are true:
+
+- The same filtering logic appears in 2+ views or serializers
+- The same validation rule is written in 2+ places
+- Two service functions share more than ~5 lines of core logic
+- A queryset is built inline in a view that a Manager should own
+- A permission check is written inline in 2+ views
+
+---
+
+## Documentation Requirement
+
+When reusing or extending existing logic, add a brief inline comment:
+
+```python
+# Reuses OrderQuerySet.pending() — see orders/querysets.py
+orders = Order.objects.pending()
+
+# Extends BaseNotificationService — adds SMS channel
+class SmsNotificationService(BaseNotificationService): ...
+```
+
+When creating genuinely new shared logic, add a docstring explaining its intended reuse scope:
+
+```python
+def calculate_discount(order: Order, code: str) -> Decimal:
+    """
+    Central discount calculation. Used by checkout API, admin actions, and bulk import.
+    Do not reimplement discount logic elsewhere — extend this function.
+    """
+```

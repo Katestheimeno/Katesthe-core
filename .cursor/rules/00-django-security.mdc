@@ -1,0 +1,186 @@
+---
+description: Django Security Best Practices — enforces protection against OWASP Top 10 and Django-specific vulnerabilities across all generated backend code.
+globs: **/*.py
+alwaysApply: true
+---
+
+# Django Security Best Practices
+
+## Core Principle
+**Distrust all input. Enforce authorization before data access. Expose the minimum necessary.** Use Django's built-in security features as the first line of defense.
+
+---
+
+## SQL Injection
+- **Never** use raw string formatting in queries.
+- Use the ORM for all data access. If raw SQL is strictly required, use **parameterized queries only**.
+
+```python
+# ❌ SQL Injection risk
+User.objects.raw(f"SELECT * FROM users WHERE email = '{email}'")
+
+# ✅ Parameterized
+User.objects.raw("SELECT * FROM users WHERE email = %s", [email])
+
+# ✅ Preferred — use ORM
+User.objects.filter(email=email)
+```
+
+---
+
+## Input Validation & Sanitization
+- Validate all user input via **Django Forms**, **DRF Serializers**, or explicit validators — never trust raw `request.data` / `request.GET`.
+- Use `serializer.is_valid(raise_exception=True)` before accessing `.validated_data`.
+- Reject unexpected fields — set `extra_kwargs` or use explicit field declarations.
+
+```python
+# ✅ Always validate before use
+serializer = MySerializer(data=request.data)
+serializer.is_valid(raise_exception=True)
+obj = serializer.save()
+```
+
+---
+
+## Mass Assignment Prevention
+- **Never** pass `request.data` directly to `.create()` or `.update()`.
+- Explicitly declare serializer fields — do not use `fields = "__all__"` on write serializers.
+- Use `read_only_fields` for fields like `id`, `created_at`, `owner`.
+
+```python
+# ❌ Mass assignment
+MyModel.objects.create(**request.data)
+
+# ✅ Controlled fields
+class MySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MyModel
+        fields = ["name", "description"]  # explicit whitelist
+        read_only_fields = ["id", "created_at", "owner"]
+```
+
+---
+
+## Authentication & Authorization
+- Every view must enforce **authentication** (`IsAuthenticated`) and **permission** checks before accessing data.
+- Never rely solely on obscurity (e.g., a hidden URL) as access control.
+- Use DRF's `permission_classes` or Django's `@login_required` / `@permission_required` decorators consistently.
+
+```python
+# ✅
+class MyView(APIView):
+    permission_classes = [IsAuthenticated, IsOwnerOrAdmin]
+```
+
+---
+
+## Insecure Direct Object Reference (IDOR)
+- Always scope querysets to the **current user** before retrieving objects.
+- Never look up objects by PK alone without verifying ownership or permission.
+
+```python
+# ❌ IDOR — any authenticated user can access any object
+obj = MyModel.objects.get(pk=pk)
+
+# ✅ Scoped to request user
+obj = get_object_or_404(MyModel, pk=pk, owner=request.user)
+```
+
+---
+
+## XSS Prevention
+- Use Django's template engine (auto-escaping enabled by default) — never mark user input as `safe`.
+- Avoid `mark_safe()` unless the content is fully sanitized and controlled.
+- In APIs, return JSON — never reflect raw user input in HTML responses.
+
+---
+
+## CSRF Protection
+- Django's `CsrfViewMiddleware` must remain enabled.
+- Never use `@csrf_exempt` without documented justification and alternative auth (e.g., token-based APIs).
+- DRF SessionAuthentication automatically enforces CSRF — don't disable it.
+
+---
+
+## Sensitive Data Exposure
+- Never include sensitive fields (`password`, `token`, `secret`, `ssn`) in API responses.
+- Use `write_only=True` on serializer fields for secrets (e.g., passwords).
+- Never log `request.data` wholesale — redact sensitive keys before logging.
+
+```python
+# ✅
+class UserSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True)
+```
+
+---
+
+## Unsafe File Uploads
+- Validate file **type** (MIME + extension), **size**, and **content** — never trust `Content-Type` header alone.
+- Store uploaded files **outside** the web root or use cloud storage (S3, GCS).
+- Rename uploaded files server-side — never use the user-supplied filename directly.
+- Scan for malware if files are user-generated and shared.
+
+```python
+# ✅ Validate extension and size in serializer or form
+ALLOWED_EXTENSIONS = {".jpg", ".png", ".pdf"}
+if Path(file.name).suffix.lower() not in ALLOWED_EXTENSIONS:
+    raise ValidationError("File type not allowed.")
+if file.size > 5 * 1024 * 1024:  # 5MB
+    raise ValidationError("File too large.")
+```
+
+---
+
+## Hardcoded Secrets
+- **Never** hardcode API keys, passwords, or tokens in source code.
+- Use environment variables via `django-environ` or `python-decouple`.
+- Ensure `SECRET_KEY`, `DATABASE_URL`, and third-party credentials are loaded from env.
+
+```python
+# ✅
+import environ
+env = environ.Env()
+SECRET_KEY = env("DJANGO_SECRET_KEY")
+```
+
+---
+
+## Unsafe Code Execution
+- **Never** use `eval()`, `exec()`, or `pickle.loads()` on user-supplied data.
+- Avoid `subprocess` with user input unless strictly sandboxed and validated.
+
+---
+
+## Password Handling
+- Use Django's `make_password()` / `check_password()` or `User.set_password()` — never store plaintext.
+- Enforce strong password validation via `AUTH_PASSWORD_VALIDATORS` in settings.
+- Never return or log password hashes in API responses.
+
+---
+
+## Session Security
+- Set `SESSION_COOKIE_SECURE = True`, `SESSION_COOKIE_HTTPONLY = True`, `SESSION_COOKIE_SAMESITE = "Lax"`.
+- Rotate session keys on login (`request.session.cycle_key()`).
+- Set appropriate `SESSION_COOKIE_AGE` — don't use indefinite sessions.
+
+---
+
+## Security Settings Checklist (settings.py)
+```python
+DEBUG = False  # never True in production
+ALLOWED_HOSTS = [...]  # explicit whitelist
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+SECURE_SSL_REDIRECT = True
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+```
+
+---
+
+## Least Privilege Principle
+- Grant the minimum DB permissions the app needs (no `SUPERUSER` for the app DB user).
+- Use Django's `Group` and `Permission` system — don't build custom ad hoc role checks inline.
+- Service accounts and API tokens should be scoped to specific actions only.

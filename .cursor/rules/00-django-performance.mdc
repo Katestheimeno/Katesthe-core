@@ -1,0 +1,157 @@
+---
+description: Django Code Quality & Performance — enforces ORM best practices, query optimization, and efficient data access patterns across all generated Django backend code.
+globs: **/*.py
+alwaysApply: true
+---
+
+# Django Code Quality & Performance
+
+## Core Principle
+**Always prefer DB-level operations over Python-side logic.** Every queryset must be intentional — fetch only what you need, when you need it, at the database layer.
+
+---
+
+## ORM & Query Optimization
+
+### Avoid N+1 Queries
+- Use `select_related()` for **ForeignKey / OneToOne** traversal (single JOIN).
+- Use `prefetch_related()` for **ManyToMany / reverse FK** relations (separate optimized query).
+- Never access related objects inside a loop without pre-fetching them.
+
+```python
+# ❌ N+1
+orders = Order.objects.all()
+for order in orders:
+    print(order.customer.name)  # hits DB every iteration
+
+# ✅ Optimized
+orders = Order.objects.select_related("customer").all()
+```
+
+### Fetch Only What You Need
+- Use `.only("field1", "field2")` or `.defer("heavy_field")` to limit column fetching.
+- Use `.values()` / `.values_list()` when you don't need model instances.
+- Use `.values_list("id", flat=True)` for simple ID lists.
+
+```python
+# ❌ Overfetching
+users = User.objects.all()
+
+# ✅ Lean fetch
+emails = User.objects.filter(is_active=True).values_list("email", flat=True)
+```
+
+### Existence & Counting
+- Use `.exists()` instead of `len(qs)` or `bool(qs)` for existence checks.
+- Use `.count()` at DB level; never `len(queryset)` unless already evaluated.
+
+```python
+# ❌
+if len(User.objects.filter(email=email)) > 0: ...
+
+# ✅
+if User.objects.filter(email=email).exists(): ...
+```
+
+### Aggregation & Annotation
+- Use `annotate()`, `aggregate()`, `Count()`, `Sum()`, `F()` expressions to push computation to the DB.
+- Never compute aggregates in Python over large datasets.
+
+```python
+# ❌ Python-side aggregation
+total = sum(order.amount for order in Order.objects.all())
+
+# ✅ DB-side
+from django.db.models import Sum
+total = Order.objects.aggregate(total=Sum("amount"))["total"]
+```
+
+### F Expressions & DB Functions
+- Use `F()` for field-to-field comparisons and atomic updates (avoids race conditions).
+- Use `django.db.models.functions` for DB-native string, date, and math operations.
+
+```python
+# ✅ Atomic increment — no race condition
+Product.objects.filter(pk=pk).update(stock=F("stock") - 1)
+```
+
+---
+
+## Bulk Operations
+- Use `bulk_create()` for inserting multiple records — never loop `obj.save()`.
+- Use `bulk_update()` for updating multiple records in one query.
+- Set `batch_size` on bulk operations for large datasets.
+
+```python
+# ❌
+for item in items:
+    MyModel.objects.create(**item)
+
+# ✅
+MyModel.objects.bulk_create([MyModel(**item) for item in items], batch_size=500)
+```
+
+---
+
+## Queryset Evaluation Awareness
+- Querysets are **lazy** — they only hit the DB when evaluated (iteration, slicing, `list()`, `bool()`, etc.).
+- Cache evaluated querysets in a variable; never re-evaluate the same queryset twice.
+- Avoid evaluating querysets inside `if` conditions when `.exists()` suffices.
+
+---
+
+## Pagination
+- Always paginate list endpoints — never return unbounded querysets.
+- Use `django.core.paginator.Paginator` or DRF's `PageNumberPagination`.
+- Use `LIMIT / OFFSET` via slicing (`qs[offset:limit]`), or keyset pagination for large tables.
+
+```python
+# ✅ DRF paginator or manual slice
+page = request.GET.get("page", 1)
+paginator = Paginator(queryset, 25)
+return paginator.get_page(page)
+```
+
+---
+
+## Indexing Considerations
+- Add `db_index=True` on fields used in `.filter()`, `.order_by()`, or JOIN conditions.
+- Use `Meta.indexes` for composite indexes.
+- Remind yourself: **every `.filter()` on a non-indexed field on a large table is a full scan**.
+
+```python
+class Order(models.Model):
+    class Meta:
+        indexes = [
+            models.Index(fields=["customer", "created_at"]),
+        ]
+```
+
+---
+
+## Preventing Unnecessary Saves
+- Use `update_fields=["field"]` in `.save()` to update only changed fields.
+- Prefer `.update()` on querysets over fetching + saving individual instances.
+
+```python
+# ❌
+obj = MyModel.objects.get(pk=pk)
+obj.status = "active"
+obj.save()  # updates ALL fields
+
+# ✅
+MyModel.objects.filter(pk=pk).update(status="active")
+```
+
+---
+
+## Async Safety
+- Never call synchronous ORM operations inside `async def` views — use `sync_to_async` or `database_sync_to_async`.
+- Avoid blocking I/O (file reads, external HTTP calls) in the synchronous request cycle without caching.
+
+---
+
+## Code Style
+- Keep view/service functions **short and single-purpose** (< 40 lines preferred).
+- Comment **why** non-obvious queryset choices are made (e.g., `# prefetch avoids N+1 on order items`).
+- Extract complex querysets into **Manager methods** or **service functions** — not inline in views.

@@ -1,0 +1,222 @@
+---
+description: Enforces automatic documentation updates and changelog generation after every Django feature implementation. Executes only after Implementation → 3x Audit Loop → Tests & Coverage phases are confirmed complete.
+globs: ["**/*.py", "**/docs/**", "**/CHANGELOG/**"]
+alwaysApply: true
+---
+
+# Django Documentation & Changelog Enforcement Rule
+
+## Phase Gate — Precondition Check
+
+**This phase MUST NOT execute until ALL of the following are confirmed:**
+
+- [ ] Feature implementation is complete
+- [ ] 3 audit iterations have been performed and resolved
+- [ ] All related tests have been written
+- [ ] Coverage thresholds are met and enforced
+
+If any precondition is unmet → **stop and complete the missing phase first**.
+
+Only after all boxes above are checked does this documentation phase begin.
+
+---
+
+## Step 1 — Documentation Scan & Update
+
+### 1.1 Scan the `/docs` Directory
+
+Before writing anything, scan the full `/docs` directory tree:
+
+```
+/docs/
+  api/
+  architecture/
+  services/
+  permissions/
+  models/
+  flows/
+  changes/
+```
+
+Identify every documentation file that is impacted by the current change. Ask:
+
+- Does this change touch an **API endpoint**? → Update `/docs/api/`
+- Does this change modify **business logic**? → Update `/docs/services/` or `/docs/flows/`
+- Does this change affect **permissions or access control**? → Update `/docs/permissions/`
+- Does this change alter a **model structure**? → Update `/docs/models/`
+- Does this change introduce or shift **architecture**? → Update `/docs/architecture/`
+
+### 1.2 Update Rules — Apply to Every Impacted File
+
+For every impacted documentation file:
+
+- **Remove or rewrite any outdated section** that no longer reflects the implementation
+- **Add any missing documentation** for new classes, methods, endpoints, services, or flows
+- **Verify all code examples** are accurate and runnable against the new implementation
+- **Verify API contracts**: request shapes, response shapes, status codes, error formats
+- **Verify permission documentation** reflects the current `permission_classes`, `has_permission`, or `has_object_permission` logic
+- **Verify data flow diagrams or descriptions** are consistent with current service/view wiring
+
+### 1.3 Structural Documentation Integrity Check
+
+Before closing this step, verify:
+
+- No **public API endpoint** is undocumented
+- No **public service method** is undocumented
+- No **custom permission class** is undocumented
+- No **architectural shift** (e.g., new service layer, new async pattern, new external integration) is undocumented
+- No documentation file contains **stale references** to renamed, moved, or deleted code
+
+If documentation debt is found → **fix it now, before proceeding**.
+
+---
+
+## Step 2 — Change Traceability File
+
+For **every completed prompt execution**, create a traceability file inside `/docs/changes/`.
+
+### 2.1 File Naming Convention
+
+```
+/docs/changes/YYYYMMDD_HHMMSS_<short-descriptive-slug>.md
+```
+
+Examples:
+```
+/docs/changes/20240315_143022_add-user-invitation-service.md
+/docs/changes/20240315_160500_refactor-payment-permission-logic.md
+```
+
+### 2.2 Required File Contents
+
+```markdown
+# Change: <Short Title>
+
+**Date:** YYYY-MM-DD HH:MM
+**Author:** AI-assisted / <developer name if known>
+**Prompt Scope:** <one sentence describing what was asked>
+
+---
+
+## Summary
+<2–4 sentences describing what was implemented or changed>
+
+## Reason for Change
+<Why this change was made — feature request, bug fix, refactor, tech debt, etc.>
+
+## Files Modified
+
+| File Path | Lines Modified | Nature of Change |
+|-----------|---------------|-----------------|
+| `app/services/user_service.py` | 45–89 | Added `invite_user()` method |
+| `app/views/user_views.py` | 12–30 | Wired new service method to POST endpoint |
+| `app/tests/test_user_service.py` | 1–65 | New test file for invitation service |
+
+## Refactors Performed
+- <List any refactored logic, renamed symbols, restructured modules>
+- None if not applicable
+
+## Reused Logic
+- <Any existing utility, mixin, service, or helper that was deliberately reused>
+- None if not applicable
+
+## Removed Code
+- <Any deleted methods, classes, files, or dead code removed>
+- None if not applicable
+
+## Related Tests Added
+
+| Test File | Test Name | What It Covers |
+|-----------|-----------|----------------|
+| `app/tests/test_user_service.py` | `test_invite_user_sends_email` | Confirms email dispatch on invite |
+| `app/tests/test_user_service.py` | `test_invite_user_duplicate_raises` | Validates uniqueness constraint |
+
+## Documentation Updated
+- <List every `/docs/` file that was updated as part of this change>
+```
+
+This file is **mandatory**. No prompt execution is complete without it.
+
+---
+
+## Step 3 — CHANGELOG Entry
+
+### 3.1 Inspect Existing CHANGELOG Entries First
+
+Before writing a new entry:
+
+1. Open the `/CHANGELOG` directory
+2. Read the **3 most recent entries** to understand:
+   - File naming convention in use
+   - Date/version format in use
+   - Heading and categorization style in use
+   - Level of detail expected
+3. Match that exact convention in the new entry
+
+**Never assume a format — always inspect first.**
+
+### 3.2 Create a New Entry
+
+Create a new file in `/CHANGELOG/` following the project's established naming pattern.
+
+The entry must include the following categories **only if applicable**:
+
+```markdown
+## Added
+- <New feature, endpoint, service, model field, command, etc.>
+
+## Changed
+- <Modified behavior, updated logic, altered response format, etc.>
+
+## Fixed
+- <Bug fix, edge case resolution, incorrect behavior corrected>
+
+## Refactored
+- <Internal restructure with no behavior change — performance, clarity, structure>
+
+## Removed
+- <Deleted endpoints, deprecated methods removed, dead code cleaned>
+
+## Security
+- <Permission changes, authentication updates, vulnerability patches>
+```
+
+### 3.3 Entry Quality Rules
+
+- **Be concise but meaningful** — one line per item is standard; two lines maximum
+- **Do not document trivial edits** (e.g., renaming a local variable, fixing a typo in a comment)
+- **Aggregate related changes** from the same feature into a single entry — do not fragment
+- **Reference the traceability file** if the change warrants deeper inspection:
+  ```
+  See: docs/changes/20240315_143022_add-user-invitation-service.md
+  ```
+- **Categorize accurately** — do not label a refactor as "Added" or a bug fix as "Changed"
+
+---
+
+## Step 4 — Completion Gate
+
+**A feature implementation is NOT considered complete until ALL of the following are true:**
+
+| Gate | Requirement | Status |
+|------|-------------|--------|
+| 1 | Tests written and passing | Required |
+| 2 | Coverage thresholds enforced | Required |
+| 3 | All impacted `/docs/` files updated | Required |
+| 4 | No undocumented public APIs, services, or permissions | Required |
+| 5 | `/docs/changes/TIMESTAMP_slug.md` traceability file created | Required |
+| 6 | `/CHANGELOG/` entry written following existing convention | Required |
+
+If **any gate is not satisfied** → the implementation is incomplete. Do not present the output as final.
+
+Only when all 6 gates are confirmed → the feature may be considered **done**.
+
+---
+
+## Enforcement Reminders
+
+- Documentation is **not optional** and is not deferred to "later"
+- The traceability file is a **first-class deliverable**, not an afterthought
+- CHANGELOG entries must **match the existing project's formatting** — always inspect before writing
+- Any documentation debt discovered during this phase **must be resolved** before finalizing
+- This rule applies to **all Django backend changes** regardless of scope — from small service methods to full feature modules

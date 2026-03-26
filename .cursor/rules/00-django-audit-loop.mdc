@@ -1,0 +1,157 @@
+---
+description: Django Post-Implementation Audit Loop — mandates a 3-iteration self-audit cycle after every implementation. Forces the AI to challenge its own output for bugs, architectural drift, missed reuse, and contract violations before finalizing any code.
+globs: **/*.py
+alwaysApply: true
+---
+
+# Django Post-Implementation Audit Loop
+
+## Core Principle
+**The first implementation is always a draft.** After completing any feature, assume bugs exist, assumptions are wrong, and consistency has drifted. Run the mandatory audit loop before the output is final.
+
+---
+
+## When This Rule Activates
+
+Trigger this audit cycle after completing **any** of the following:
+- A new view, viewset, or API endpoint
+- A new serializer or form
+- A new model, method, property, or migration
+- A new service function or business logic block
+- A new utility, helper, or manager
+- Any modification to existing logic
+- Any multi-step or multi-file implementation
+
+---
+
+## Mandatory 3-Iteration Audit Loop
+
+After implementation, run exactly **3 full audit iterations**. Do not skip or abbreviate any iteration. Each iteration must actively attempt to find and fix issues — not passively confirm the code looks correct.
+
+---
+
+### ITERATION 1 — Correctness & Contract Verification
+
+**Goal:** Verify the implementation actually fulfills the prompt requirements exactly.
+
+Audit checklist:
+
+```
+□ Does every requirement from the prompt have a corresponding implementation?
+□ Are there implicit requirements that were missed (e.g., "only active users" implies is_deleted=False)?
+□ Does the function/view signature match what callers expect?
+□ Are return types, status codes, and response shapes correct?
+□ Are edge cases handled: empty input, null fields, zero values, empty querysets?
+□ Are error states handled and surfaced correctly (404, 403, 400, 500)?
+□ Does the serializer output match the documented or expected API contract?
+□ Are required fields actually required? Are optional fields actually optional?
+□ Does pagination apply where the response could be unbounded?
+□ Does the implementation behave correctly for both the happy path AND failure paths?
+```
+
+**Fix all discovered issues before proceeding to Iteration 2.**
+
+---
+
+### ITERATION 2 — Architecture, Consistency & Integration
+
+**Goal:** Verify the implementation fits correctly into the existing project structure and doesn't break adjacent layers.
+
+Audit checklist:
+
+```
+□ Is business logic in the correct layer? (services/model methods — not views, not serializers)
+□ Is DB access logic in the correct layer? (managers/querysets — not inline in views)
+□ Does naming follow existing project conventions? (e.g., snake_case, verb_noun patterns, file placement)
+□ Are imports consistent with how other modules import the same dependencies?
+□ Does the new code use existing abstractions (base classes, mixins, managers) where applicable?
+□ Does it introduce any circular imports or tight coupling that didn't exist before?
+□ Are signals, middleware, or hooks affected by this change in unexpected ways?
+□ Does the serializer use existing field types, mixins, or validators already present in the project?
+□ Are permissions enforced using existing permission classes or are they reinvented inline?
+□ Are there integration points (e.g., Celery tasks, signals, cache invalidation) that must be updated?
+□ Does the migration (if any) conflict with the current migration tree?
+□ Is the feature consistent with how the same pattern is implemented elsewhere in the project?
+```
+
+**Fix all discovered issues before proceeding to Iteration 3.**
+
+---
+
+### ITERATION 3 — Security, Performance & Final Hardening
+
+**Goal:** Catch vulnerabilities, query inefficiencies, and remaining rough edges.
+
+Audit checklist:
+
+```
+SECURITY
+□ Is authentication enforced on every non-public endpoint?
+□ Is authorization scoped to the requesting user (no IDOR)?
+□ Is all input validated before use (no raw request.data passed directly to ORM)?
+□ Are sensitive fields excluded from serializer output?
+□ Is there any hardcoded secret, token, or credential?
+□ Are file uploads validated for type, size, and safe storage?
+□ Is raw SQL avoided, or if used, fully parameterized?
+
+PERFORMANCE
+□ Does any loop trigger a DB query? (N+1)
+□ Are select_related / prefetch_related applied where FK/M2M relations are accessed?
+□ Does the queryset fetch only the fields actually needed?
+□ Are bulk_create / bulk_update used where multiple objects are saved?
+□ Is the queryset paginated if it can return many rows?
+□ Are .exists() and .count() used instead of evaluating full querysets for boolean/count checks?
+
+FINAL QUALITY
+□ Is there any dead code, unused import, or commented-out block?
+□ Is every non-trivial decision explained with a comment?
+□ Could any function be split into smaller, cleaner responsibilities?
+□ Is the implementation stable under concurrent requests?
+□ Are there any obvious runtime errors (e.g., AttributeError on None, KeyError on missing key)?
+```
+
+**Fix all remaining issues. The output after Iteration 3 is the final deliverable.**
+
+---
+
+## Audit Output Format
+
+After completing all 3 iterations, append a brief audit summary as a comment block at the top of the primary changed file (remove before committing, or keep as a PR description):
+
+```python
+# === AUDIT SUMMARY ===
+# Iteration 1 fixes: [e.g., "Added 404 handling for missing order; fixed response shape to include `id`"]
+# Iteration 2 fixes: [e.g., "Moved discount logic to OrderService; replaced inline filter with OrderQuerySet.pending()"]
+# Iteration 3 fixes: [e.g., "Added select_related('customer'); scoped queryset to request.user to prevent IDOR"]
+# Status: APPROVED FOR REVIEW
+# =====================
+```
+
+---
+
+## Failure Modes to Actively Challenge in Every Iteration
+
+These are the most common first-draft failures. Check for each one explicitly:
+
+| Category | Common First-Draft Failure |
+|---|---|
+| **Correctness** | Silently ignoring a filter condition stated in the prompt |
+| **Edge cases** | Assuming a queryset always returns a result (missing `.first()` null check) |
+| **Authorization** | Fetching by PK without scoping to `request.user` |
+| **Reuse** | Writing inline logic that duplicates an existing service or manager |
+| **ORM** | Accessing a related object in a loop without prefetching |
+| **Serializer** | Using `fields = "__all__"` on a write serializer |
+| **Architecture** | Writing business logic directly inside a view function |
+| **Integration** | Updating a model without triggering expected signal or cache invalidation |
+| **Naming** | Using a naming pattern inconsistent with the rest of the app |
+| **Contracts** | Returning a different response shape than existing similar endpoints |
+
+---
+
+## Non-Negotiable Constraints
+
+- **Never finalize output after only 1 draft.**
+- **Never skip an audit iteration** because the implementation "looks correct."
+- **Never assume the prompt captured all requirements** — infer implicit requirements from context.
+- **If Iteration 3 reveals a structural issue**, loop back to Iteration 1 and re-audit from the start.
+- The audit loop is **mandatory on every implementation**, regardless of size or perceived simplicity.
