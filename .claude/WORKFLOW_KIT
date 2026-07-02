@@ -1,0 +1,5 @@
+# Written by workflow-kit install.sh; safe to commit for team visibility.
+version=1.2.0
+source=git@github.com:Katestheimeno/workflow-kit.git
+installed=2026-07-02T15:36:43Z
+target=/home/tmpusr/dev/Katesthe-core
