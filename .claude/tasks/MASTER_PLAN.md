@@ -1,8 +1,8 @@
 # Master Plan
-Last Updated: (set when you edit)
+Last Updated: 2026-07-02
 
 ## Active
-→ none
+→ [depadrive-backport](depadrive-backport/MASTER_TASKS.md) — Backport 23 Depadrive-core production patterns + app-scaffold update into this template (P1). 24 subtasks across 4 phases.
 
 ## Queue
 (empty)
