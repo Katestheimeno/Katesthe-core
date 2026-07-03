@@ -17,6 +17,12 @@ omit =
     */wsgi.py
     */asgi.py
     */celery.py
+    config/django/*
+    utils/management/*
+    utils/consumers.py
+    utils/validators.py
+    config/routing.py
+    config/urls_dev.py
 
 [report]
 exclude_lines =

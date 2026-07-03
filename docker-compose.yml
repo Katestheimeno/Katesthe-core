@@ -129,7 +129,7 @@ services:
 
   celery_worker:
     build: .
-    command: uv run celery -A config.celery.app worker --loglevel=info
+    command: ["/app/docker/scripts/run-celery-worker.sh"]
     volumes:
       - .:/app
       - celery_venv:/app/.venv
@@ -152,7 +152,7 @@ services:
   celery_beat:
     build: .
     # DatabaseScheduler: schedule in Postgres (django_celery_beat) — avoids celerybeat-schedule file on /app volume (permission denied).
-    command: uv run celery -A config.celery.app beat --loglevel=info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    command: ["/app/docker/scripts/run-celery-beat.sh"]
     volumes:
       - .:/app
       - celery_venv:/app/.venv
