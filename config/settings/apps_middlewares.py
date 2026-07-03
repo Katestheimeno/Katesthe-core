@@ -119,7 +119,9 @@ imports += ["MIDDLEWARE"]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "config.middleware.security_headers.SecurityHeadersMiddleware",
     "config.middleware.db_consistency.DBConsistencyMiddleware",
+    "config.middleware.liveness_probe.LivenessProbeMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",  # must come before CommonMiddleware
     "config.middleware.request_id.RequestIdMiddleware",
