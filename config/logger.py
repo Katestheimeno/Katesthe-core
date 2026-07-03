@@ -24,12 +24,29 @@ FILE_LEVEL = "DEBUG"
 # ------------------------------------------------------------
 logger.remove()
 # ------------------------------------------------------------
+# Request-id propagation (correlation IDs: request -> logs)
+# ------------------------------------------------------------
+# `config.middleware.request_id` imports the stdlib only, so this import is
+# safe even though `logger.py` loads very early in settings; the try/except
+# guards against any future circular-import risk regardless.
+def _patch_request_id(record):
+    """Inject the current request id (set by RequestIdMiddleware) into every record."""
+    try:
+        from config.middleware.request_id import request_id_ctx
+        record["extra"]["request_id"] = request_id_ctx.get()
+    except ImportError:
+        record["extra"]["request_id"] = "-"
+
+
+logger = logger.patch(_patch_request_id)
+# ------------------------------------------------------------
 # Format strings
 # ------------------------------------------------------------
 console_format = (
     "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level>\n"
     "<cyan>Module:</cyan> {name} | <cyan>Function:</cyan> {function} | <cyan>Line:</cyan> {line}\n"
     "<magenta>Thread:</magenta> {thread.name} | <magenta>Process:</magenta> {process.name}\n"
+    "request_id={extra[request_id]}\n"
     "<level>{message}</level>\n"
     "------------------------------------------------------------"
 )
@@ -37,6 +54,7 @@ file_format = (
     "{time:YYYY-MM-DD HH:mm:ss} | {level: <8}\n"
     "Module: {name} | Function: {function} | Line: {line}\n"
     "Process: {process.name} | Thread: {thread.name}\n"
+    "request_id={extra[request_id]}\n"
     "{message}\n"
     "------------------------------------------------------------"
 )

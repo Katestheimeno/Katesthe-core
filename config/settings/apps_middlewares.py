@@ -79,6 +79,8 @@ THIRD_PARTY_PACKAGES = [
 PROJECT_APPS = [
     'accounts',
     "utils",
+    'errors',
+    'notifications',
 ]
 
 
@@ -120,6 +122,8 @@ MIDDLEWARE = [
     "config.middleware.db_consistency.DBConsistencyMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",  # must come before CommonMiddleware
+    "config.middleware.request_id.RequestIdMiddleware",
+    "config.middleware.access_log.AccessLogMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
