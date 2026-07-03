@@ -10,7 +10,6 @@ dependencies = [
     "channels>=4.3.1",
     "channels-redis>=4.3.0",
     "cryptography>=45.0.7",
-    "daphne>=4.2.1",
     "django>=5.2.5",
     "django-celery-beat>=2.8.1",
     "django-cors-headers>=4.7.0",
@@ -21,6 +20,7 @@ dependencies = [
     "djangorestframework-simplejwt>=5.5.1",
     "djoser>=2.3.3",
     "drf-extensions>=0.8.0",
+    "gunicorn>=23.0.0",
     "kombu>=5.5.4",
     "loguru>=0.7.3",
     "openpyxl>=3.1.0",
@@ -30,6 +30,7 @@ dependencies = [
     "pydantic-settings>=2.10.1",
     "pytest>=8.4.1",
     "redis>=6.4.0",
+    "uvicorn[standard]>=0.34.0",
     "watchfiles>=1.1.0",
 ]
 

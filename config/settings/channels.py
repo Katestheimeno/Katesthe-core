@@ -19,8 +19,10 @@ CHANNEL_LAYERS = {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
             "hosts": [settings.REDIS_URL],
-            "prefix": "channels",  # Prefix to avoid conflicts with other Redis data
-            "expiry": 60,  # Messages expire after 60 seconds if not consumed
+            "prefix": "channels",
+            "expiry": 120,
+            "capacity": 1500,
+            "group_expiry": 86400,
         },
     },
 }

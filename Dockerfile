@@ -37,8 +37,8 @@ ENV LOG_DIR=/var/log/app \
 
 USER django
 
-# Daphne listens on WEB_PORT from entrypoint (default 8000). Health checks belong in docker-compose.yml
-# (web only). Celery worker/beat inherit this image and must not curl :8000.
+# Uvicorn/Gunicorn listens on WEB_PORT from entrypoint (default 8000). Health checks belong in
+# docker-compose.yml (web only). Celery worker/beat inherit this image and must not curl :8000.
 EXPOSE 8000
 
 # only run this in development
@@ -47,4 +47,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \
   CMD curl -f http://localhost:8000/health/ || exit 1
 
-CMD ["uv", "run", "daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]
+CMD ["/app/entrypoint.sh"]

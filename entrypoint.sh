@@ -25,5 +25,43 @@ echo "Collecting static files..."
 uv run python manage.py collectstatic --noinput
 
 echo "Starting Django server..."
-# Give app tasks more time to shut down after client disconnect (avoids "took too long to shut down" warnings when browser cancels static requests)
-exec uv run daphne -b 0.0.0.0 -p ${WEB_PORT:-8000} --application-close-timeout 30 config.asgi:application
+# ── Determine worker count ──
+# WEB_WORKERS: 2 * CPU + 1 is the standard formula.
+# os.cpu_count() on containerised platforms returns the HOST CPU count,
+# not the allocated vCPU. Cap at 4 cores to prevent spawning too many
+# workers on a small container (~100 MB each → OOM).
+WEB_WORKERS="${WEB_WORKERS:-0}"
+if [ "$WEB_WORKERS" = "0" ]; then
+    CPU_COUNT=$(uv run python -c "import os; print(min(os.cpu_count() or 2, 4))")
+    WEB_WORKERS=$((CPU_COUNT * 2 + 1))
+fi
+
+CONTAINER_PORT="${WEB_PORT:-8000}"
+
+if [ "${DJANGO_DEBUG:-False}" = "True" ]; then
+    echo "DEBUG mode — starting Uvicorn with auto-reload (single worker)..."
+    exec uv run uvicorn config.asgi:application \
+        --host 0.0.0.0 \
+        --port "${CONTAINER_PORT}" \
+        --reload \
+        --reload-dir /app \
+        --reload-exclude 'logs' \
+        --reload-exclude 'media' \
+        --reload-exclude 'staticfiles' \
+        --reload-exclude 'static' \
+        --reload-exclude '.venv'
+else
+    echo "Production — starting Gunicorn + Uvicorn workers (${WEB_WORKERS} workers)..."
+    exec uv run gunicorn config.asgi:application \
+        --bind "0.0.0.0:${CONTAINER_PORT}" \
+        --workers "${WEB_WORKERS}" \
+        --worker-class uvicorn.workers.UvicornWorker \
+        --max-requests 1000 \
+        --max-requests-jitter 50 \
+        --graceful-timeout 30 \
+        --timeout 120 \
+        --keep-alive 5 \
+        --access-logfile - \
+        --error-logfile - \
+        --log-level warning
+fi
