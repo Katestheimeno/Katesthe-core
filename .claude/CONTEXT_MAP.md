@@ -22,6 +22,7 @@ Last Updated: 2026-07-03
 
 - depadrive-backport — 2026-07-03 — see [completed/depadrive-backport.md](tasks/completed/depadrive-backport.md)
 - rhitoric-auth-core — 2026-07-03 — see [completed/rhitoric-auth-core.md](tasks/completed/rhitoric-auth-core.md)
+- rhitoric-utilities — 2026-07-03 — see [completed/rhitoric-utilities.md](tasks/completed/rhitoric-utilities.md)
 
 ## Known Constraints & Decisions
 <!-- e.g. layering, error format, infra choices. -->

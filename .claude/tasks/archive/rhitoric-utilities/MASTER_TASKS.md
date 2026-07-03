@@ -1,7 +1,7 @@
 # Rhitoric Utilities Backport
 
 Priority: P1
-Status: active
+Status: done
 **Date:** 2026-07-03
 **Source:** `RHITORIC_BACKPORT_PLAN.md` — Phases 6, 7, 8, 9, 10, 11 + "App Scaffold Update"
 **Goal:** Backport generic operational utilities (safe Celery dispatch, external-API health-check skeleton, test throttle override, Pydantic↔drf-spectacular bridge, keep-warm task, admin click-to-copy mixin, Celery priority queues/routing, enhanced SoftDelete/BooleanChoices mixins, scaffold auth+permissions) into this template — generic patterns only, no domain logic.
@@ -40,15 +40,15 @@ Status: active
 ## Subtasks
 
 <!-- Canonical status list. Status token: PENDING | IN_PROGRESS | BLOCKED | COMPLETED | SKIPPED | DEFERRED -->
-- [PENDING] [001-celery-task-helpers.md](001-celery-task-helpers.md) — Celery task helpers (6.1)
-- [PENDING] [002-check-external-apis-command.md](002-check-external-apis-command.md) — External-API health-check command skeleton (6.2)
-- [PENDING] [003-test-throttle-override.md](003-test-throttle-override.md) — Test throttle-rate override (6.3)
-- [PENDING] [004-spectacular-pydantic-bridge.md](004-spectacular-pydantic-bridge.md) — Pydantic→drf-spectacular bridge (7.1)
-- [PENDING] [005-keep-warm-task.md](005-keep-warm-task.md) — Keep-warm Celery task (8.1 task)
-- [PENDING] [006-celery-queues-routing-beat.md](006-celery-queues-routing-beat.md) — Celery queues, routing, beat, kombu (8.1 beat + 10.1 + 10.2)
-- [PENDING] [007-admin-copyable-mixin.md](007-admin-copyable-mixin.md) — Admin CopyableFieldMixin + css/js (9.1)
-- [PENDING] [008-model-mixins.md](008-model-mixins.md) — Enhanced SoftDelete + BooleanChoices mixins (11.1 + 11.2)
-- [PENDING] [009-app-scaffold-auth-permissions.md](009-app-scaffold-auth-permissions.md) — App scaffold auth + permissions placeholders
+- [COMPLETED] [001-celery-task-helpers.md](001-celery-task-helpers.md) — Celery task helpers (6.1)
+- [COMPLETED] [002-check-external-apis-command.md](002-check-external-apis-command.md) — External-API health-check command skeleton (6.2)
+- [COMPLETED] [003-test-throttle-override.md](003-test-throttle-override.md) — Test throttle-rate override (6.3)
+- [COMPLETED] [004-spectacular-pydantic-bridge.md](004-spectacular-pydantic-bridge.md) — Pydantic→drf-spectacular bridge (7.1)
+- [COMPLETED] [005-keep-warm-task.md](005-keep-warm-task.md) — Keep-warm Celery task (8.1 task)
+- [COMPLETED] [006-celery-queues-routing-beat.md](006-celery-queues-routing-beat.md) — Celery queues, routing, beat, kombu (8.1 beat + 10.1 + 10.2)
+- [COMPLETED] [007-admin-copyable-mixin.md](007-admin-copyable-mixin.md) — Admin CopyableFieldMixin + css/js (9.1)
+- [COMPLETED] [008-model-mixins.md](008-model-mixins.md) — Enhanced SoftDelete + BooleanChoices mixins (11.1 + 11.2)
+- [COMPLETED] [009-app-scaffold-auth-permissions.md](009-app-scaffold-auth-permissions.md) — App scaffold auth + permissions placeholders
 
 ---
 
@@ -140,6 +140,7 @@ Phase 1 — Group A (all 9 run concurrently; file sets are disjoint):
 Two sibling features are concurrently **Active** in `MASTER_PLAN.md`: **rhitoric-auth-core** and **rhitoric-notification-system**. Ownership is disjoint EXCEPT one shared file that must be **serialized** across features:
 
 - **`pyproject.toml`** — this plan's **006** adds `kombu`; **rhitoric-auth-core/001** adds `cryptography`. Disjoint lines (both append to `[project].dependencies`), but the SAME file — the orchestrator MUST serialize the two writers (either order; the second rebases onto the untouched region). `rhitoric-auth-core/MASTER_TASKS.md` documents the same lock.
+  - **RESOLVED (2026-07-03):** `rhitoric-auth-core` has COMPLETED and been archived — `cryptography>=45.0.7` is already in `pyproject.toml`. There was no live co-writer when **006** ran; it appended `kombu>=5.5.4` onto the untouched region with no serialization needed. Lock is now moot.
 
 Otherwise disjoint: this plan owns `utils/{celery_helpers.py,tasks.py,admin/*,models/*}`, `config/settings/celery.py`, `config/django/test.py`, `config/spectacular_pydantic.py`, `static/exp_app/*`; auth-core owns `accounts/*`, `config/settings/{restframework,config}.py`, `config/django/production.py`, WS/cookie/JWT files; notification-system owns the new `notification_system/` app + its wiring. The only other adjacency is soft (Phase 6.3 throttle-key override + Phase 10 celery task-name routing reference auth-core scopes/tasks by string — non-blocking). **No other hard conflicts.**
 
