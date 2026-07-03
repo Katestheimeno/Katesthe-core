@@ -1,6 +1,6 @@
 """
-Celery tasks for the accounts app.
-Path: accounts/tasks.py
+Example Celery task for the accounts app.
+Path: accounts/tasks/_example.py
 """
 
 from celery import shared_task
