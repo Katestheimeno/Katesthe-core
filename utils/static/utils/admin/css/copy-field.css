@@ -1,0 +1,81 @@
+/**
+ * Copy Field Styling - Clean Modern Interface
+ * Styles for copyable fields in Django admin
+ */
+
+.copy-field,
+.code-copy {
+    transition: all 0.2s ease-in-out;
+    border-radius: 6px;
+    padding: 4px 8px;
+    display: inline-block;
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+    font-weight: 400;
+    text-decoration: none !important;
+    border: 1px solid #e1e5e9;
+    background: #f8f9fa;
+    color: #495057 !important;
+    font-size: 13px;
+    letter-spacing: 0.2px;
+    min-width: 80px;
+    text-align: center;
+}
+
+.copy-field:hover,
+.code-copy:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+    color: #212529 !important;
+}
+
+.copy-field:active,
+.code-copy:active {
+    background: #dee2e6;
+    transform: translateY(1px);
+}
+
+/* Specific styling for code fields */
+.code-copy {
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Consolas', monospace;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    background: #f1f3f4;
+    color: #495057 !important;
+    border-color: #dadce0;
+}
+
+.code-copy:hover {
+    background: #e8eaed;
+    color: #3c4043 !important;
+}
+
+/* Email specific styling */
+.copy-field[data-code*="@"] {
+    background: #e3f2fd;
+    color: #1976d2 !important;
+    border-color: #bbdefb;
+}
+
+.copy-field[data-code*="@"]:hover {
+    background: #bbdefb;
+    color: #0d47a1 !important;
+    border-color: #90caf9;
+}
+
+/* Success state - subtle green */
+.copy-field.copied,
+.code-copy.copied {
+    background: #d4edda !important;
+    color: #155724 !important;
+    border-color: #c3e6cb !important;
+}
+
+/* Error state - subtle red */
+.copy-field.error,
+.code-copy.error {
+    background: #f8d7da !important;
+    color: #721c24 !important;
+    border-color: #f5c6cb !important;
+}
