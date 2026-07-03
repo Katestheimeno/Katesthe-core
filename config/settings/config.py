@@ -7,9 +7,9 @@ with separate settings classes for different concerns (database, email, etc.)
 """
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Define the base directory of the project (2 levels up from this file)
@@ -185,6 +185,19 @@ class MainSettings(BaseSettings):
     THEME_PRIMARY_COLOR: str = Field(default="#6a0dad", description="Primary theme color")
     THEME_ACCENT_COLOR: str = Field(default="#4b0082", description="Accent theme color")
 
+    # JWT RS256
+    JWT_RSA_PRIVATE_KEY: str = Field(default="", description="Base64-encoded PEM of the RSA private key for JWT RS256 signing")
+    JWT_RSA_PREVIOUS_PUBLIC_KEY: str = Field(default="", description="Base64-encoded PEM of the previous public key (JWKS rotation window)")
+    JWT_ISSUER: Optional[str] = Field(default=None, description="JWT iss claim")
+    JWT_AUDIENCE: Optional[str] = Field(default=None, description="JWT aud claim")
+    # Auth cookies
+    AUTH_COOKIE_DOMAIN: str = Field(default="", description="Domain for auth cookies")
+    AUTH_COOKIE_REFRESH_PATH: str = Field(default="/api/v1/auth/jwt/", description="Path scope for the refresh-token cookie")
+    AUTH_COOKIE_SECURE: Optional[bool] = Field(default=None, description="Secure flag for auth cookies (None = auto from DEBUG)")
+    AUTH_COOKIE_SAMESITE: Literal["Lax", "Strict", "None"] = Field(default="Lax", description="SameSite attribute for auth cookies")
+    # Throttle toggle
+    THROTTLE_ENABLED: bool = Field(default=True, description="Global toggle for all throttle classes. Set False for load testing.")
+
     # Nested settings
     email: EmailSettings = Field(default_factory=EmailSettings)
     redis: RedisSettings = Field(default_factory=RedisSettings)
@@ -200,6 +213,23 @@ class MainSettings(BaseSettings):
     @property
     def CELERY_BROKER_URL(self) -> str:
         return self.REDIS_URL
+
+    @model_validator(mode="after")
+    def _validate_cookie_samesite(self) -> "MainSettings":
+        """SameSite=None without the Secure attribute is rejected by browsers — fail fast."""
+        if self.AUTH_COOKIE_SAMESITE == "None":
+            effective_secure = (
+                self.AUTH_COOKIE_SECURE
+                if self.AUTH_COOKIE_SECURE is not None
+                else not self.DJANGO_DEBUG
+            )
+            if not effective_secure:
+                raise ValueError(
+                    "AUTH_COOKIE_SAMESITE='None' requires secure cookies. "
+                    "Set AUTH_COOKIE_SECURE=true (and serve over HTTPS) or use "
+                    "SameSite 'Lax'/'Strict'."
+                )
+        return self
 
 
 # Create the global settings instance
