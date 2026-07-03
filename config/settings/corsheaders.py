@@ -7,12 +7,21 @@ Defines allowed headers, origins, and credentials for cross-origin API calls
 via django-cors-headers.
 """
 
+from urllib.parse import urlparse
+
 from corsheaders.defaults import default_headers
 from config.settings.config import settings
 
 # List of symbols to be exported when doing `from settings.cors import *`
 # We build this dynamically as we define variables.
 imports = []
+
+
+def _is_loopback_origin(origin: str) -> bool:
+    """Return True when `origin`'s host is localhost/127.0.0.1 (or a *.localhost
+    subdomain). Used to strip dev-only origins from production CORS config."""
+    host = (urlparse(origin).hostname or "").lower()
+    return host in {"localhost", "127.0.0.1"} or host.endswith(".localhost")
 
 # ---------------------------------------------------------------------
 # Allowed HTTP headers
@@ -57,6 +66,14 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:8080",   # e.g. Vue / React dev server
     f"http://127.0.0.1:{settings.WEB_PORT}",   # Django dev server
 ]
+
+# Production must never accept loopback origins — they only make sense for local
+# development. Gate on the resolved pydantic DJANGO_DEBUG flag (NOT the pydantic
+# `settings.DEBUG`-style attribute); dev behavior above is left untouched.
+if not settings.DJANGO_DEBUG:
+    CORS_ALLOWED_ORIGINS = [
+        origin for origin in CORS_ALLOWED_ORIGINS if not _is_loopback_origin(origin)
+    ]
 
 # Expose only the explicitly defined symbols
 __all__ = imports
