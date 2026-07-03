@@ -25,14 +25,18 @@ class TestThrottleScopes:
 
 
 class TestThrottleRatesRegistered:
-    """`DEFAULT_THROTTLE_RATES` registers the four universal scopes."""
+    """`DEFAULT_THROTTLE_RATES` registers the default and auth throttle scopes."""
 
     def test_default_throttle_rates_contains_expected_scopes(self):
         rates = settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]
 
-        assert {"anon", "user", "auth_login", "auth_password_reset"}.issubset(
-            rates.keys()
-        )
+        assert {
+            "default_anon",
+            "default_user",
+            "auth_login",
+            "auth_login_account",
+        }.issubset(rates.keys())
+        assert {"anon", "user", "auth_password_reset"}.isdisjoint(rates.keys())
 
 
 class _ThrottledPingView(APIView):
