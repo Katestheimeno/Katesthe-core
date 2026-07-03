@@ -21,6 +21,8 @@ dependencies = [
     "djoser>=2.3.3",
     "drf-extensions>=0.8.0",
     "loguru>=0.7.3",
+    "openpyxl>=3.1.0",
+    "phonenumbers>=9.0.34",
     "psycopg2-binary>=2.9.10",
     "pydantic>=2.11.7",
     "pydantic-settings>=2.10.1",
@@ -28,6 +30,9 @@ dependencies = [
     "redis>=6.4.0",
     "watchfiles>=1.1.0",
 ]
+
+[project.optional-dependencies]
+production = ["sentry-sdk[django,celery]>=2.0.0"]
 
 [dependency-groups]
 dev = [
