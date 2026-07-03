@@ -19,7 +19,7 @@ Every error response (and any success response a view builds via `utils.api_resp
 
 - `meta.request_id` comes from `request.request_id`, set by `config.middleware.request_id.RequestIdMiddleware` from the incoming `X-Request-ID` header (or generated as `req_<uuid hex[:24]>`); the same value is echoed back in the `X-Request-ID` response header and injected into every Loguru log line via the `request_id` extra field.
 - There is no `message` field anywhere — clients consume `error.code` / `errors[].code` only.
-- **Not every response is auto-wrapped.** The envelope is applied to error responses globally (via the custom exception handler below); success responses are enveloped only where a view explicitly calls `ok()` or `paginate_or_ok()`. Djoser/SimpleJWT success bodies (`{access, refresh}`, `/me`) are unchanged unless a view opts in.
+- **Error responses are auto-wrapped everywhere** (via the custom exception handler below, for anything a view `raise`s). **Success responses are enveloped where a view explicitly wraps them** — either directly via `ok()`/`paginate_or_ok()`, or via a `finalize_response()` override on a viewset (see `accounts.controllers._auth.CustomUserViewSet`, which wraps every djoser-inherited CRUD action this way). As of the `accounts` auth-core backport, the entire `accounts` API surface — user CRUD (list/create/retrieve/update/partial_update/me), login, refresh, verify, logout, activation — is enveloped on both success and failure; see `docs/AUTH.md`. A new app that reuses djoser/SimpleJWT views directly should add the same `finalize_response()` pattern rather than leaving success bodies raw.
 
 ## Exception handler
 

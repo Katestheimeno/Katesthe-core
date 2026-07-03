@@ -2,6 +2,37 @@
 
 ## [Unreleased]
 
+### Added
+
+- RS256 (asymmetric) JWT signing: `config/jwt_keys.py` (RSA key generation/loading, `kid` fingerprinting, JWKS building), `accounts/tokens.py` (`KidAccessToken`/`KidRefreshToken` — kid-headed tokens for JWKS-based verification), `accounts/management/commands/generate_jwt_keys.py`, public JWKS endpoint `GET /.well-known/jwks.json` (`accounts/controllers/_jwks.py`, RFC 7517).
+- HttpOnly cookie JWT authentication with CSRF enforcement: `accounts/authentication.py` (`CookieJWTAuthentication`, falls back to `Authorization: Bearer`), `auth/csrf/` cookie-bootstrap endpoint for cross-origin SPAs. Cookie-transported mutations require CSRF; bearer-header auth never does.
+- Session revocation: `accounts/services/session.py` (`revoke_all_sessions`, `detect_refresh_reuse`), wired into `logout-all`, password/username change, account deletion, and refresh-token-reuse detection — all keyed on the shared cache key `auth:revoked_after:{user_id}` (also read by the WebSocket auth middleware below).
+- `accounts.tasks.token_tasks.flush_expired_jwt_tokens` Celery task; `accounts/tasks.py` is now a package (`accounts/tasks/`).
+- Universal throttle class hierarchy (~14 scopes: auth, password/username reset, public list, etc.) behind a single `THROTTLE_ENABLED` toggle (`utils/throttles.py`); `flush_throttles` management command.
+- JWT WebSocket authentication: `utils/middleware/jwt_websocket_auth.py` (subprotocol/cookie token auth, wired in `config/asgi.py`), shared protocol helpers `utils/websocket/protocol.py` (auth-rotate, ack/nack, idempotency — catalog-coded), per-connection `utils.websocket.rate_limit.MessageRateLimiter`.
+- `config.middleware.security_headers.SecurityHeadersMiddleware` and `config.middleware.liveness_probe.LivenessProbeMiddleware`.
+- OpenAPI `CookieJWTAuth` security scheme (`config/spectacular_auth.py`), registered from `AccountsConfig.ready()`.
+
+### Changed
+
+- **Breaking:** JWT signing switched HS256 → RS256. Booting `config.django.production` without `JWT_RSA_PRIVATE_KEY` now raises `ImproperlyConfigured` instead of falling back to a transient key.
+- **Breaking:** Login (`POST /auth/jwt/create/`) now sets HttpOnly cookies by default and omits `access`/`refresh` from the response body; send `X-Token-Delivery: bearer` to get the previous body-token behavior.
+- JWT claims no longer include a raw `is_superuser` flag; `CustomTokenObtainPairSerializer.get_token()` now emits a `permissions` list instead.
+- The response envelope now covers the full `accounts` API surface, not just error responses. Previously only explicit `ok()`/error-handler paths were enveloped and several endpoints returned raw or ad-hoc bodies; now `CustomUserViewSet` (list/create/retrieve/update/partial_update/me and the password/username reset actions), login, refresh, verify, logout, and activation all wrap their success/error bodies in `{success, data|error, meta}` with `errors/catalog.py` codes.
+- WebSocket example consumer (`utils/consumers.py`) error frames now carry a catalog `code` field instead of a raw `message` string, and no longer echo raw exception text back to the client.
+
+### Removed
+
+- Dead djoser Token-model views `CustomTokenCreateView`/`CustomTokenDestroyView` — unrouted (`rest_framework.authtoken` isn't installed) and superseded by the JWT views.
+
+### Security
+
+- RS256 lets the public verification key be published via JWKS without exposing the signing secret.
+- Timing-oracle defense in the login serializer: a dummy password-hash computation runs on the user-not-found/inactive-user branches so response latency can't be used to enumerate accounts.
+- Refresh-token replay (reuse of an already-rotated token) revokes every outstanding session for that user, not just the replayed token.
+
+See: `docs/changes/20260703_172451_rhitoric-auth-core-and-envelope-unification.md`
+
 ### Fixed
 
 - Docker `db_replica`: primary now uses a mounted `pg_hba.conf` (`hba_file`) so replication connections from the Docker network match `host replication` / `hostnossl` rules (PostgreSQL’s `all` does not match replication DB). Replica entrypoint creates/updates `replicator` with `REPLICATOR_PASSWORD` before `pg_basebackup` so existing primary volumes work without manual SQL.

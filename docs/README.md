@@ -7,6 +7,7 @@ Katesthe-core is a Django bootstrap template. This index points to the living do
 | Doc | Covers |
 |---|---|
 | [`API_CONTRACT.md`](API_CONTRACT.md) | Response envelope shape, error-code catalog, HTTP status mapping, throttling defaults, pagination usage, health/readiness endpoints |
+| [`AUTH.md`](AUTH.md) | RS256 JWT signing + JWKS, HttpOnly-cookie transport + CSRF, session revocation, JWT-authenticated WebSocket connections |
 | [`BACKEND_UTILITIES.md`](BACKEND_UTILITIES.md) | Transactional email pattern, CSV/XLSX export helpers, upload-path + transactional-outbox utilities, Celery task template, optional Sentry hook, debug-payload middleware |
 
 ## Traceability & changelog
