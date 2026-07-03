@@ -10,6 +10,8 @@ from django.contrib import admin
 from django.urls import path, include
 from django.views.generic.base import RedirectView
 
+from config.health import liveness, readiness
+
 
 # Prefix for API versioning
 API_PREFIX = "api/"
@@ -22,6 +24,9 @@ def v1_url(url: str) -> str:
 
 
 urlpatterns = [
+    # Health / readiness probes
+    path("health/", liveness),
+    path("ready/", readiness),
     # Django Admin
     path("admin/", admin.site.urls),
     path('', RedirectView.as_view(url='admin/')),

@@ -44,4 +44,7 @@ EXPOSE 8000
 # only run this in development
 # RUN uv run manage.py collectstatic --no-input
 
+HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \
+  CMD curl -f http://localhost:8000/health/ || exit 1
+
 CMD ["uv", "run", "daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]
