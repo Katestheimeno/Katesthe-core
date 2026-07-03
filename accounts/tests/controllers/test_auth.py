@@ -256,9 +256,9 @@ class TestCustomUserViewSet:
         }
         
         response = authenticated_client.delete(url, data)
-        
-        # The password validation is failing, so we expect a 400 error
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+        # The password validation is failing, so we expect a 422 error
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 class TestCustomTokenDestroyView:
@@ -316,13 +316,16 @@ class TestCustomJWTTokenCreateView:
         }
         
         response = api_client.post(url, data)
-        
-        # The authentication might fail in test environment, so we expect either 200 or 400
-        assert response.status_code in [status.HTTP_200_OK, status.HTTP_400_BAD_REQUEST]
+
+        # The authentication might fail in test environment, so we expect either 200 or 401
+        assert response.status_code in [status.HTTP_200_OK, status.HTTP_401_UNAUTHORIZED]
         if response.status_code == status.HTTP_200_OK:
             assert 'access' in response.data
             assert 'refresh' in response.data
-    
+        else:
+            assert response.data['success'] is False
+            assert response.data['error']['code'] == 'AUTH__INVALID_CREDENTIALS'
+
     @pytest.mark.django_db
     def test_jwt_token_create_invalid_credentials(self, api_client):
         """Test JWT token creation with invalid credentials."""
@@ -331,12 +334,14 @@ class TestCustomJWTTokenCreateView:
             'username': 'nonexistent',
             'password': 'wrongpassword'
         }
-        
+
         response = api_client.post(url, data)
-        
-        # Should return 400 for invalid credentials
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-    
+
+        # Should return 401 for invalid credentials
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.data['success'] is False
+        assert response.data['error']['code'] == 'AUTH__INVALID_CREDENTIALS'
+
     @pytest.mark.django_db
     def test_jwt_token_create_missing_credentials(self, api_client):
         """Test JWT token creation with missing credentials."""
@@ -345,11 +350,13 @@ class TestCustomJWTTokenCreateView:
             'username': 'testuser'
             # Missing password
         }
-        
+
         response = api_client.post(url, data)
-        
-        # Should return 400 for missing credentials
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+        # Should return 422 for missing field (field-keyed validation error)
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.data['success'] is False
+        assert response.data['errors'][0]['code'] == 'VALIDATION__MISSING_FIELD'
 
 
 class TestCustomActivationViewDetailed:
@@ -417,10 +424,10 @@ class TestCustomUserViewSetDetailed:
         }
         
         response = authenticated_client.delete(url, data)
-        
-        # Should return 400 due to password validation
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-    
+
+        # Should return 422 due to password validation
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
     @pytest.mark.django_db
     def test_user_deletion_with_auth_no_refresh_token(self, authenticated_client):
         """Test user deletion with auth but no refresh token."""
@@ -428,12 +435,12 @@ class TestCustomUserViewSetDetailed:
         data = {
             'current_password': 'testpass123'
         }
-        
+
         response = authenticated_client.delete(url, data)
-        
-        # Should return 400 due to password validation
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-    
+
+        # Should return 422 due to password validation
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
     @pytest.mark.django_db
     def test_user_deletion_with_invalid_refresh_token(self, authenticated_client):
         """Test user deletion with invalid refresh token."""
@@ -442,11 +449,11 @@ class TestCustomUserViewSetDetailed:
             'current_password': 'testpass123',
             'refresh_token': 'invalid.token'
         }
-        
+
         response = authenticated_client.delete(url, data)
-        
-        # Should return 400 due to password validation
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+        # Should return 422 due to password validation
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
     
     @pytest.mark.django_db
     def test_me_endpoint_get_method(self, authenticated_client):
@@ -491,9 +498,9 @@ class TestCustomUserViewSetDetailed:
         }
         
         response = authenticated_client.delete(url, data)
-        
-        # Should return 400 due to password validation
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+        # Should return 422 due to password validation
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 class TestCustomJWTLogoutViewDetailed:
@@ -592,13 +599,16 @@ class TestCustomJWTTokenCreateViewDetailed:
         }
         
         response = api_client.post(url, data)
-        
-        # The authentication might fail in test environment, so we expect either 200 or 400
-        assert response.status_code in [status.HTTP_200_OK, status.HTTP_400_BAD_REQUEST]
+
+        # The authentication might fail in test environment, so we expect either 200 or 401
+        assert response.status_code in [status.HTTP_200_OK, status.HTTP_401_UNAUTHORIZED]
         if response.status_code == status.HTTP_200_OK:
             assert 'access' in response.data
             assert 'refresh' in response.data
-    
+        else:
+            assert response.data['success'] is False
+            assert response.data['error']['code'] == 'AUTH__INVALID_CREDENTIALS'
+
     @pytest.mark.django_db
     def test_jwt_token_create_failure_detailed(self, api_client):
         """Test JWT token creation failure with detailed logging."""
@@ -607,12 +617,14 @@ class TestCustomJWTTokenCreateViewDetailed:
             'username': 'nonexistent',
             'password': 'wrongpassword'
         }
-        
+
         response = api_client.post(url, data)
-        
-        # Should return 400 for invalid credentials
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-    
+
+        # Should return 401 for invalid credentials
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.data['success'] is False
+        assert response.data['error']['code'] == 'AUTH__INVALID_CREDENTIALS'
+
     @pytest.mark.django_db
     def test_jwt_token_create_exception_handling(self, api_client):
         """Test JWT token creation exception handling."""
@@ -621,11 +633,13 @@ class TestCustomJWTTokenCreateViewDetailed:
             'username': 'testuser'
             # Missing password to trigger exception
         }
-        
+
         response = api_client.post(url, data)
-        
-        # Should return 400 for missing credentials
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+        # Should return 422 for missing field (field-keyed validation error)
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.data['success'] is False
+        assert response.data['errors'][0]['code'] == 'VALIDATION__MISSING_FIELD'
 
 
 class TestCustomActivationViewComprehensive:
@@ -717,10 +731,10 @@ class TestCustomUserViewSetEdgeCases:
         }
         
         response = authenticated_client.delete(url, data)
-        
-        # Should return 400 due to password validation
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-    
+
+        # Should return 422 due to password validation
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
     @pytest.mark.django_db
     def test_user_deletion_with_token_error(self, authenticated_client):
         """Test user deletion with token blacklisting error."""
@@ -729,35 +743,35 @@ class TestCustomUserViewSetEdgeCases:
             'current_password': 'testpass123',
             'refresh_token': 'invalid.token'
         }
-        
+
         response = authenticated_client.delete(url, data)
-        
-        # Should return 400 due to password validation
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-    
+
+        # Should return 422 due to password validation
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
     @pytest.mark.django_db
     def test_me_endpoint_with_different_methods(self, authenticated_client):
         """Test /me endpoint with different HTTP methods."""
         url = reverse('user-me')
-        
+
         # Test GET method
         response = authenticated_client.get(url)
         assert response.status_code == status.HTTP_200_OK
-        
+
         # Test PUT method
         data = {'username': 'new_username', 'email': 'new@example.com'}
         response = authenticated_client.put(url, data)
         assert response.status_code == status.HTTP_200_OK
-        
+
         # Test PATCH method - authentication might be lost, so check for either 200 or 401
         data = {'username': 'patched_username'}
         response = authenticated_client.patch(url, data)
         assert response.status_code in [status.HTTP_200_OK, status.HTTP_401_UNAUTHORIZED]
-        
-        # Test DELETE method - authentication might be lost, so check for either 400 or 401
+
+        # Test DELETE method - authentication might be lost, so check for either 422 or 401
         data = {'current_password': 'testpass123'}
         response = authenticated_client.delete(url, data)
-        assert response.status_code in [status.HTTP_400_BAD_REQUEST, status.HTTP_401_UNAUTHORIZED]
+        assert response.status_code in [status.HTTP_422_UNPROCESSABLE_ENTITY, status.HTTP_401_UNAUTHORIZED]
 
 
 class TestCustomJWTLogoutViewEdgeCases:
@@ -868,10 +882,10 @@ class TestCustomUserViewSetMissingLines:
         }
         
         response = authenticated_client.delete(url, data)
-        
-        # Should return 400 due to password validation
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-    
+
+        # Should return 422 due to password validation
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
     @pytest.mark.django_db
     def test_user_deletion_with_token_blacklisting_error(self, authenticated_client):
         """Test user deletion with token blacklisting error (covers lines 40-62)."""
@@ -880,35 +894,35 @@ class TestCustomUserViewSetMissingLines:
             'current_password': 'testpass123',
             'refresh_token': 'invalid.token'
         }
-        
+
         response = authenticated_client.delete(url, data)
-        
-        # Should return 400 due to password validation
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-    
+
+        # Should return 422 due to password validation
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
     @pytest.mark.django_db
     def test_me_endpoint_method_routing(self, authenticated_client):
         """Test /me endpoint method routing (covers lines 70-81)."""
         url = reverse('user-me')
-        
+
         # Test GET method
         response = authenticated_client.get(url)
         assert response.status_code == status.HTTP_200_OK
-        
+
         # Test PUT method
         data = {'username': 'new_username', 'email': 'new@example.com'}
         response = authenticated_client.put(url, data)
         assert response.status_code == status.HTTP_200_OK
-        
+
         # Test PATCH method
         data = {'username': 'patched_username'}
         response = authenticated_client.patch(url, data)
         assert response.status_code in [status.HTTP_200_OK, status.HTTP_401_UNAUTHORIZED]
-        
+
         # Test DELETE method
         data = {'current_password': 'testpass123'}
         response = authenticated_client.delete(url, data)
-        assert response.status_code in [status.HTTP_400_BAD_REQUEST, status.HTTP_401_UNAUTHORIZED]
+        assert response.status_code in [status.HTTP_422_UNPROCESSABLE_ENTITY, status.HTTP_401_UNAUTHORIZED]
 
 
 class TestCustomJWTTokenCreateViewMissingLines:
@@ -969,9 +983,14 @@ class TestCustomJWTTokenCreateViewMissingLines:
         # Mock the parent post method to raise an exception
         with patch('accounts.controllers._auth.TokenObtainPairView.post') as mock_post:
             mock_post.side_effect = Exception("Test exception")
-            
-            with pytest.raises(Exception, match="Test exception"):
-                api_client.post(url, data)
+
+            response = api_client.post(url, data)
+
+            # The custom exception handler catches the generic Exception and
+            # returns a 500 envelope instead of letting it propagate.
+            assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+            assert response.data['success'] is False
+            assert response.data['error']['code'] == "INTERNAL__ERROR"
 
 
 class TestCustomJWTLogoutViewMissingLines:
@@ -1305,10 +1324,10 @@ class TestCustomUserViewSetAdvancedMissingLines:
             mock_refresh_token.side_effect = TokenError("Invalid token")
             
             response = authenticated_client.delete(url, data)
-            
-            # Should return 400 due to password validation
-            assert response.status_code == status.HTTP_400_BAD_REQUEST
-    
+
+            # Should return 422 due to password validation
+            assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
     @pytest.mark.django_db
     def test_user_deletion_with_token_blacklisting_attribute_error(self, authenticated_client):
         """Test user deletion with token blacklisting AttributeError (covers lines 40-62)."""
@@ -1323,10 +1342,10 @@ class TestCustomUserViewSetAdvancedMissingLines:
             mock_refresh_token.side_effect = AttributeError("No blacklist method")
             
             response = authenticated_client.delete(url, data)
-            
-            # Should return 400 due to password validation
-            assert response.status_code == status.HTTP_400_BAD_REQUEST
-    
+
+            # Should return 422 due to password validation
+            assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
     @pytest.mark.django_db
     def test_me_endpoint_detailed_method_routing(self, authenticated_client):
         """Test /me endpoint detailed method routing (covers lines 70-81)."""
@@ -1349,7 +1368,7 @@ class TestCustomUserViewSetAdvancedMissingLines:
         # Test DELETE method with detailed logging
         data = {'current_password': 'testpass123'}
         response = authenticated_client.delete(url, data)
-        assert response.status_code in [status.HTTP_400_BAD_REQUEST, status.HTTP_401_UNAUTHORIZED]
+        assert response.status_code in [status.HTTP_422_UNPROCESSABLE_ENTITY, status.HTTP_401_UNAUTHORIZED]
 
 
 class TestCustomTokenDestroyViewAdvancedMissingLines:
