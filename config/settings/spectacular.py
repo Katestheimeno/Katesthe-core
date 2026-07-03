@@ -10,6 +10,7 @@ imports = []
 imports += ["SPECTACULAR_SETTINGS"]
 
 SPECTACULAR_SETTINGS = {
+    'OAS_VERSION': '3.1.0',
     # Basic info
     'TITLE': f'{settings.PROJECT_NAME} API',
     'DESCRIPTION': f'''

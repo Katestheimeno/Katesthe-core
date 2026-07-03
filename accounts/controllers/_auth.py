@@ -382,6 +382,7 @@ class CustomActivationView(ActionViewMixin, APIView):
     permission_classes = [AllowAny]
     serializer_class = None  # No serializer needed for activation
     
+    @extend_schema(operation_id="auth_users_custom_activation_page")
     def get(self, request, uid, token):
         """Render the activation page."""
         logger.info(f"User activation page accessed for uid={uid}")
@@ -392,7 +393,8 @@ class CustomActivationView(ActionViewMixin, APIView):
             'app_name': settings.PROJECT_NAME
         }
         return render(request, 'accounts/activation.html', context)
-    
+
+    @extend_schema(operation_id="auth_users_custom_activation")
     def post(self, request, uid, token):
         """Handle the actual activation."""
         logger.info(f"User activation attempt for uid={uid}")
