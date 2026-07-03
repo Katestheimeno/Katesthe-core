@@ -1,5 +1,5 @@
 # Context Map
-Last Updated: (set on first use)
+Last Updated: 2026-07-03
 
 ## When to update this file
 
@@ -19,6 +19,8 @@ Last Updated: (set on first use)
 
 ## Completed Features (summary)
 <!-- Optional rolling summary for handoff. -->
+
+- depadrive-backport — 2026-07-03 — see [completed/depadrive-backport.md](tasks/completed/depadrive-backport.md)
 
 ## Known Constraints & Decisions
 <!-- e.g. layering, error format, infra choices. -->

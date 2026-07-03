@@ -1,7 +1,7 @@
 # Depadrive → Katesthe Backport
 
 Priority: P1
-Status: active
+Status: completed
 **Date:** 2026-07-02
 **Source:** `BACKPORT_PLAN.md` (repo root) — backport 23 production-hardened patterns + app-scaffold update from `Depadrive-core` (SRC) into this clean bootstrap template (DST).
 **Goal:** This template ships with the error catalog, response envelope, exception handler, request-id + access-log middleware, health probes, production hardening, CI, throttling, pagination, Celery task template, root conftest, OpenAPI envelope schemas, Sentry hook, and the Phase-3 specialized utilities — all generic (no Depadrive domain logic), all tested, full suite + OpenAPI validation green.
@@ -57,30 +57,30 @@ Status: active
 
 <!-- Canonical status list. Orchestrator flips to [COMPLETED]; archive reads these. -->
 <!-- Status token: PENDING | IN_PROGRESS | BLOCKED | COMPLETED | SKIPPED | DEFERRED -->
-- [PENDING] [001-error-catalog.md](001-error-catalog.md) — Error Catalog + AppAPIError
-- [PENDING] [002-envelope-helpers.md](002-envelope-helpers.md) — API Response Envelope Helpers
-- [PENDING] [003-drf-error-normalization.md](003-drf-error-normalization.md) — DRF Error Envelope Normalization
-- [PENDING] [004-exception-handler.md](004-exception-handler.md) — Custom Exception Handler + DRF wiring
-- [PENDING] [005-request-id-middleware.md](005-request-id-middleware.md) — Request ID Middleware + settings wiring
-- [PENDING] [006-health-endpoints.md](006-health-endpoints.md) — Health / Readiness Endpoints
-- [PENDING] [007-production-hardening.md](007-production-hardening.md) — Production Security Hardening
-- [PENDING] [008-ci-workflow.md](008-ci-workflow.md) — CI Workflow (GitHub Actions)
-- [PENDING] [009-update-accounts-tests.md](009-update-accounts-tests.md) — Update accounts tests → envelope shape
-- [PENDING] [010-throttling.md](010-throttling.md) — Throttling / Rate Limiting
-- [PENDING] [011-pagination.md](011-pagination.md) — Pagination Utility
-- [PENDING] [012-access-log-middleware.md](012-access-log-middleware.md) — Access Log Middleware
-- [PENDING] [013-celery-task-template.md](013-celery-task-template.md) — Celery Task Template + settings
-- [PENDING] [014-root-conftest.md](014-root-conftest.md) — Root conftest.py
-- [PENDING] [015-openapi-envelope-serializers.md](015-openapi-envelope-serializers.md) — OpenAPI Envelope Serializers
-- [PENDING] [016-sentry-integration.md](016-sentry-integration.md) — Sentry Integration
-- [PENDING] [017-debug-payload-middleware.md](017-debug-payload-middleware.md) — Debug Payload Middleware
-- [PENDING] [018-image-validators.md](018-image-validators.md) — Image Validators
-- [PENDING] [019-export-helpers.md](019-export-helpers.md) — CSV/XLSX Export Helpers
-- [PENDING] [020-upload-paths-outbox.md](020-upload-paths-outbox.md) — Upload Paths + Transactional Outbox
-- [PENDING] [021-ops-scripts-coverage.md](021-ops-scripts-coverage.md) — Ops scripts & coverage config
-- [PENDING] [022-transactional-email.md](022-transactional-email.md) — Transactional Email Service (notifications app)
-- [PENDING] [023-app-scaffold-update.md](023-app-scaffold-update.md) — App Scaffold Update
-- [PENDING] [024-validation-gate.md](024-validation-gate.md) — Feature validation gate
+- [COMPLETED] [001-error-catalog.md](001-error-catalog.md) — Error Catalog + AppAPIError
+- [COMPLETED] [002-envelope-helpers.md](002-envelope-helpers.md) — API Response Envelope Helpers
+- [COMPLETED] [003-drf-error-normalization.md](003-drf-error-normalization.md) — DRF Error Envelope Normalization
+- [COMPLETED] [004-exception-handler.md](004-exception-handler.md) — Custom Exception Handler + DRF wiring
+- [COMPLETED] [005-request-id-middleware.md](005-request-id-middleware.md) — Request ID Middleware + settings wiring
+- [COMPLETED] [006-health-endpoints.md](006-health-endpoints.md) — Health / Readiness Endpoints
+- [COMPLETED] [007-production-hardening.md](007-production-hardening.md) — Production Security Hardening
+- [COMPLETED] [008-ci-workflow.md](008-ci-workflow.md) — CI Workflow (GitHub Actions)
+- [COMPLETED] [009-update-accounts-tests.md](009-update-accounts-tests.md) — Update accounts tests → envelope shape
+- [COMPLETED] [010-throttling.md](010-throttling.md) — Throttling / Rate Limiting
+- [COMPLETED] [011-pagination.md](011-pagination.md) — Pagination Utility
+- [COMPLETED] [012-access-log-middleware.md](012-access-log-middleware.md) — Access Log Middleware
+- [COMPLETED] [013-celery-task-template.md](013-celery-task-template.md) — Celery Task Template + settings
+- [COMPLETED] [014-root-conftest.md](014-root-conftest.md) — Root conftest.py
+- [COMPLETED] [015-openapi-envelope-serializers.md](015-openapi-envelope-serializers.md) — OpenAPI Envelope Serializers
+- [COMPLETED] [016-sentry-integration.md](016-sentry-integration.md) — Sentry Integration
+- [COMPLETED] [017-debug-payload-middleware.md](017-debug-payload-middleware.md) — Debug Payload Middleware
+- [COMPLETED] [018-image-validators.md](018-image-validators.md) — Image Validators
+- [COMPLETED] [019-export-helpers.md](019-export-helpers.md) — CSV/XLSX Export Helpers
+- [COMPLETED] [020-upload-paths-outbox.md](020-upload-paths-outbox.md) — Upload Paths + Transactional Outbox
+- [COMPLETED] [021-ops-scripts-coverage.md](021-ops-scripts-coverage.md) — Ops scripts & coverage config
+- [COMPLETED] [022-transactional-email.md](022-transactional-email.md) — Transactional Email Service (notifications app)
+- [COMPLETED] [023-app-scaffold-update.md](023-app-scaffold-update.md) — App Scaffold Update
+- [COMPLETED] [024-validation-gate.md](024-validation-gate.md) — Feature validation gate
 
 ---
 
@@ -136,7 +136,7 @@ These files are written by more than one pattern. Resolution below guarantees **
 | `config/django/production.py` | 1.7, 2.7 | **Phase-1 owner = 007** (hardening). **Phase-2 owner = 016** (`configure_sentry()` call). Different phases → safe. File is currently a bare `from config.django.base import *`. |
 | `config/settings/config.py` | 2.7, 3.1 | **Phase-2 owner = 016** (`SENTRY_DSN`, `SENTRY_TRACES_SAMPLE_RATE`). **Phase-3 owner = 017** (`REQUEST_RESPONSE_DEBUG`). Different phases → safe. Add fields to the `MainSettings` class. |
 | `pyproject.toml` | 2.7, 3.3 | **Phase-2 owner = 016** (`sentry-sdk[django,celery]` as OPTIONAL extra, not runtime dep). **Phase-3 owner = 019** (`openpyxl`, runtime). Different phases → safe. |
-| `.coveragerc` | 1.7 (partial), 3.7 | **Co-owned across phases.** **Phase-1 owner = 007** adds ONLY the single `config/django/*` omit line (needed early because 007's production-settings lines are subprocess-only, contributing zero coverage — deferring the omit to Phase 3 would sink the Phase-1/Phase-2 gates + CI against the 80% floor). **Phase-3 owner = 021** adds the remaining omits + `exclude_lines` and MUST NOT re-add `config/django/*`. Different phases → sequential → safe. |
+| `.coveragerc` | 1.7 (partial), 3.7 | **Co-owned across phases.** **Phase-1 owner = 007** adds ONLY the single `config/django/*` omit line (needed early because 007's production-settings lines are subprocess-only, contributing zero coverage — deferring the omit to Phase 3 would sink the Phase-1/Phase-2 gates + CI against the 80% floor). **Phase-3 owner = 021** adds the remaining omits + `exclude_lines` and MUST NOT re-add `config/django/*`. **PRE-PHASE-2 CORRECTION (orchestrator, coordinator-approved):** the following omits were ALSO already added to satisfy the enforced 80% floor — 021 MUST NOT re-add them: `utils/management/*`, `utils/consumers.py`, `utils/validators.py`, `config/routing.py`, `config/urls_dev.py`. Different phases → sequential → safe. |
 | `pytest.ini` | 3.9 | **Owner = 022** only (adds `notifications/tests` to `testpaths` and `--cov=notifications` to `addopts`, so the notifications app is both collected and coverage-measured). No other subtask touches `pytest.ini`. |
 | `config/settings/celery.py` | 2.4 | **Owner = 013** only. |
 | `config/logger.py` | 1.5 | **Owner = 005** only. |
@@ -224,4 +224,6 @@ Phase gates:
 6. **Test DB is SQLite in-memory** (`config/django/test.py`); Celery runs eager (`CELERY_TASK_ALWAYS_EAGER = True`); caches are LocMemCache. Health-readiness tests (006) treat eager Celery as OK and either mock Redis or assert graceful 503 — never require a live Redis.
 7. **CI Postgres, not PostGIS.** Subtask 008 strips all GIS/GDAL/GEOS steps from `SRC:.github/workflows/ci.yml`; use plain `postgres:15` service with env-var DB config.
 8. **`spectacular` is a dev dependency** — the OpenAPI validation command runs under `--settings=config.django.test`.
+9b. **PRE-PHASE-2 CORRECTIONS APPLIED (coordinator-approved, Phase-1 gate).** (a) `pytest.ini` section header fixed `[tool:pytest]`→`[pytest]` so `addopts`/`testpaths`/`markers`/`--cov-fail-under=80` now ACTIVATE on bare `uv run pytest`; the 80% floor is now ENFORCED (current 82.04%). This means subtask **022**'s planned `testpaths += notifications/tests` + `--cov=notifications` edits WILL now take effect. (b) `config/settings/spectacular.py` now sets `OAS_VERSION='3.1.0'`, so `type:"null"` nullable fields validate natively and `spectacular --validate --fail-on-warn` exits 0. (c) OperationId collision on the djoser/custom activation routes fixed in `accounts/controllers/_auth.py` (per-method `operation_id`s, schema-only). (d) `.coveragerc` gained 5 legacy/dev-only omits (see the `.coveragerc` ownership row).
+
 9. **`INTERNAL__ERROR` is 5xx-only.** Per `.claude/rules/api.md`, the `coerce_drf_error_response` map (003) and the handler (004) must never route a 4xx to `INTERNAL__ERROR`; 409 → `RESOURCE__CONFLICT`, 405/406/415/400 → a client-error `VALIDATION__*` code, only genuine 5xx → INTERNAL.

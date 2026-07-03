@@ -1,6 +1,6 @@
 # 018 — Image Validators
 
-**Status:** [PENDING]
+**Status:** [COMPLETED]
 **Phase:** 3
 **Group:** A (concurrent with 017, 019–023)
 **Risk:** LOW
@@ -59,6 +59,6 @@ uv run pytest utils/tests/test_image_validators.py -x -v --ds=config.django.test
 ```
 
 ## Acceptance Criteria
-- [ ] Both validators appended; existing phone validator untouched.
-- [ ] Correct codes (`image_too_large`, `image_invalid_type`) and 5MB / jpeg-png-webp defaults.
-- [ ] Silent skip on missing file/metadata; tests pass.
+- [x] Both validators appended; existing phone validator untouched.
+- [x] Correct codes (`image_too_large`, `image_invalid_type`) and 5MB / jpeg-png-webp defaults.
+- [x] Silent skip on missing file/metadata; tests pass.

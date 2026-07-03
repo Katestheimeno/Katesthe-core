@@ -1,6 +1,6 @@
 # 006 — Health / Readiness Endpoints
 
-**Status:** [PENDING]
+**Status:** [COMPLETED]
 **Phase:** 1
 **Group:** C (fully independent — concurrent from the start)
 **Risk:** LOW
