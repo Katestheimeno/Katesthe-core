@@ -153,6 +153,13 @@ class MainSettings(BaseSettings):
     # Redis settings (direct environment variables)
     REDIS_URL: str = Field(default="redis://redis:6379/0", description="Redis connection URL")
 
+    # Sentry / error monitoring
+    SENTRY_DSN: str = Field(default="", description="Sentry DSN; empty disables Sentry")
+    SENTRY_TRACES_SAMPLE_RATE: float = Field(default=0.1, description="Sentry traces sample rate")
+
+    # Debug payload middleware
+    REQUEST_RESPONSE_DEBUG: bool = Field(default=False, description="Log request/response bodies (dev only)")
+
     # Email settings (direct environment variables)
     EMAIL_HOST: str = Field(default="localhost", description="SMTP host")
     EMAIL_PORT: int = Field(default=1025, description="SMTP port")
