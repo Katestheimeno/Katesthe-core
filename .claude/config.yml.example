@@ -1,0 +1,22 @@
+# workflow-kit configuration (optional)
+#
+# Copy to .claude/config.yml and edit. Everything here is optional — the kit works
+# with no config file at all; this only tunes two behaviors. Read by the hooks
+# (_lib.sh) and by the /test command.
+
+# --- Size cap exemptions --------------------------------------------------------
+# The 250-line file cap (rules/file-architecture.md) is enforced by the
+# progress-heartbeat.sh and guard-bash-writes.sh hooks. Files matching any glob
+# below are exempt, in addition to the always-exempt set (.claude/**, *.lock,
+# *-lock.*, *.min.*, *.snap, */migrations/*, *.generated.*, *_pb2.py, *.g.dart).
+# Globs are matched against the repo-relative path.
+exclude_line_cap:
+  - "src/generated/**"
+  - "**/*.gen.ts"
+  - "vendor/**"
+
+# --- Test command ---------------------------------------------------------------
+# The /test command tries this first when discovering how to run the suite,
+# before falling back to package.json / Makefile / pyproject / go.mod / Cargo.toml.
+# Leave commented to rely on auto-discovery.
+# test_command: "pytest -q"

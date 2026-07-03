@@ -18,7 +18,7 @@ Rhitoric-core was the second production project built on Katesthe-core. Over ~6 
 
 **What already exists (do NOT recreate):** Everything from the Depadrive backport plan — error catalog, envelope helpers, exception handler, request ID middleware, health endpoints, production hardening (basic), CI workflow, basic throttling, pagination, access log, Celery task template, conftest.py, OpenAPI helpers, Sentry, debug payload, image validators, CSV/XLSX export, upload paths, outbox, smoke test, coveragerc, Celery scripts, notifications app.
 
-**What to add:** 22 patterns across 5 phases. Phases are ordered by dependency — Phase 1 (RS256 JWT) must be complete before Phase 2 (Cookie auth) which must be complete before Phase 3 (WebSocket auth).
+**What to add:** 42 patterns across 12 phases. Phases 1-3 are sequential (RS256 → Cookie auth → Session management). Phases 4-11 are all independent and can run in parallel with each other. Phase 12 (Notification System) is independent and replaces the existing simple `notifications` app.
 
 ---
 
@@ -818,15 +818,907 @@ After Phase 1 is complete, existing auth tests will need updates since the JWT a
 
 ---
 
+## Phase 7 — Pydantic-Spectacular Bridge
+
+Independent of all other phases.
+
+### 7.1 Pydantic-to-Spectacular Helpers
+
+**Create:**
+| File | Purpose |
+|------|---------|
+| `DST:config/spectacular_pydantic.py` | Bridge Pydantic models to drf-spectacular OpenAPI annotations |
+
+**Reference:** `SRC:config/spectacular_pydantic.py`
+
+**Functions:**
+- `pydantic_schema(model)` — Returns OpenAPI/JSON Schema dict from a Pydantic `BaseModel`. Use in `extend_schema(responses={200: OpenApiResponse(response=pydantic_schema(MyResponse))})`.
+- `pydantic_array_schema(model)` — Returns `{"type": "array", "items": <model_schema>}` for `list[MyResponse]`.
+- `pydantic_one_of_schema(*models)` — Returns `{"oneOf": [...]}` for `Union[ModelA, ModelB]`.
+- `as_openapi_response(hint, *, description="")` — Auto-detects Pydantic model vs. `list[Pydantic]` vs. DRF serializer and wraps appropriately in `OpenApiResponse`. Non-Pydantic hints pass through unchanged.
+
+**Why:** drf-spectacular does not natively resolve Pydantic `BaseModel` in `responses=...`. Without this bridge, Pydantic schemas produce broken OpenAPI docs or require manual schema dict construction at every call site.
+
+**Validation:** Import all four functions and confirm they produce valid JSON Schema dicts:
+```bash
+uv run python -c "
+from config.spectacular_pydantic import pydantic_schema, pydantic_array_schema, pydantic_one_of_schema, as_openapi_response
+from pydantic import BaseModel
+
+class Dummy(BaseModel):
+    name: str
+    value: int
+
+print(pydantic_schema(Dummy))
+print(pydantic_array_schema(Dummy))
+print('OK')
+"
+```
+
+---
+
+## Phase 8 — Keep-Warm Infrastructure Task
+
+Independent of all other phases.
+
+### 8.1 Keep-Warm Celery Task
+
+**Create:**
+| File | Purpose |
+|------|---------|
+| `DST:utils/tasks.py` | `keep_warm` periodic task for PaaS cold-start prevention |
+
+**Reference:** `SRC:utils/tasks.py`
+
+**What it does:**
+1. Runs `SELECT 1` on the default DB connection — warms the Celery worker's DB pool
+2. If `HEALTH_PING_URL` env var is set, GETs `<url>/api/v1/health/` — warms the API process and its DB connection too
+3. Short time limits (15s hard, 12s soft) — never blocks a worker slot
+
+**Behavior:**
+- Uses `urllib.request` (no external dependency) instead of `requests`/`httpx`
+- Logs success/failure via structured logging
+- HTTP errors (4xx/5xx) logged as warnings, not failures — the ping is a side effect, not a health gate
+- No external dependency — only stdlib + Django ORM
+
+**Modify:** `DST:config/settings/celery.py` — add to `CELERY_BEAT_SCHEDULE`:
+```python
+"keep-warm": {
+    "task": "utils.tasks.keep_warm",
+    "schedule": 240.0,  # Every 4 minutes
+},
+```
+
+**Modify:** `DST:.env.prod.example` — add:
+```
+# Optional: ping the API process to prevent cold starts
+# HEALTH_PING_URL=https://your-app.railway.app
+```
+
+---
+
+## Phase 9 — Admin UX: Click-to-Copy Fields
+
+Independent of all other phases.
+
+### 9.1 CopyableFieldMixin
+
+**Create:**
+| File | Purpose |
+|------|---------|
+| `DST:utils/admin/__init__.py` | Package init |
+| `DST:utils/admin/mixins.py` | `CopyableFieldMixin` for click-to-copy in Unfold admin |
+| `DST:utils/admin/css/copy-field.css` | Styles for copyable fields |
+| `DST:utils/admin/js/copy-field.js` | Click-to-copy JS with clipboard API + fallback |
+
+**Reference:** `SRC:utils/admin/mixins.py`, `SRC:utils/admin/css/copy-field.css`, `SRC:utils/admin/js/copy-field.js`
+
+**Mixin methods:**
+- `copyable_field(value, field_name, css_class, default_display, copy_success_message)` — Base method: renders a `<span>` with `data-code` attribute
+- `copyable_email(obj, field_name, field_label)` — Shortcut for email fields (special blue styling via CSS `[data-code*="@"]` selector)
+- `copyable_code(obj, field_name, field_label)` — Shortcut for codes/tokens (monospace font via `.code-copy` class)
+- `copyable_text(obj, field_name, field_label)` — Shortcut for general text fields
+
+**JS features:**
+- `navigator.clipboard.writeText()` primary, textarea `execCommand('copy')` fallback
+- Visual feedback: element shows "✓ Copied!" for 1.5s with green background
+- Toast notification (bottom-right, auto-dismiss 2s)
+- Error state: "✗ Failed" with red background
+
+**CSS features:**
+- `.copy-field` — standard copyable (subtle border, hover highlight, cursor pointer)
+- `.code-copy` — monospace variant for codes/tokens
+- `.copy-field[data-code*="@"]` — auto-detected email styling (blue tint)
+- `.copied` / `.error` — success/failure state classes
+
+**Usage in any admin class:**
+```python
+from unfold.admin import ModelAdmin
+from utils.admin.mixins import CopyableFieldMixin
+
+@admin.register(User)
+class UserAdmin(CopyableFieldMixin, ModelAdmin):
+    list_display = ["username", "display_email"]
+
+    @admin.display(description="Email")
+    def display_email(self, obj):
+        return self.copyable_email(obj)
+```
+
+**Static files:** The mixin's `Media` class references `utils/admin/css/copy-field.css` and `utils/admin/js/copy-field.js`. These must be placed where Django's `collectstatic` can find them. Two options:
+1. Place in `DST:utils/admin/css/` and `DST:utils/admin/js/` with `utils` listed in `INSTALLED_APPS` (already the case) — Django finds them via the app's own directory
+2. Or place in `DST:static/utils/admin/css/` and `DST:static/utils/admin/js/` as project-level static files
+
+Option 1 is cleaner — the assets live next to the mixin that declares them.
+
+**Modify:** `DST:config/settings/paths.py` — ensure `STATICFILES_FINDERS` includes `django.contrib.staticfiles.finders.AppDirectoriesFinder` (likely already present).
+
+**Note:** Strip the `console.log` debug statements from the JS before committing to the template. They're useful during development but noisy in production.
+
+---
+
+## Phase 10 — Celery Priority Queues & Task Routing
+
+Independent of all other phases.
+
+### 10.1 Three-Queue Architecture
+
+**Modify:** `DST:config/settings/celery.py` — replace the commented-out placeholder queues with the production-ready three-queue setup.
+
+**Reference:** `SRC:config/settings/celery.py`
+
+**Replace the `CELERY_TASK_QUEUES` section with:**
+```python
+from kombu import Queue
+
+CELERY_TASK_DEFAULT_QUEUE = 'default'
+
+CELERY_TASK_QUEUES = (
+    Queue('realtime', routing_key='realtime'),
+    Queue('default', routing_key='default'),
+    Queue('slow', routing_key='slow'),
+)
+```
+
+**Queue purpose:**
+| Queue | SLA | Use for |
+|-------|-----|---------|
+| `realtime` | < 1s | WebSocket-triggered work, game timers, phase transitions, anything the user is actively waiting on |
+| `default` | < 30s | Notifications, membership events, general background work |
+| `slow` | minutes | Video processing, bulk stats, exports, heavy analytics, nightly cleanups |
+
+**Starter task routes (template-appropriate only):**
+```python
+CELERY_TASK_ROUTES = {
+    # Nightly maintenance → slow queue (don't block default workers)
+    'accounts.tasks.flush_expired_jwt_tokens': {'queue': 'slow'},
+    'accounts.tasks.process_permanent_deletions': {'queue': 'slow'},
+
+    # Everything else → default (projects add routes as they add tasks)
+}
+```
+
+**Add to worker comments in the file:**
+```python
+# Run workers per queue:
+#   celery -A config.celery.app worker -Q realtime --concurrency=4
+#   celery -A config.celery.app worker -Q default  --concurrency=8
+#   celery -A config.celery.app worker -Q slow     --concurrency=2
+#
+# Or a single worker consuming all:
+#   celery -A config.celery.app worker -Q realtime,default,slow --concurrency=8
+```
+
+**Modify:** `DST:docker/docker-compose.prod.yml` (if it exists) — split the single Celery worker into two services:
+- `celery-worker`: consumes `default,slow` with higher concurrency
+- `celery-realtime`: consumes `realtime` with lower concurrency, separate process so slow tasks never block real-time work
+
+---
+
+### 10.2 Add `kombu` to Dependencies
+
+**Modify:** `DST:pyproject.toml` — add `kombu` to dependencies (it's a Celery dependency already installed, but declaring it explicitly makes the `Queue` import self-documenting).
+
+**Note:** `kombu` is already installed as a transitive dependency of Celery. The explicit dependency declaration is for import clarity, not installation.
+
+---
+
+## Phase 11 — Enhanced Model Mixins
+
+Independent of all other phases.
+
+### 11.1 SoftDeleteModel Upgrade
+
+**Modify:** `DST:utils/models/_softdelete.py` — replace the minimal implementation with the full `SoftDeleteQuerySet` + `SoftDeleteManager` + enhanced `SoftDeleteModel`.
+
+**Reference:** `SRC:utils/models/_softdelete.py`
+
+**Current Katesthe version (minimal):**
+- `SoftDeleteModel` with `is_deleted` flag and overridden `delete()`
+- No custom manager, no queryset, no `hard_delete()`, no `alive_objects`
+
+**Upgrade to:**
+- `SoftDeleteQuerySet` with `.alive()`, `.dead()`, bulk soft-delete via `.delete()`, `.hard_delete()`
+- `SoftDeleteManager` that returns only non-deleted rows via `get_queryset().alive()`
+- `SoftDeleteModel` with:
+  - `objects = models.Manager()` — default manager returns ALL rows (admin-safe)
+  - `alive_objects = SoftDeleteManager()` — explicit opt-in to filtered queryset
+  - `delete()` — soft-delete via `save(update_fields=["is_deleted"])` (efficient, no full-model save)
+  - `hard_delete()` — permanent deletion bypass
+  - Returns `(count, {label: count})` matching Django's `delete()` return signature
+
+**Key design decision:** The default `objects` manager is intentionally NOT filtered. This prevents:
+- Admin breaking (admin uses `objects` by default)
+- Migration issues
+- Surprise missing rows in existing code
+
+Code that wants only alive rows explicitly uses `MyModel.alive_objects.all()`.
+
+**Update exports in:** `DST:utils/models/__init__.py` — add `SoftDeleteQuerySet` and `SoftDeleteManager` to re-exports.
+
+**Validation:** Existing tests that use `SoftDeleteModel` must still pass — the default `objects` manager behavior is unchanged (returns all rows).
+
+### 11.2 BooleanChoices Base Class
+
+**Create:**
+| File | Purpose |
+|------|---------|
+| `DST:utils/models/choices.py` | `BooleanChoices` base class for boolean-valued TextChoices |
+
+**Reference:** `SRC:utils/models/choices.py`
+
+**What it does:** A `models.Choices` subclass for boolean-valued members. Provides a clean pattern for Yes/No, True/False, Active/Inactive select fields:
+
+```python
+class YesNoChoices(BooleanChoices):
+    YES = True, "Yes"
+    NO = False, "No"
+```
+
+**Update:** `DST:utils/models/__init__.py` — add `BooleanChoices` to re-exports.
+
+---
+
+## Phase 12 — Notification System Engine
+
+Replaces the existing simple `notifications` app (email-only, event-code registry, 2 templates) with a full notification system engine. The existing app has a `transactional_email.py` service and a single Celery task — the new system adds in-app notifications with WebSocket delivery, a type/category registry, two-level user preferences, deduplication, delivery logging, role-based visibility, and a full REST API.
+
+**Migration path:** The existing `notifications` app's transactional email capability is preserved as a standalone utility. The new `notification_system` app runs alongside it. The existing `notifications` app can be deprecated once all email events are migrated to the new system's dispatch pipeline.
+
+### 12.1 Constants Module
+
+**Create:**
+| File | Purpose |
+|------|---------|
+| `DST:notification_system/__init__.py` | App package |
+| `DST:notification_system/constants.py` | Priority, Channel, DeliveryStatus enums |
+
+**Reference:** `SRC:notification_system/constants.py`
+
+**What it provides:**
+- `Priority` — `LOW`, `NORMAL`, `HIGH`, `CRITICAL` (IntegerChoices with `MEDIUM = NORMAL` backward-compat alias)
+- `Channel` — `IN_APP`, `EMAIL` (TextChoices)
+- `DeliveryStatus` — `PENDING`, `SENT`, `FAILED` (TextChoices)
+
+These are referenced by models, dispatch service, and delivery logging. No domain-specific content — copy as-is.
+
+---
+
+### 12.2 Models — Four Tables
+
+**Create:**
+| File | Purpose |
+|------|---------|
+| `DST:notification_system/models/__init__.py` | Re-exports |
+| `DST:notification_system/models/_notification.py` | Core `Notification` model |
+| `DST:notification_system/models/_notification_preference.py` | Per-type user preference |
+| `DST:notification_system/models/_category_preference.py` | Per-category user preference |
+| `DST:notification_system/models/_delivery_log.py` | Delivery attempt logging |
+
+**Reference:**
+- `SRC:notification_system/models/_notification.py`
+- `SRC:notification_system/models/_notification_preference.py`
+- `SRC:notification_system/models/_category_preference.py`
+- `SRC:notification_system/models/_delivery_log.py`
+
+#### 12.2a `Notification` model
+
+Fields: `user` (FK), `notification_type` (CharField 100), `title`, `message` (TextField), `payload` (JSONField), `action_url`, `action_text`, `priority` (IntegerField from Priority), `read` (bool), `read_at` (DateTimeField null), `deleted_at` (DateTimeField null — soft delete), `expires_at` (DateTimeField null), `actor_id` (IntegerField null), `content_type` (CharField null — generic relation target type), `object_id` (IntegerField null — generic relation target PK), `email_failed` (bool), `dedupe_key` (CharField null).
+
+Inherits from `TimeStampedModel` (already in Katesthe `utils/models/`).
+
+**Indexes (5):** `(user, read, deleted_at)`, `(user, notification_type)`, `(user, created)`, `(notification_type,)`, `(expires_at,)`.
+
+**Constraint:** `UniqueConstraint(fields=["user", "dedupe_key"], condition=Q(dedupe_key__isnull=False), name="unique_user_dedupe_key")` — enables deduplication window.
+
+#### 12.2b `UserNotificationPreference` model
+
+Fields: `user` (FK), `notification_type` (CharField 100), `in_app` (BooleanField default True), `email` (BooleanField default False).
+
+**Constraint:** `unique_together = ("user", "notification_type")`.
+
+Related name: `notification_preferences` on User.
+
+#### 12.2c `UserNotificationCategoryPreference` model
+
+Fields: `user` (FK), `category` (CharField 50), `enabled` (BooleanField default True).
+
+**Constraint:** `UniqueConstraint(fields=["user", "category"], name="unique_user_category_pref")`.
+
+Related name: `notification_category_preferences` on User.
+
+#### 12.2d `NotificationDeliveryLog` model
+
+Fields: `notification` (FK), `channel` (CharField from Channel choices), `status` (CharField from DeliveryStatus), `created_at` (auto_now_add), `sent_at` (DateTimeField null), `error_message` (TextField blank), `metadata` (JSONField default dict).
+
+Tracks per-channel delivery attempts (IN_APP sent, EMAIL sent/failed with error). Essential for debugging and monitoring.
+
+---
+
+### 12.3 Notification Type Registry
+
+**Create:**
+| File | Purpose |
+|------|---------|
+| `DST:notification_system/registry.py` | `NotificationTypeRegistry` class + `CATEGORIES` dict |
+| `DST:notification_system/services/_registry.py` | Backward-compat re-export shim |
+
+**Reference:** `SRC:notification_system/registry.py`, `SRC:notification_system/services/_registry.py`
+
+**What it provides:**
+- `NotificationTypeConfig` — dataclass with: `key`, `priority`, `default_in_app`, `default_email`, `critical`, `visible_to_roles` (list), `category`, `label`
+- `CATEGORIES` — `dict[str, str]` mapping category IDs to display labels. **Ship empty:** `CATEGORIES = {}`. Projects populate this when they register their types.
+- `NotificationTypeRegistry` — class-level registry with:
+  - `register(config: NotificationTypeConfig)` — add a type
+  - `get(key: str) -> NotificationTypeConfig | None`
+  - `get_or_default(key: str) -> NotificationTypeConfig` — returns a safe fallback for unknown types
+  - `all_keys() -> list[str]`
+  - `get_types_by_category() -> dict[str, list[NotificationTypeConfig]]`
+
+**What to strip from Rhitoric:**
+- Remove `register_core_types()` function and all 35 type registrations (game, elearning, account, AI types). Ship with zero registered types.
+- Add a docstring example showing how to register project-specific types:
+  ```python
+  # In your app's apps.py ready():
+  from notification_system.registry import NotificationTypeRegistry, NotificationTypeConfig, CATEGORIES
+  
+  CATEGORIES.update({"account": "Account", "billing": "Billing"})
+  
+  NotificationTypeRegistry.register(NotificationTypeConfig(
+      key="account.welcome",
+      priority="normal",
+      default_in_app=True,
+      default_email=True,
+      critical=False,
+      visible_to_roles=[],
+      category="account",
+      label="Welcome notification",
+  ))
+  ```
+
+---
+
+### 12.4 Pluggable Adapters
+
+**Create:**
+| File | Purpose |
+|------|---------|
+| `DST:notification_system/adapters.py` | Default `should_skip_notification_for_user()` and `get_user_roles()` |
+
+**Reference:** `SRC:notification_system/adapters.py`
+
+**What to strip:**
+- Remove `_AI_NOTIFICATION_TYPES` frozenset and the elearning AI preference check from `should_skip_notification_for_user()`. The default implementation should return `False` (never skip). Add a docstring explaining how to override via `NOTIFICATION_SHOULD_SKIP_FOR_USER` setting.
+- Remove `ClubMembership` import from `get_user_roles()`. The default implementation returns Django group names only:
+  ```python
+  def get_user_roles(user) -> list:
+      if not user or not user.is_authenticated:
+          return []
+      return list(user.groups.values_list("name", flat=True))
+  ```
+  Add a docstring explaining how to override via `NOTIFICATION_GET_USER_ROLES` setting to add project-specific role sources.
+
+Both adapters are resolved at runtime via `import_string()` from settings, so projects override them by pointing the setting to their own function — zero coupling.
+
+---
+
+### 12.5 Dispatch Service (Core Engine)
+
+**Create:**
+| File | Purpose |
+|------|---------|
+| `DST:notification_system/services/__init__.py` | Re-exports |
+| `DST:notification_system/services/_dispatch.py` | `dispatch()` — the main notification entry point |
+
+**Reference:** `SRC:notification_system/services/_dispatch.py`
+
+**What `dispatch()` does (in order):**
+1. Verify user exists (get_user_model lookup — raises early if not found)
+2. Call pluggable `should_skip_notification_for_user()` adapter
+3. Look up `NotificationTypeConfig` from registry (`get_or_default` for unknown types)
+4. Check deduplication — if `dedupe_key` provided, check for existing notification within `NOTIFICATION_DEDUPE_WINDOW_MINUTES` (default 5). Skip if duplicate found.
+5. Create `Notification` in `transaction.atomic()`
+6. Create `NotificationDeliveryLog` for IN_APP channel
+7. Check category preference (enabled?) and type preference (in_app? email?)
+8. If in_app enabled: fire WebSocket delivery via `send_notification_to_user()` (fire-and-forget, logged but not blocking)
+9. If email enabled: enqueue `send_notification_email_task` via `transaction.on_commit`
+10. Return the `Notification` instance (or `None` if skipped/deduped)
+
+**What to strip:** Nothing domain-specific in the dispatch logic itself — it's fully generic. Copy as-is, just ensure the import path for `send_notification_to_user` matches the template layout.
+
+---
+
+### 12.6 Action Services
+
+**Create:**
+| File | Purpose |
+|------|---------|
+| `DST:notification_system/services/_actions.py` | `mark_notification_read()`, `mark_all_notifications_read()`, `soft_delete_notification()` |
+
+**Reference:** `SRC:notification_system/services/_actions.py`
+
+Three simple service functions — all scoped to `user` for IDOR safety. Copy as-is, no domain-specific content.
+
+---
+
+### 12.7 Preference Services
+
+**Create:**
+| File | Purpose |
+|------|---------|
+| `DST:notification_system/services/_preferences.py` | `update_notification_preferences()`, `bootstrap_notification_preferences()` |
+
+**Reference:** `SRC:notification_system/services/_preferences.py`
+
+- `update_notification_preferences(user, category_preferences, type_preferences)` — bulk upsert via `bulk_create(update_conflicts=True)`. Validates against registered categories and types.
+- `bootstrap_notification_preferences(user)` — creates all default preferences for a new user (called from signal or management command). Idempotent via `ignore_conflicts=True`.
+
+Copy as-is — logic is registry-driven, no hardcoded domain types.
+
+---
+
+### 12.8 Broadcast Service
+
+**Create:**
+| File | Purpose |
+|------|---------|
+| `DST:notification_system/services/_broadcast.py` | `broadcast_notifications()` — admin bulk-create |
+
+**Reference:** `SRC:notification_system/services/_broadcast.py`
+
+Loops over user IDs and calls `dispatch()` for each. Used by admin actions to send notifications to multiple users. Copy as-is.
+
+---
+
+### 12.9 WebSocket Utilities
+
+**Create:**
+| File | Purpose |
+|------|---------|
+| `DST:notification_system/utils.py` | `send_notification_to_user()`, `_serialize_payload_for_storage()` |
+
+**Reference:** `SRC:notification_system/utils.py`
+
+- `send_notification_to_user(user_id, notification)` — sends `notification_new` event to `user_{id}` channel group via `channel_layer.group_send()`. Returns bool. Catches exceptions to avoid blocking dispatch.
+- `_serialize_payload_for_storage(payload)` — converts UUID and datetime objects to strings for JSONField storage. Used by dispatch before creating the Notification.
+
+**Dependency:** Requires Django Channels (`channels`) in the project. If the template doesn't include Channels, guard the import and degrade gracefully (in-app delivery skipped, email-only).
+
+---
+
+### 12.10 WebSocket Consumer
+
+**Create:**
+| File | Purpose |
+|------|---------|
+| `DST:notification_system/consumers.py` | `NotificationConsumer` for WebSocket delivery |
+
+**Reference:** `SRC:notification_system/consumers.py`
+
+**What it provides:**
+- JWT authentication on connect (reuses the WebSocket JWT middleware from Phase 5)
+- Joins `user_{id}` channel group
+- Heartbeat every 30 seconds (keepalive)
+- Rate limiting (10 messages/sec)
+- `auth_rotate` handler (token refresh mid-connection)
+- `notification_new` event handler — forwards notification payload to the WebSocket client with whitelisted keys only
+
+**What to strip:**
+- Remove all domain-specific no-op handlers: `player_joined`, `player_left_game`, `game_abandoned`, `game_completed`, `vote_cast`. These are Rhitoric game events routed through the consumer that it ignores — they should not exist in the template.
+- Close codes: keep `4401` (auth failed), `4001` (unauthenticated). Remove any game-specific close codes if present.
+
+**Routing:** Add to the project's ASGI routing:
+```python
+# config/asgi.py or config/routing.py
+websocket_urlpatterns = [
+    path("ws/notifications/", NotificationConsumer.as_asgi()),
+]
+```
+
+---
+
+### 12.11 Email Task
+
+**Create:**
+| File | Purpose |
+|------|---------|
+| `DST:notification_system/tasks/__init__.py` | Package init |
+| `DST:notification_system/tasks/_email.py` | `send_notification_email_task` |
+
+**Reference:** `SRC:notification_system/tasks/_email.py`
+
+**What it does:**
+- Reads the Notification from the DB (using `read_from_primary()` if DB routing is configured — already in Katesthe)
+- Sends email via Django's `EmailMultiAlternatives`
+- Updates `NotificationDeliveryLog` with SENT/FAILED status
+- PII redaction in error messages
+
+**What to strip:**
+- Replace hardcoded `from_email` fallback from `"noreply@rhitoric.com"` to `settings.DEFAULT_FROM_EMAIL`
+- The task uses `autoretry_for=(Exception,), max_retries=3, retry_backoff=True, retry_jitter=True` — keep this pattern.
+
+---
+
+### 12.12 Selectors
+
+**Create:**
+| File | Purpose |
+|------|---------|
+| `DST:notification_system/selectors/__init__.py` | Re-exports |
+| `DST:notification_system/selectors/_notification.py` | `get_user_notifications_queryset()`, `get_unread_count()`, `get_notification_for_user()`, `get_visible_notification_type_keys()` |
+| `DST:notification_system/selectors/_preference.py` | `get_user_preferences()`, `is_category_enabled_for_user()`, `get_effective_preference()`, `get_grouped_preferences()` |
+| `DST:notification_system/selectors/_user_roles.py` | `get_user_roles()` — pluggable role resolver with cache |
+
+**Reference:**
+- `SRC:notification_system/selectors/_notification.py`
+- `SRC:notification_system/selectors/_preference.py`
+- `SRC:notification_system/selectors/_user_roles.py`
+
+Key features:
+- **Retention-based filtering:** `_retention_cutoff()` uses `NOTIFICATION_RETENTION_DAYS` setting (default 90). Old notifications excluded from list/count.
+- **Role-based visibility:** `_visible_type_keys_for_user()` filters notification types by `visible_to_roles`. Fail-closed — empty registry = empty set.
+- **Grouped preferences:** `get_grouped_preferences()` returns all types organized by category with effective (in_app, email) per type, incorporating per-type overrides and registry defaults. Ready-to-render for a preferences UI.
+- **User role caching:** `get_user_roles()` in `_user_roles.py` caches per-user roles for 60s via Django cache, preventing repeated DB queries within the same request cycle.
+
+Copy all as-is — all logic is registry-driven. The pluggable `NOTIFICATION_GET_USER_ROLES` setting path is already handled.
+
+---
+
+### 12.13 Serializers
+
+**Create:**
+| File | Purpose |
+|------|---------|
+| `DST:notification_system/serializers/__init__.py` | Re-exports |
+| `DST:notification_system/serializers/_notification.py` | `NotificationListSerializer`, `NotificationDetailSerializer` |
+| `DST:notification_system/serializers/_preference.py` | `UserNotificationPreferenceSerializer`, `NotificationPreferencesGroupedSerializer` |
+| `DST:notification_system/serializers/_category_preference.py` | `NotificationPreferencesUpdateSerializer`, `NotificationTypePreferenceSerializer` |
+
+**Reference:**
+- `SRC:notification_system/serializers/_notification.py`
+- `SRC:notification_system/serializers/_preference.py`
+- `SRC:notification_system/serializers/_category_preference.py`
+
+Standard DRF ModelSerializers and plain Serializers. No domain-specific content — copy as-is.
+
+---
+
+### 12.14 Controllers (REST API)
+
+**Create:**
+| File | Purpose |
+|------|---------|
+| `DST:notification_system/controllers/__init__.py` | Package init |
+| `DST:notification_system/controllers/_list.py` | `NotificationListView`, `NotificationDetailView`, `UnreadCountView` |
+| `DST:notification_system/controllers/_actions.py` | `MarkReadView`, `MarkAllReadView`, `NotificationSoftDeleteView` |
+| `DST:notification_system/controllers/_preferences.py` | `NotificationPreferencesListView`, `NotificationPreferencesUpdateView` |
+
+**Reference:**
+- `SRC:notification_system/controllers/_list.py`
+- `SRC:notification_system/controllers/_actions.py`
+- `SRC:notification_system/controllers/_preferences.py`
+
+**8 API endpoints:**
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/notifications/` | Paginated list with filters (type, read, retention_days) |
+| GET | `/notifications/{pk}/` | Single notification detail |
+| GET | `/notifications/unread_count/` | Unread count for badge UI |
+| POST | `/notifications/{pk}/mark_read/` | Mark one as read |
+| POST | `/notifications/mark_all_read/` | Mark all as read |
+| DELETE | `/notifications/{pk}/delete/` | Soft delete |
+| GET | `/notifications/preferences/` | Grouped preferences by category |
+| PUT | `/notifications/preferences/update/` | Update category + type preferences |
+
+All views use `IsAuthenticated` permission. IDOR protection is built into the selectors (scope to `request.user`). All have `@extend_schema` OpenAPI annotations.
+
+**What to strip:**
+- Remove `NotificationActionThrottle` and `NotificationBulkThrottle` imports if those throttle classes don't exist in the template yet. Replace with the template's generic throttle classes or remove `throttle_classes` and let the project add them.
+- Remove `from errors.catalog import NOTIFICATION__NOT_FOUND` if the error catalog doesn't have this code yet. Add the error code to the template's error catalog, or use a plain string until it's registered.
+- The `parse_page_params` utility from `utils.pagination` should already exist in Katesthe (from Depadrive backport). Verify before implementation.
+
+---
+
+### 12.15 URL Configuration
+
+**Create:**
+| File | Purpose |
+|------|---------|
+| `DST:notification_system/urls/__init__.py` | URL patterns |
+
+**Reference:** `SRC:notification_system/urls/__init__.py`
+
+**Mount in project URLs:**
+```python
+# config/urls.py
+urlpatterns = [
+    ...
+    path("api/v1/", include("notification_system.urls")),
+]
+```
+
+---
+
+### 12.16 Management Command
+
+**Create:**
+| File | Purpose |
+|------|---------|
+| `DST:notification_system/management/__init__.py` | Package |
+| `DST:notification_system/management/commands/__init__.py` | Package |
+| `DST:notification_system/management/commands/bootstrap_notification_preferences.py` | Backfill preferences for existing users |
+
+**Reference:** `SRC:notification_system/management/commands/bootstrap_notification_preferences.py`
+
+**What it does:** For users created before the notification system was added, creates `UserNotificationPreference` and `UserNotificationCategoryPreference` rows with registry defaults. Features:
+- `--dry-run` flag
+- `--batch-size` for large user bases
+- Batch-level `bulk_create(ignore_conflicts=True)` for idempotency
+- Efficient: single query to find users needing preferences, batch fetch existing prefs
+
+Copy as-is — logic is registry-driven. If no types are registered, it exits with "Nothing to bootstrap."
+
+---
+
+### 12.17 App Configuration
+
+**Create:**
+| File | Purpose |
+|------|---------|
+| `DST:notification_system/apps.py` | Django AppConfig |
+
+**Reference:** `SRC:notification_system/apps.py`
+
+```python
+from django.apps import AppConfig
+
+class NotificationSystemConfig(AppConfig):
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "notification_system"
+    verbose_name = "Notification System"
+
+    def ready(self):
+        # Projects register their notification types in their own app's ready().
+        # Example: from myapp.notifications import register_types; register_types()
+        pass
+```
+
+**What to strip:** Remove `register_core_types()` call — the template ships with an empty registry.
+
+**Add to** `DST:config/settings/django.py` `INSTALLED_APPS`:
+```python
+INSTALLED_APPS = [
+    ...
+    "notification_system",
+]
+```
+
+---
+
+### 12.18 Settings Module
+
+**Create:**
+| File | Purpose |
+|------|---------|
+| `DST:config/settings/notification_system.py` | Notification system settings |
+
+**Reference:** `SRC:config/settings/notification_system.py`
+
+**Settings:**
+```python
+NOTIFICATION_RETENTION_DAYS = 90
+NOTIFICATION_DEDUPE_WINDOW_MINUTES = 5
+NOTIFICATION_GET_USER_ROLES = "notification_system.adapters.get_user_roles"
+NOTIFICATION_SHOULD_SKIP_FOR_USER = "notification_system.adapters.should_skip_notification_for_user"
+```
+
+All four are overridable. The dotted paths resolve at runtime via `import_string()`, so projects swap in their own implementations without touching the notification system code.
+
+**Import in** `DST:config/settings/__init__.py`:
+```python
+from config.settings.notification_system import *
+```
+
+---
+
+### 12.19 Error Catalog Entry
+
+**Modify:** `DST:errors/catalog.py`
+
+**Add:**
+```python
+NOTIFICATION__NOT_FOUND = "NOTIFICATION__NOT_FOUND"
+```
+
+Follows the `DOMAIN__ERROR_NAME` convention from `api.md`.
+
+---
+
+### 12.20 Migrations
+
+**Create:** `DST:notification_system/migrations/0001_initial.py`
+
+Run `uv run python manage.py makemigrations notification_system` after all models are in place. This generates a single initial migration with all four tables and their indexes/constraints.
+
+---
+
+### Phase 12 — Validation
+
+```bash
+# Import smoke test
+uv run python -c "
+from notification_system.registry import NotificationTypeRegistry, CATEGORIES
+from notification_system.models import Notification, UserNotificationPreference
+from notification_system.services._dispatch import dispatch
+from notification_system.services._actions import mark_notification_read
+from notification_system.services._preferences import bootstrap_notification_preferences
+from notification_system.selectors._notification import get_user_notifications_queryset
+from notification_system.consumers import NotificationConsumer
+print('Phase 12 imports OK')
+print(f'Registered types: {len(NotificationTypeRegistry.all_keys())}')
+print(f'Categories: {len(CATEGORIES)}')
+"
+
+# Migration check
+uv run python manage.py makemigrations notification_system --check --dry-run
+
+# Management command exists
+uv run python manage.py bootstrap_notification_preferences --dry-run
+```
+
+### Phase 12 — File Inventory
+
+| # | File | Status |
+|---|------|--------|
+| 1 | `notification_system/__init__.py` | Create |
+| 2 | `notification_system/apps.py` | Create |
+| 3 | `notification_system/constants.py` | Create |
+| 4 | `notification_system/registry.py` | Create |
+| 5 | `notification_system/adapters.py` | Create |
+| 6 | `notification_system/utils.py` | Create |
+| 7 | `notification_system/consumers.py` | Create |
+| 8 | `notification_system/models/__init__.py` | Create |
+| 9 | `notification_system/models/_notification.py` | Create |
+| 10 | `notification_system/models/_notification_preference.py` | Create |
+| 11 | `notification_system/models/_category_preference.py` | Create |
+| 12 | `notification_system/models/_delivery_log.py` | Create |
+| 13 | `notification_system/services/__init__.py` | Create |
+| 14 | `notification_system/services/_registry.py` | Create |
+| 15 | `notification_system/services/_dispatch.py` | Create |
+| 16 | `notification_system/services/_actions.py` | Create |
+| 17 | `notification_system/services/_preferences.py` | Create |
+| 18 | `notification_system/services/_broadcast.py` | Create |
+| 19 | `notification_system/selectors/__init__.py` | Create |
+| 20 | `notification_system/selectors/_notification.py` | Create |
+| 21 | `notification_system/selectors/_preference.py` | Create |
+| 22 | `notification_system/selectors/_user_roles.py` | Create |
+| 23 | `notification_system/serializers/__init__.py` | Create |
+| 24 | `notification_system/serializers/_notification.py` | Create |
+| 25 | `notification_system/serializers/_preference.py` | Create |
+| 26 | `notification_system/serializers/_category_preference.py` | Create |
+| 27 | `notification_system/controllers/__init__.py` | Create |
+| 28 | `notification_system/controllers/_list.py` | Create |
+| 29 | `notification_system/controllers/_actions.py` | Create |
+| 30 | `notification_system/controllers/_preferences.py` | Create |
+| 31 | `notification_system/urls/__init__.py` | Create |
+| 32 | `notification_system/tasks/__init__.py` | Create |
+| 33 | `notification_system/tasks/_email.py` | Create |
+| 34 | `notification_system/management/__init__.py` | Create |
+| 35 | `notification_system/management/commands/__init__.py` | Create |
+| 36 | `notification_system/management/commands/bootstrap_notification_preferences.py` | Create |
+| 37 | `notification_system/migrations/0001_initial.py` | Generate |
+| 38 | `config/settings/notification_system.py` | Create |
+| 39 | `config/settings/__init__.py` | Modify (add import) |
+| 40 | `config/settings/django.py` | Modify (add to INSTALLED_APPS) |
+| 41 | `config/urls.py` | Modify (add URL include) |
+| 42 | `errors/catalog.py` | Modify (add NOTIFICATION__NOT_FOUND) |
+
+---
+
+## Updated Dependency Graph
+
+```
+Phase 1-6: (unchanged — see original graph above)
+
+Phase 7 (Pydantic-Spectacular Bridge): independent
+Phase 8 (Keep-Warm Task): independent
+Phase 9 (Admin Copy Mixin): independent
+Phase 10 (Celery Queues): independent
+Phase 11 (Model Mixins): independent
+Phase 12 (Notification System): independent
+  └─ Optional dep on Phase 5 (WebSocket auth) for consumer JWT auth
+     Without Phase 5: consumer can use simpler auth or be excluded
+
+Phases 7-12 can all run in parallel with each other and with Phase 4.
+```
+
+---
+
+## Updated Validation Gate
+
+Add to the existing validation commands:
+
+```bash
+# Phase 7 smoke test
+uv run python -c "
+from config.spectacular_pydantic import pydantic_schema, as_openapi_response
+print('Phase 7 imports OK')
+"
+
+# Phase 8 smoke test
+uv run python -c "
+from utils.tasks import keep_warm
+print('Phase 8 imports OK')
+"
+
+# Phase 9 smoke test
+uv run python -c "
+from utils.admin.mixins import CopyableFieldMixin
+print('Phase 9 imports OK')
+"
+
+# Phase 11 smoke test
+uv run python -c "
+from utils.models import SoftDeleteModel, SoftDeleteManager, SoftDeleteQuerySet
+from utils.models.choices import BooleanChoices
+print('Phase 11 imports OK')
+"
+
+# Phase 12 smoke test
+uv run python -c "
+from notification_system.registry import NotificationTypeRegistry, CATEGORIES
+from notification_system.models import Notification, UserNotificationPreference
+from notification_system.services._dispatch import dispatch
+from notification_system.services._actions import mark_notification_read
+from notification_system.services._preferences import bootstrap_notification_preferences
+from notification_system.selectors._notification import get_user_notifications_queryset
+from notification_system.consumers import NotificationConsumer
+print('Phase 12 imports OK')
+print(f'Registered types: {len(NotificationTypeRegistry.all_keys())}')
+print(f'Categories: {len(CATEGORIES)}')
+"
+```
+
+---
+
 ## What NOT to Do
 
 1. **Do not copy game, AI, or elearning domain logic.** Only extract generic infrastructure patterns.
 2. **Do not copy domain-specific throttle classes** (GameActionThrottle, AIMessageThrottle, QuizAttemptThrottle, etc.). Start with ~14 universal throttles. Projects add domain-specific ones later.
 3. **Do not copy domain-specific permissions** (IsClubFounder, IsAIServiceAuthenticated, CanVoteAvA, etc.). The template should include only `IsSuperUserOnly` and `CurrentUserOrSuperUser` as examples.
 4. **Do not copy CacheOps configuration.** That's project-specific caching policy, not a template pattern.
-5. **Do not copy notification type registry.** The template's notification system (from Depadrive backport) is simpler and sufficient for bootstrapping.
+5. **Do not copy Rhitoric's 35 notification type registrations.** The template ships with an empty registry. Projects register their own types in their app's `AppConfig.ready()`.
 6. **Do not copy the admin_api app.** Admin panel patterns are project-specific.
 7. **Do not break existing tests.** The RS256 migration will change token format — update test assertions accordingly.
 8. **Do not make `cryptography` optional.** RS256 is the new default — it's a required dependency.
 9. **Do not copy the `SameSite=None` pattern for production.** The template should default to `Lax`. Projects doing cross-origin auth change it themselves.
 10. **Do not add `JWT_RSA_PREVIOUS_PUBLIC_KEY` to `.env.local.example`.** Key rotation is a production concern — don't clutter the dev setup.
+11. **Do not copy MuxPlaybackMixin.** It's domain-specific to video hosting. Projects add it when they integrate Mux.
+12. **Do not copy domain-specific Celery beat entries.** The template should ship with only `keep-warm` and `flush-expired-jwt-tokens`. Projects add domain-specific periodic tasks as they build features.
+13. **Do not copy domain-specific task routes.** The template provides the three-queue skeleton and 2 starter routes. Projects map their own tasks to queues.
+14. **Do not leave `console.log` in production JS.** Strip debug statements from `copy-field.js` before committing.
+15. **Do not copy Rhitoric's `should_skip_notification_for_user()` elearning/AI logic.** The template adapter returns `False` (never skip). Projects override via the `NOTIFICATION_SHOULD_SKIP_FOR_USER` setting.
+16. **Do not copy `ClubMembership` role resolution into the template's `get_user_roles()`.** The template adapter uses Django groups only. Projects add domain-specific role sources via the `NOTIFICATION_GET_USER_ROLES` setting.
+17. **Do not copy domain-specific WebSocket consumer handlers** (`player_joined`, `game_abandoned`, `vote_cast`, etc.). The template consumer handles only `notification_new`, `auth_rotate`, and heartbeat.
+18. **Do not hardcode `noreply@rhitoric.com`** in the email task. Use `settings.DEFAULT_FROM_EMAIL`.
