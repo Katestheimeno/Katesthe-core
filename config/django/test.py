@@ -67,3 +67,9 @@ INSTALLED_APPS = [app for app in INSTALLED_APPS if 'silk' not in app.lower()]
 
 # Use test-specific URL configuration
 ROOT_URLCONF = 'config.urls_test'
+
+# Neutralize throttling in tests — high rate for every configured scope.
+# Dict-comprehension is robust to whichever throttle scopes are registered.
+REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {
+    k: "9999/min" for k in REST_FRAMEWORK.get("DEFAULT_THROTTLE_RATES", {})
+}

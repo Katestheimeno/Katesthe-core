@@ -21,6 +21,7 @@ dependencies = [
     "djangorestframework-simplejwt>=5.5.1",
     "djoser>=2.3.3",
     "drf-extensions>=0.8.0",
+    "kombu>=5.5.4",
     "loguru>=0.7.3",
     "openpyxl>=3.1.0",
     "phonenumbers>=9.0.34",

@@ -4,8 +4,9 @@ Path: config/settings/celery.py
 """
 
 from celery.schedules import crontab
+from kombu import Queue
 
-# We'll collect all exported configs in `imports` 
+# We'll collect all exported configs in `imports`
 # and expose them via __all__ at the bottom
 imports = []
 
@@ -22,29 +23,41 @@ CELERY_BEAT_SCHEDULE = {
         "task": "accounts.tasks.example_cleanup_task",
         "schedule": 86400,  # daily, seconds
     },
+    "keep-warm": {
+        "task": "utils.tasks.keep_warm",
+        "schedule": 240.0,  # every 4 minutes
+    },
+    "flush-expired-jwt-tokens": {
+        "task": "accounts.tasks.flush_expired_jwt_tokens",
+        "schedule": 86400,  # daily; task provided by the auth-core plan (routed by name)
+    },
 }
 
 
 # -----------------------------------------------------------------------------
 # CELERY TASK QUEUES
 # -----------------------------------------------------------------------------
-# Queues allow you to send certain tasks to specific workers.
-# Example: heavy tasks like sending emails could go to a dedicated "emails" queue.
-imports += ["CELERY_TASK_QUEUES"]
+# Three queues split by latency requirements:
+#   - realtime: latency-sensitive, WebSocket-triggered work (<1s SLA)
+#   - default:  notifications, membership, stats, general work
+#   - slow:     bulk operations, heavy analytics, nightly maintenance
+#
+# Run workers per queue:
+#   celery -A config.celery.app worker -Q realtime --concurrency=4
+#   celery -A config.celery.app worker -Q default  --concurrency=8
+#   celery -A config.celery.app worker -Q slow     --concurrency=2
+#
+# Or a single worker consuming all:
+#   celery -A config.celery.app worker -Q realtime,default,slow --concurrency=8
+imports += ["CELERY_TASK_DEFAULT_QUEUE", "CELERY_TASK_QUEUES"]
 
-CELERY_TASK_QUEUES = {
-    # Default queue (all tasks go here unless specified otherwise)
-    # 'default': {
-    #     'exchange': 'default',         # exchange name (think routing hub)
-    #     'routing_key': 'default',      # used to match with routes
-    # },
-    
-    # Dedicated queue for email tasks
-    # 'emails': {
-    #     'exchange': 'emails',
-    #     'routing_key': 'emails',
-    # },
-}
+CELERY_TASK_DEFAULT_QUEUE = "default"
+
+CELERY_TASK_QUEUES = (
+    Queue("realtime", routing_key="realtime"),
+    Queue("default", routing_key="default"),
+    Queue("slow", routing_key="slow"),
+)
 
 
 # -----------------------------------------------------------------------------
@@ -54,11 +67,13 @@ CELERY_TASK_QUEUES = {
 imports += ["CELERY_TASK_ROUTES"]
 
 CELERY_TASK_ROUTES = {
-    # Example: all "send_email" tasks go to the "emails" queue
-    # 'appointments.tasks.send_email': {'queue': 'emails'},
-    
-    # Example: custom task goes to the default queue
-    # 'appointments.tasks.my_task': {'queue': 'default'},
+    # Nightly maintenance → slow queue (don't block default workers)
+    "accounts.tasks.flush_expired_jwt_tokens": {"queue": "slow"},
+
+    # Example (no plan creates this task yet — keep commented until it exists):
+    # "accounts.tasks.process_permanent_deletions": {"queue": "slow"},
+
+    # Everything else → default (projects add routes as they add tasks).
 }
 
 
