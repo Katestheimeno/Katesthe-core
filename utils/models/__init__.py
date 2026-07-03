@@ -5,6 +5,7 @@ Path: utils/models/__init__.py
 
 from ._timestamp import *
 from ._softdelete import *
+from .choices import *
 from ._trackable import *
 from ._uuid import *
 from ._slugger import *
