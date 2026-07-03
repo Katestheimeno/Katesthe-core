@@ -8,7 +8,7 @@ readiness/liveness are exercised by calling the view functions directly with a
 from unittest.mock import patch
 
 import pytest
-from django.test import RequestFactory
+from django.test import RequestFactory, override_settings
 
 from config import health
 
@@ -70,7 +70,7 @@ def test_readiness_returns_503_when_db_check_fails(rf):
 
 
 def test_check_celery_returns_eager_without_pinging_broker():
-    with patch("django.conf.settings.CELERY_TASK_ALWAYS_EAGER", True, create=True):
+    with override_settings(CELERY_TASK_ALWAYS_EAGER=True):
         ok, detail = health._check_celery()
 
     assert ok is True
@@ -78,7 +78,7 @@ def test_check_celery_returns_eager_without_pinging_broker():
 
 
 def test_check_celery_pings_broker_when_not_eager():
-    with patch("django.conf.settings.CELERY_TASK_ALWAYS_EAGER", False, create=True):
+    with override_settings(CELERY_TASK_ALWAYS_EAGER=False):
         with patch("config.celery.app.control.ping", return_value=[{"worker": "ok"}]):
             ok, detail = health._check_celery()
 
@@ -87,7 +87,7 @@ def test_check_celery_pings_broker_when_not_eager():
 
 
 def test_check_celery_reports_no_workers_when_not_eager_and_no_replies():
-    with patch("django.conf.settings.CELERY_TASK_ALWAYS_EAGER", False, create=True):
+    with override_settings(CELERY_TASK_ALWAYS_EAGER=False):
         with patch("config.celery.app.control.ping", return_value=None):
             ok, detail = health._check_celery()
 
@@ -96,7 +96,7 @@ def test_check_celery_reports_no_workers_when_not_eager_and_no_replies():
 
 
 def test_check_celery_reports_failure_when_ping_raises():
-    with patch("django.conf.settings.CELERY_TASK_ALWAYS_EAGER", False, create=True):
+    with override_settings(CELERY_TASK_ALWAYS_EAGER=False):
         with patch("config.celery.app.control.ping", side_effect=ConnectionError("boom")):
             ok, detail = health._check_celery()
 
