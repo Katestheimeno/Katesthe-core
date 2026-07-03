@@ -18,26 +18,10 @@ imports = []
 imports += ["CELERY_BEAT_SCHEDULE"]
 
 CELERY_BEAT_SCHEDULE = {
-    # Example: run every 1 minute
-    # 'say-hello-every-minute': {
-    #     'task': 'appointments.tasks.my_task',  # path to your Celery task
-    #     'schedule': 60.0,                      # seconds (float or int)
-    #     'args': ("DevMozach",),                # optional arguments passed to the task
-    # },
-    
-    # Example: run every day at 8:00 AM
-    # 'daily-task': {
-    #     'task': 'appointments.tasks.daily_task',
-    #     'schedule': crontab(hour=8, minute=0),  # crontab gives more control
-    #     'args': (),                             # can be empty
-    # },
-    
-    # Example: run every Monday at 9:30 AM
-    # 'weekly-task': {
-    #     'task': 'appointments.tasks.weekly_task',
-    #     'schedule': crontab(hour=9, minute=30, day_of_week=1),
-    #     'args': (),
-    # },
+    "example-cleanup": {
+        "task": "accounts.tasks.example_cleanup_task",
+        "schedule": 86400,  # daily, seconds
+    },
 }
 
 
@@ -76,6 +60,46 @@ CELERY_TASK_ROUTES = {
     # Example: custom task goes to the default queue
     # 'appointments.tasks.my_task': {'queue': 'default'},
 }
+
+
+# -----------------------------------------------------------------------------
+# CELERY TASK SECURITY (SERIALIZATION)
+# -----------------------------------------------------------------------------
+# Restrict Celery to JSON only — avoids pickle-based deserialization risks.
+imports += ["CELERY_TASK_SERIALIZER", "CELERY_RESULT_SERIALIZER", "CELERY_ACCEPT_CONTENT"]
+
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_ACCEPT_CONTENT = ["json"]
+
+
+# -----------------------------------------------------------------------------
+# CELERY WORKER TUNING
+# -----------------------------------------------------------------------------
+# Recycle workers periodically to avoid memory leaks; cap memory per child.
+imports += ["CELERY_WORKER_MAX_TASKS_PER_CHILD", "CELERY_WORKER_MAX_MEMORY_PER_CHILD"]
+
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 500
+CELERY_WORKER_MAX_MEMORY_PER_CHILD = 256_000  # 256MB
+
+
+# -----------------------------------------------------------------------------
+# CELERY TASK TIME LIMITS
+# -----------------------------------------------------------------------------
+# Hard limit kills the task; soft limit raises SoftTimeLimitExceeded first.
+imports += ["CELERY_TASK_TIME_LIMIT", "CELERY_TASK_SOFT_TIME_LIMIT"]
+
+CELERY_TASK_TIME_LIMIT = 600
+CELERY_TASK_SOFT_TIME_LIMIT = 540
+
+
+# -----------------------------------------------------------------------------
+# CELERY WORKER PREFETCH
+# -----------------------------------------------------------------------------
+# Prefetch 1 task at a time — fairer distribution for long-running tasks.
+imports += ["CELERY_WORKER_PREFETCH_MULTIPLIER"]
+
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 
 
 # -----------------------------------------------------------------------------
