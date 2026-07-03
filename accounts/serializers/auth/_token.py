@@ -3,24 +3,48 @@ Custom JWT token serializers for authentication.
 Path: accounts/serializers/token.py
 """
 
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.serializers import (
+    TokenObtainPairSerializer,
+    TokenRefreshSerializer,
+)
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
+from django.contrib.auth.hashers import check_password
+from accounts.tokens import KidRefreshToken
 from config.logger import logger
 
 User = get_user_model()
 
+# Valid-format dummy encoded hash used to burn a real hash computation when no
+# user matches the submitted credentials (timing-oracle defence). The value
+# itself is never a real password hash — only its format matters so that
+# check_password() runs the full pbkdf2_sha256 iteration count.
+_DUMMY_PASSWORD_HASH = (
+    "pbkdf2_sha256$720000$dummy$0000000000000000000000000000000000000000000="
+)
+
 imports = []
 
 
-imports += ["CustomTokenObtainPairSerializer"]
+imports += ["CustomTokenObtainPairSerializer", "KidTokenRefreshSerializer"]
+
+
+class KidTokenRefreshSerializer(TokenRefreshSerializer):
+    """
+    Override the default refresh serializer to use KidRefreshToken so that
+    rotated tokens (and the derived access tokens) include the ``kid``
+    header required for JWKS-based verification.
+    """
+    token_class = KidRefreshToken
+
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """
     Custom JWT token serializer that handles both username and email login.
     Extends SimpleJWT's TokenObtainPairSerializer with custom claims.
     """
+    token_class = KidRefreshToken
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -43,6 +67,14 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['email'] = user.email
         token['is_verified'] = user.is_verified
         token['is_staff'] = user.is_staff
+
+        # SEC-001: is_superuser intentionally NOT in the JWT — check server-side.
+        if user.is_superuser:
+            token["permissions"] = ["system_admin"]
+        elif user.is_staff:
+            token["permissions"] = list(user.user_permissions.values_list("codename", flat=True))
+        else:
+            token["permissions"] = []
 
         logger.debug(f"JWT token generated with claims for user_id={user.id}")
         return token
@@ -77,12 +109,18 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                 pass
 
         if user is None:
+            # Burn a real password hash computation so the not-found branch
+            # takes the same time as a real password check (timing-oracle
+            # defence) — otherwise response latency leaks account existence.
+            check_password(password, _DUMMY_PASSWORD_HASH)
             logger.warning(f"Token validation failed - user not found: {username_or_email}")
             raise serializers.ValidationError(
                 'No user found with this username or email.')
 
         # Check if user is active
         if not user.is_active:
+            # Same timing-oracle defence as the not-found branch above.
+            check_password(password, _DUMMY_PASSWORD_HASH)
             logger.warning(f"Token validation failed - inactive user: user_id={user.id}, username={user.username}")
             raise serializers.ValidationError('User account is disabled.')
 
