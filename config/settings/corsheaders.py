@@ -37,6 +37,7 @@ imports += ["CORS_ALLOW_HEADERS"]
 CORS_ALLOW_HEADERS = list(default_headers) + [
     "authorization",
     "content-type",
+    "x-token-delivery",
 ]
 
 # ---------------------------------------------------------------------

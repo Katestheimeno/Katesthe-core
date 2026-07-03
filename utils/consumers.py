@@ -7,6 +7,8 @@ import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 
+from errors.catalog import INTERNAL__ERROR, VALIDATION__INVALID_FORMAT, VALIDATION__INVALID_VALUE
+
 
 class ExampleConsumer(AsyncWebsocketConsumer):
     """
@@ -72,18 +74,21 @@ class ExampleConsumer(AsyncWebsocketConsumer):
             else:
                 await self.send(text_data=json.dumps({
                     'type': 'error',
-                    'message': f'Unknown message type: {message_type}'
+                    'code': VALIDATION__INVALID_VALUE,
+                    'detail': f'Unknown message type: {message_type}'
                 }))
 
         except json.JSONDecodeError:
             await self.send(text_data=json.dumps({
                 'type': 'error',
-                'message': 'Invalid JSON format'
+                'code': VALIDATION__INVALID_FORMAT,
+                'detail': 'Invalid JSON format'
             }))
-        except Exception as e:
+        except Exception:
             await self.send(text_data=json.dumps({
                 'type': 'error',
-                'message': f'Server error: {str(e)}'
+                'code': INTERNAL__ERROR,
+                'detail': 'Server error'
             }))
 
     # Group message handlers (for broadcasting)
@@ -130,12 +135,12 @@ class BaseConsumer(AsyncWebsocketConsumer):
                 self.channel_name
             )
 
-    async def send_error(self, message):
-        """Helper method to send error messages."""
-        await self.send(text_data=json.dumps({
-            'type': 'error',
-            'message': message
-        }))
+    async def send_error(self, code, detail=None):
+        """Helper method to send a code-based error frame (catalog code + optional detail)."""
+        payload = {'type': 'error', 'code': code}
+        if detail:
+            payload['detail'] = detail
+        await self.send(text_data=json.dumps(payload))
 
     async def send_success(self, message, data=None):
         """Helper method to send success messages."""
