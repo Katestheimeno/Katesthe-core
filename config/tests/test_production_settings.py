@@ -17,6 +17,8 @@ from pathlib import Path
 
 import pytest
 
+from config.tests.test_production_jwt import _TEST_RSA_PRIVATE_KEY_B64
+
 pytestmark = pytest.mark.slow
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -26,10 +28,15 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 # blanked so `get_env_file_path()` falls back to the (nonexistent) .env.prod
 # file instead of silently picking up repo dotenv values — every setting
 # under test is then fully controlled by the env we pass in.
+#
+# JWT_RSA_PRIVATE_KEY is required here too: production.py now enforces RS256
+# at boot (see test_production_jwt.py), so every subprocess in this file
+# needs a valid key to reach the assertions these tests actually exercise.
 BASE_ENV = {
     "SECRET_KEY": "test-secret-key-for-subprocess-only",
     "JWT_SECRET_KEY": "test-jwt-secret-key-for-subprocess-only",
     "DJANGO_ENV": "",
+    "JWT_RSA_PRIVATE_KEY": _TEST_RSA_PRIVATE_KEY_B64,
 }
 
 
@@ -146,7 +153,7 @@ class TestProductionSecurityConstants:
             "SESSION_COOKIE_SECURE": True,
             "CSRF_COOKIE_SECURE": True,
             "SECURE_CONTENT_TYPE_NOSNIFF": True,
-            "SECURE_REFERRER_POLICY": "same-origin",
+            "SECURE_REFERRER_POLICY": "strict-origin-when-cross-origin",
             "X_FRAME_OPTIONS": "DENY",
             "SECURE_PROXY_SSL_HEADER": ["HTTP_X_FORWARDED_PROTO", "https"],
         }
