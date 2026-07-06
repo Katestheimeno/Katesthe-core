@@ -24,7 +24,7 @@ from config.logger import logger
 REVOKED_AFTER_TTL_SECONDS = 60 * 60 * 24 * 7  # 7 days — matches refresh-token lifetime
 
 
-def revoke_all_sessions(user_id: int, event: str) -> int:
+def revoke_all_sessions(user_id, event: str) -> int:
     """
     Blacklist all outstanding, non-expired JWT refresh tokens for a user.
 
@@ -100,10 +100,43 @@ def detect_refresh_reuse(raw_token: str) -> None:
         return
 
     jti = payload.get(simplejwt_settings.JTI_CLAIM)
-    user_id = int(payload.get(simplejwt_settings.USER_ID_CLAIM))
+    # Don't force this to int — the user pk type is model-defined (a
+    # downstream project may swap in a UUID pk), so the JWT claim is used
+    # in its native form rather than assuming it's numeric.
+    user_id = payload.get(simplejwt_settings.USER_ID_CLAIM)
     if not jti or not user_id:
         return
 
     if BlacklistedToken.objects.filter(token__jti=jti).exists():
         logger.bind(user_id=user_id).warning("refresh.reuse_detected")
         revoke_all_sessions(user_id, event="refresh_reuse")
+
+
+def is_token_revoked(validated_token) -> bool:
+    """
+    True if ``validated_token`` was issued before the caller's last
+    revocation event (logout-all, password change, username change,
+    account deletion).
+
+    Shared by ``accounts.authentication.CookieJWTAuthentication`` (both the
+    cookie and Bearer-header paths) so HTTP enforcement matches the
+    WebSocket auth middleware's ``auth:revoked_after:{user_id}`` check
+    (``utils/middleware/jwt_websocket_auth.py``). No revocation on record
+    for the user (cache miss) means not revoked, same as the WS side.
+    """
+    user_id = validated_token.get(simplejwt_settings.USER_ID_CLAIM)
+    if user_id is None:
+        return False
+
+    revoked_after = cache.get(f"auth:revoked_after:{user_id}")
+    if revoked_after is None:
+        return False
+
+    iat = validated_token.get("iat")
+    if iat is None:
+        return True
+
+    try:
+        return int(iat) < int(revoked_after)
+    except (TypeError, ValueError):
+        return False

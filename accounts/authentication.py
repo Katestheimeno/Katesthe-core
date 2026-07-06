@@ -13,6 +13,7 @@ from django.middleware.csrf import CsrfViewMiddleware
 from rest_framework import exceptions
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from accounts.services.session import is_token_revoked
 from config.logger import logger
 
 
@@ -50,6 +51,10 @@ class CookieJWTAuthentication(JWTAuthentication):
 
     A bad/expired access cookie gracefully downgrades to header auth. A CSRF
     failure on a valid cookie token NEVER downgrades — it always raises.
+
+    Both paths reject a token issued before the user's last session
+    revocation (logout-all, password change, username change, account
+    deletion) — see ``accounts.services.session.is_token_revoked``.
     """
 
     def authenticate(self, request):
@@ -57,7 +62,7 @@ class CookieJWTAuthentication(JWTAuthentication):
         raw_token = request.COOKIES.get(cookie_name)
 
         if raw_token is None:
-            return super().authenticate(request)
+            return self._reject_if_revoked(super().authenticate(request))
 
         try:
             validated_token = self.get_validated_token(raw_token)
@@ -66,8 +71,20 @@ class CookieJWTAuthentication(JWTAuthentication):
             # valid Authorization: Bearer header (e.g. logout right after the
             # access token expired). CSRF failures below are NOT caught here.
             logger.debug("auth.cookie_token_invalid_falling_back_to_header")
-            return super().authenticate(request)
+            return self._reject_if_revoked(super().authenticate(request))
 
         enforce_csrf(request)
+        if is_token_revoked(validated_token):
+            raise exceptions.AuthenticationFailed("Session revoked")
         user = self.get_user(validated_token)
+        return (user, validated_token)
+
+    @staticmethod
+    def _reject_if_revoked(result):
+        """Apply the same revocation check to the header-auth fallback path."""
+        if result is None:
+            return None
+        user, validated_token = result
+        if is_token_revoked(validated_token):
+            raise exceptions.AuthenticationFailed("Session revoked")
         return (user, validated_token)

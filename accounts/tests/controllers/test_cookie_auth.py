@@ -4,8 +4,11 @@ transport + CSRF enforcement).
 Path: accounts/tests/controllers/test_cookie_auth.py
 """
 
+import time
+
 import pytest
 from django.conf import settings as django_settings
+from django.core.cache import cache
 from django.middleware.csrf import get_token
 from django.test import RequestFactory
 from django.urls import reverse
@@ -251,5 +254,65 @@ class TestRefreshCookieTransport:
         response = client.post(
             reverse("jwt-refresh"), {}, HTTP_X_CSRFTOKEN=header_token
         )
+
+        assert response.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.django_db
+class TestHttpSessionRevocationEnforcement:
+    """
+    A previously issued access token must be rejected on the HTTP path once
+    ``auth:revoked_after:{user_id}`` is set — both via the Bearer-header
+    fallback and the cookie path (finding #1: this was previously only
+    enforced on the WebSocket side).
+
+    The ``revoked_after`` timestamp is set directly on the cache rather than
+    driven through the real logout-all/password-change endpoints, to avoid
+    same-wall-clock-second flakiness against the token's ``iat`` (both use
+    integer-second resolution).
+    """
+
+    def test_bearer_header_access_token_rejected_after_revocation(self, user):
+        access = str(RefreshToken.for_user(user).access_token)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
+
+        cache.set(f"auth:revoked_after:{user.id}", int(time.time()) + 1)
+
+        response = client.get(reverse("user-me"))
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_cookie_access_token_rejected_after_revocation(self, user):
+        access = str(RefreshToken.for_user(user).access_token)
+        client = _client(enforce_csrf=False)
+        client.cookies[ACCESS_COOKIE] = access
+
+        cache.set(f"auth:revoked_after:{user.id}", int(time.time()) + 1)
+
+        response = client.get(reverse("user-me"))
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_access_token_still_valid_when_no_revocation_is_on_record(self, user):
+        """Cache miss (no revocation ever recorded) must not reject — same
+        fail-open-on-miss contract as the WebSocket middleware."""
+        access = str(RefreshToken.for_user(user).access_token)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
+
+        response = client.get(reverse("user-me"))
+
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_access_token_issued_after_revocation_still_works(self, user):
+        """A token issued *after* the revocation timestamp is not caught by
+        it — only tokens whose iat predates the revocation are rejected."""
+        cache.set(f"auth:revoked_after:{user.id}", int(time.time()) - 3600)
+        access = str(RefreshToken.for_user(user).access_token)
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
+
+        response = client.get(reverse("user-me"))
 
         assert response.status_code == status.HTTP_200_OK
