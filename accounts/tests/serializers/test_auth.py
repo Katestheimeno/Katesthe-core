@@ -835,3 +835,45 @@ class TestTokenSerializerMissingLines:
         
         with pytest.raises(serializers.ValidationError, match="Must include username/email and password"):
             serializer.validate({})
+
+
+class TestTokenSerializerIdentifierCollision:
+    """
+    Finding #5: one user's username equal to a different user's email must
+    not silently authenticate against the username-holder.
+    """
+
+    @pytest.mark.django_db
+    def test_collision_between_one_users_username_and_another_users_email_is_rejected(self):
+        factory = APIRequestFactory()
+        request = factory.post('/')
+
+        collision_value = 'shared-identifier@example.com'
+        UserFactory(username=collision_value, email='owner-of-username@example.com')
+        UserFactory(username='owner-of-email', email=collision_value)
+
+        serializer = CustomTokenObtainPairSerializer(
+            data={'username': collision_value, 'password': 'testpass123'},
+            context={'request': request}
+        )
+
+        with pytest.raises(serializers.ValidationError, match="No user found with this username or email"):
+            serializer.validate({'username': collision_value, 'password': 'testpass123'})
+
+    @pytest.mark.django_db
+    def test_no_collision_when_username_and_email_resolve_to_the_same_user(self):
+        factory = APIRequestFactory()
+        request = factory.post('/')
+
+        user = UserFactory(username='sameuser', email='sameuser@example.com')
+
+        serializer = CustomTokenObtainPairSerializer(
+            data={'username': 'sameuser', 'password': 'testpass123'},
+            context={'request': request}
+        )
+
+        # No collision (both lookups resolve to the same user) — falls
+        # through to the normal authenticate() call, which fails in this
+        # test environment the same way the other success-path tests do.
+        with pytest.raises(serializers.ValidationError, match="Invalid credentials"):
+            serializer.validate({'username': 'sameuser', 'password': 'testpass123'})

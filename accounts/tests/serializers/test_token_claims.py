@@ -4,7 +4,7 @@ Path: accounts/tests/serializers/test_token_claims.py
 """
 
 import pytest
-from django.contrib.auth.models import Permission
+from django.contrib.auth.models import Group, Permission
 
 from accounts.serializers.auth import CustomTokenObtainPairSerializer
 from accounts.tests.factories import StaffUserFactory, SuperUserFactory, UserFactory
@@ -39,6 +39,32 @@ class TestTokenPermissionsClaim:
         token = CustomTokenObtainPairSerializer.get_token(user)
 
         assert permission.codename in token["permissions"]
+
+    def test_staff_user_token_contains_group_assigned_permission_codename(self):
+        """A staff user's token includes codenames of permissions inherited
+        via group membership, not just directly-assigned ones (finding #4)."""
+        user = StaffUserFactory()
+        permission = Permission.objects.first()
+        group = Group.objects.create(name="test-group")
+        group.permissions.add(permission)
+        user.groups.add(group)
+
+        token = CustomTokenObtainPairSerializer.get_token(user)
+
+        assert permission.codename in token["permissions"]
+
+    def test_staff_user_token_permissions_claim_has_no_duplicates(self):
+        """A permission assigned both directly and via a group appears once."""
+        user = StaffUserFactory()
+        permission = Permission.objects.first()
+        user.user_permissions.add(permission)
+        group = Group.objects.create(name="test-group")
+        group.permissions.add(permission)
+        user.groups.add(group)
+
+        token = CustomTokenObtainPairSerializer.get_token(user)
+
+        assert token["permissions"].count(permission.codename) == 1
 
     def test_regular_user_token_has_empty_permissions(self):
         """A non-staff, non-superuser user gets an empty permissions claim."""

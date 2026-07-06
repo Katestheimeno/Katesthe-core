@@ -11,6 +11,8 @@ from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import check_password
+from django.contrib.auth.models import Permission
+from django.db.models import Q
 from accounts.tokens import KidRefreshToken
 from config.logger import logger
 
@@ -59,7 +61,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         """
         Add custom claims to the JWT token.
         """
-        logger.debug(f"Generating JWT token for user_id={user.id}, username={user.username}")
+        bound_logger = logger.bind(user_id=user.id)
+        bound_logger.debug("auth.jwt_token_generating")
         token = super().get_token(user)
 
         # Add custom claims
@@ -72,11 +75,19 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         if user.is_superuser:
             token["permissions"] = ["system_admin"]
         elif user.is_staff:
-            token["permissions"] = list(user.user_permissions.values_list("codename", flat=True))
+            # Q(user=user): permissions assigned directly via user_permissions.
+            # Q(group__user=user): permissions inherited from the user's groups.
+            # Bare codenames are kept (not "app_label.codename") to match the
+            # pre-existing claim shape — an additive-only API contract.
+            token["permissions"] = list(
+                Permission.objects.filter(Q(user=user) | Q(group__user=user))
+                .distinct()
+                .values_list("codename", flat=True)
+            )
         else:
             token["permissions"] = []
 
-        logger.debug(f"JWT token generated with claims for user_id={user.id}")
+        bound_logger.debug("auth.jwt_token_generated")
         return token
 
     def validate(self, attrs):
@@ -86,34 +97,34 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         username_or_email = attrs.get('username')
         password = attrs.get('password')
 
-        logger.info(f"Token validation attempt for username/email: {username_or_email}")
+        logger.info("auth.token_validate_attempt")
 
         if not username_or_email or not password:
-            logger.warning(f"Token validation failed - missing credentials for: {username_or_email}")
+            logger.warning("auth.token_validate_missing_credentials")
             raise serializers.ValidationError(
                 'Must include username/email and password.')
 
-        # Try to find user by username first, then by email
-        user = None
-        try:
-            # First try username
-            user = User.objects.get(username=username_or_email)
-            logger.debug(f"User found by username: user_id={user.id}, username={user.username}")
-        except User.DoesNotExist:
-            try:
-                # Then try email
-                user = User.objects.get(email=username_or_email)
-                logger.debug(f"User found by email: user_id={user.id}, username={user.username}")
-            except User.DoesNotExist:
-                logger.warning(f"User not found for username/email: {username_or_email}")
-                pass
+        # Look up by username and by email independently (rather than
+        # username-first-then-email) so a collision — one user's username
+        # equal to a different user's email — is detected instead of
+        # silently letting the username match win.
+        username_match = User.objects.filter(username=username_or_email).first()
+        email_match = User.objects.filter(email=username_or_email).first()
+
+        if username_match and email_match and username_match.id != email_match.id:
+            check_password(password, _DUMMY_PASSWORD_HASH)
+            logger.warning("auth.token_validate_identifier_collision")
+            raise serializers.ValidationError(
+                'No user found with this username or email.')
+
+        user = username_match or email_match
 
         if user is None:
             # Burn a real password hash computation so the not-found branch
             # takes the same time as a real password check (timing-oracle
             # defence) — otherwise response latency leaks account existence.
             check_password(password, _DUMMY_PASSWORD_HASH)
-            logger.warning(f"Token validation failed - user not found: {username_or_email}")
+            logger.warning("auth.token_validate_user_not_found")
             raise serializers.ValidationError(
                 'No user found with this username or email.')
 
@@ -121,7 +132,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         if not user.is_active:
             # Same timing-oracle defence as the not-found branch above.
             check_password(password, _DUMMY_PASSWORD_HASH)
-            logger.warning(f"Token validation failed - inactive user: user_id={user.id}, username={user.username}")
+            logger.bind(user_id=user.id).warning("auth.token_validate_inactive_user")
             raise serializers.ValidationError('User account is disabled.')
 
         # Authenticate with the found user's username (since that's what Django expects)
@@ -132,10 +143,10 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         )
 
         if authenticated_user is None:
-            logger.warning(f"Token validation failed - invalid credentials for user_id={user.id}, username={user.username}")
+            logger.bind(user_id=user.id).warning("auth.token_validate_invalid_credentials")
             raise serializers.ValidationError('Invalid credentials.')
 
-        logger.info(f"Token validation successful for user_id={authenticated_user.id}, username={authenticated_user.username}")
+        logger.bind(user_id=authenticated_user.id).info("auth.token_validate_success")
 
         # Set the user for token generation
         attrs['user'] = authenticated_user
