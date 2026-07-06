@@ -33,6 +33,17 @@
 
 See: `docs/changes/20260703_172451_rhitoric-auth-core-and-envelope-unification.md`
 
+### Security
+
+- **Session revocation is now enforced on the HTTP path, not just WebSocket.** `accounts.authentication.CookieJWTAuthentication` (both the cookie and Bearer-header paths) now rejects an access token issued before the user's last `logout-all`/password-change/username-change/account-deletion, via the new `accounts.services.session.is_token_revoked`. Previously an already-issued access token kept working on every REST endpoint for up to `ACCESS_TOKEN_LIFETIME` (15 min) after revocation.
+- Login (`CustomTokenObtainPairSerializer.validate`) now detects a username/email identifier collision (one user's username equal to a different user's email) and rejects instead of silently authenticating against whichever branch matched first.
+- The JWT `permissions` claim for staff users now includes group-inherited permissions, not just directly-assigned `user_permissions`.
+
+### Fixed
+
+- Removed a dead best-effort refresh-token-blacklist block in account self-deletion (`CustomUserViewSet.destroy`) that read a `refresh_token` request field no client actually sends (every other endpoint uses `refresh`) — `revoke_all_sessions()` already blacklists all of the deleted user's outstanding refresh tokens.
+- Removed raw username/email from log messages across the JWT login, logout, and account-deletion paths — only `user_id` is logged now.
+
 ### Fixed
 
 - Docker `db_replica`: primary now uses a mounted `pg_hba.conf` (`hba_file`) so replication connections from the Docker network match `host replication` / `hostnossl` rules (PostgreSQL’s `all` does not match replication DB). Replica entrypoint creates/updates `replicator` with `REPLICATOR_PASSWORD` before `pg_basebackup` so existing primary volumes work without manual SQL.

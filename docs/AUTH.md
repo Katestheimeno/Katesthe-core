@@ -44,7 +44,8 @@ keep working unchanged.
 
 ## Session revocation
 
-`accounts.services.session` (`revoke_all_sessions`, `detect_refresh_reuse`) backs:
+`accounts.services.session` (`revoke_all_sessions`, `detect_refresh_reuse`,
+`is_token_revoked`) backs:
 
 - `POST /auth/users/logout-all/` — revokes every outstanding refresh token for the user.
 - Password change, username change, account deletion — each revokes all sessions.
@@ -53,9 +54,10 @@ keep working unchanged.
   being reused is a signal the old token leaked.
 
 All of the above share one cache key: `auth:revoked_after:{user_id}` (a Unix timestamp,
-7-day TTL). A token issued before that timestamp is rejected. The WebSocket auth
-middleware (below) reads the **same** key — keep the template string identical if you
-touch either side.
+7-day TTL). A token issued before that timestamp is rejected on **both** the HTTP path
+(`accounts.authentication.CookieJWTAuthentication` — cookie and Bearer-header alike, via
+`is_token_revoked`) and the WebSocket path (below). Keep the cache-key template string
+identical if you touch either side.
 
 `accounts.tasks.token_tasks.flush_expired_jwt_tokens` is a Celery task for periodic
 cleanup of expired blacklist/outstanding-token rows; wire its beat schedule where your
