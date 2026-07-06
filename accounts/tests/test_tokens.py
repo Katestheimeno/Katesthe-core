@@ -52,3 +52,36 @@ class TestKidRefreshToken:
         header = pyjwt.get_unverified_header(str(refresh.access_token))
 
         assert header["kid"] == settings.SIMPLE_JWT["KID"]
+
+
+@pytest.mark.django_db
+class TestKidMixinParityWithTokenBackendEncode:
+    """
+    Regression guard for the maintenance note in accounts/tokens.py:
+    ``_KidMixin.__str__`` reimplements ``TokenBackend.encode`` (payload copy
+    + aud/iss injection) because SimpleJWT exposes no hook for custom
+    headers. A SimpleJWT upgrade that changes ``encode()``'s claim handling
+    should fail this test before the drift reaches production (finding #6).
+    """
+
+    def test_kid_access_token_payload_matches_token_backend_encode(self):
+        user = UserFactory()
+        token = KidAccessToken.for_user(user)
+
+        ours = pyjwt.decode(
+            str(token),
+            key=settings.SIMPLE_JWT["VERIFYING_KEY"],
+            algorithms=["RS256"],
+            audience=settings.SIMPLE_JWT["AUDIENCE"],
+            issuer=settings.SIMPLE_JWT["ISSUER"],
+        )
+        upstream_encoded = token.token_backend.encode(token.payload)
+        upstream = pyjwt.decode(
+            upstream_encoded,
+            key=settings.SIMPLE_JWT["VERIFYING_KEY"],
+            algorithms=["RS256"],
+            audience=settings.SIMPLE_JWT["AUDIENCE"],
+            issuer=settings.SIMPLE_JWT["ISSUER"],
+        )
+
+        assert ours == upstream
