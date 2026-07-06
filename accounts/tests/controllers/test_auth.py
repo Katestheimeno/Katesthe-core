@@ -779,8 +779,9 @@ class TestCustomUserViewSetEdgeCases:
     
     @pytest.mark.django_db
     def test_user_deletion_with_auth_object(self, authenticated_client):
-        """When request.auth is present, the best-effort blacklist path runs
-        but a non-JWT-parsable refresh_token does not block deletion."""
+        """With request.auth present, deletion succeeds regardless of an
+        unrecognized 'refresh_token' field — destroy() only reads it via
+        revoke_all_sessions(), which is keyed on the user id, not the body."""
         url = reverse('user-me')
         data = {
             'current_password': 'testpass123',
@@ -793,8 +794,8 @@ class TestCustomUserViewSetEdgeCases:
 
     @pytest.mark.django_db
     def test_user_deletion_with_token_error(self, authenticated_client):
-        """An invalid refresh_token during deletion is swallowed (best-effort
-        blacklist) and deletion still succeeds."""
+        """A malformed 'refresh_token' field does not block deletion — it is
+        not a field destroy() reads."""
         url = reverse('user-me')
         data = {
             'current_password': 'testpass123',
@@ -930,32 +931,15 @@ class TestCustomUserViewSetMissingLines:
     """Test cases to cover missing lines in CustomUserViewSet."""
     
     @pytest.mark.django_db
-    def test_user_deletion_with_auth_and_refresh_token_blacklisting(self, authenticated_client):
-        """A refresh_token that blacklists successfully is exercised via a
-        mocked RefreshToken; deletion still proceeds to 204."""
+    def test_user_deletion_ignores_unrecognized_refresh_token_field(self, authenticated_client):
+        """destroy() no longer reads a 'refresh_token' field at all (that
+        best-effort blacklist block was dead code — the real client field is
+        'refresh', and revoke_all_sessions() already blacklists every
+        outstanding refresh token for the user); an extra field is inert."""
         url = reverse('user-me')
         data = {
             'current_password': 'testpass123',
             'refresh_token': 'test.refresh.token'
-        }
-
-        with patch('accounts.controllers._auth.RefreshToken') as mock_refresh_token:
-            mock_token = MagicMock()
-            mock_refresh_token.return_value = mock_token
-
-            response = authenticated_client.delete(url, data)
-
-        mock_token.blacklist.assert_called_once()
-        assert response.status_code == status.HTTP_204_NO_CONTENT
-
-    @pytest.mark.django_db
-    def test_user_deletion_with_token_blacklisting_error(self, authenticated_client):
-        """A refresh_token that fails to parse raises TokenError, which the
-        destroy() best-effort blacklist swallows — deletion still succeeds."""
-        url = reverse('user-me')
-        data = {
-            'current_password': 'testpass123',
-            'refresh_token': 'invalid.token'
         }
 
         response = authenticated_client.delete(url, data)
@@ -1373,40 +1357,22 @@ class TestCustomUserViewSetAdvancedMissingLines:
     """Advanced test cases to cover remaining missing lines in CustomUserViewSet."""
     
     @pytest.mark.django_db
-    def test_user_deletion_with_token_blacklisting_token_error(self, authenticated_client):
-        """RefreshToken() raising TokenError during the best-effort blacklist
-        attempt is caught and does not block deletion."""
+    def test_user_deletion_unaffected_by_a_broken_refresh_token_field(self, authenticated_client):
+        """destroy() doesn't read 'refresh_token' at all, so even a value
+        that would raise TokenError if parsed never reaches RefreshToken()."""
         url = reverse('user-me')
         data = {
             'current_password': 'testpass123',
             'refresh_token': 'invalid.token'
         }
 
-        # Mock the RefreshToken to raise TokenError
         with patch('accounts.controllers._auth.RefreshToken') as mock_refresh_token:
             from rest_framework_simplejwt.exceptions import TokenError
             mock_refresh_token.side_effect = TokenError("Invalid token")
 
             response = authenticated_client.delete(url, data)
 
-        assert response.status_code == status.HTTP_204_NO_CONTENT
-
-    @pytest.mark.django_db
-    def test_user_deletion_with_token_blacklisting_attribute_error(self, authenticated_client):
-        """RefreshToken() raising AttributeError during the best-effort
-        blacklist attempt is caught and does not block deletion."""
-        url = reverse('user-me')
-        data = {
-            'current_password': 'testpass123',
-            'refresh_token': 'invalid.token'
-        }
-
-        # Mock the RefreshToken to raise AttributeError
-        with patch('accounts.controllers._auth.RefreshToken') as mock_refresh_token:
-            mock_refresh_token.side_effect = AttributeError("No blacklist method")
-
-            response = authenticated_client.delete(url, data)
-
+        mock_refresh_token.assert_not_called()
         assert response.status_code == status.HTTP_204_NO_CONTENT
 
     @pytest.mark.django_db
@@ -1586,72 +1552,36 @@ class TestDirectLineCoverage:
     """Direct tests to cover specific missing lines."""
     
     @pytest.mark.django_db
-    def test_user_deletion_with_auth_and_refresh_token_blacklisting_success(self, authenticated_client):
-        """Test user deletion with auth and refresh token blacklisting success (covers lines 40-62)."""
+    def test_user_deletion_direct_call_ignores_refresh_token_field(self, authenticated_client):
+        """Calling destroy() directly (bypassing DRF request parsing) with an
+        arbitrary 'refresh_token' body field still succeeds — the field was
+        only ever read by the dead best-effort-blacklist block, now removed."""
         # Create a custom view instance to test the destroy method directly
         from accounts.controllers._auth import CustomUserViewSet
         from rest_framework.test import APIRequestFactory
-        
+
         factory = APIRequestFactory()
         user = UserFactory()
-        
+
         # Create a request with auth and data
         request = factory.delete('/')
         request.auth = 'mock_auth'
         request.data = {'refresh_token': 'valid.refresh.token'}
-        
+
         # Mock the view's get_object method
         view = CustomUserViewSet()
         view.request = request
-        
+
         with patch.object(view, 'get_object') as mock_get_object:
             mock_get_object.return_value = user
-            
-            # Mock the RefreshToken to avoid actual token validation
+
             with patch('accounts.controllers._auth.RefreshToken') as mock_refresh_token:
-                mock_token = type('Token', (), {'blacklist': lambda self: None})()
-                mock_refresh_token.return_value = mock_token
-                
                 # Mock the perform_destroy method
-                with patch.object(view, 'perform_destroy') as mock_perform_destroy:
+                with patch.object(view, 'perform_destroy'):
                     response = view.destroy(request)
-                    
-                    # Should return 204 for successful deletion
+
                     assert response.status_code == status.HTTP_204_NO_CONTENT
-    
-    @pytest.mark.django_db
-    def test_user_deletion_with_token_blacklisting_exception(self, authenticated_client):
-        """Test user deletion with token blacklisting exception (covers lines 40-62)."""
-        # Create a custom view instance to test the destroy method directly
-        from accounts.controllers._auth import CustomUserViewSet
-        from rest_framework.test import APIRequestFactory
-        
-        factory = APIRequestFactory()
-        user = UserFactory()
-        
-        # Create a request with auth and data
-        request = factory.delete('/')
-        request.auth = 'mock_auth'
-        request.data = {'refresh_token': 'invalid.token'}
-        
-        # Mock the view's get_object method
-        view = CustomUserViewSet()
-        view.request = request
-        
-        with patch.object(view, 'get_object') as mock_get_object:
-            mock_get_object.return_value = user
-            
-            # Mock the RefreshToken to raise an exception
-            with patch('accounts.controllers._auth.RefreshToken') as mock_refresh_token:
-                from rest_framework_simplejwt.exceptions import TokenError
-                mock_refresh_token.side_effect = TokenError("Invalid token")
-                
-                # Mock the perform_destroy method
-                with patch.object(view, 'perform_destroy') as mock_perform_destroy:
-                    response = view.destroy(request)
-                    
-                    # Should return 204 for successful deletion (exception is caught)
-                    assert response.status_code == status.HTTP_204_NO_CONTENT
+        mock_refresh_token.assert_not_called()
     
     @pytest.mark.django_db
     def test_me_endpoint_method_routing_direct(self, authenticated_client):

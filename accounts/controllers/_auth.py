@@ -12,7 +12,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.views import TokenRefreshView as BaseTokenRefreshView
 from rest_framework_simplejwt.views import TokenVerifyView as BaseTokenVerifyView
@@ -223,30 +222,13 @@ class CustomUserViewSet(djoser_views.UserViewSet):
         — an app that is not installed here, so that call would raise.
 
         Subtask 019: revokes every outstanding session (refresh token) for
-        the deleted user via ``revoke_all_sessions``, in addition to the
-        best-effort single-token blacklist below. The user id is captured
-        before deletion because ``instance.delete()`` clears the in-memory
-        primary key on the instance.
+        the deleted user via ``revoke_all_sessions``. The user id is
+        captured before deletion because ``instance.delete()`` clears the
+        in-memory primary key on the instance.
         """
         instance = self.get_object()
         user_id = instance.id
-        logger.info(f"User deletion requested for user_id={user_id}, username={instance.username}")
-
-        # Instead of using Djoser's logout_user (which tries to use Token model),
-        # we'll implement JWT-specific cleanup
-        if hasattr(request, 'auth') and request.auth:
-            try:
-                # Try to blacklist the current refresh token if available
-                # This requires the token blacklist feature to be enabled
-                refresh_token = request.data.get('refresh_token')
-                if refresh_token:
-                    token = RefreshToken(refresh_token)
-                    token.blacklist()
-                    logger.debug(f"Successfully blacklisted refresh token for user_id={user_id}")
-            except (TokenError, AttributeError) as e:
-                # If blacklisting fails or isn't available, just continue
-                # The token will expire naturally
-                logger.warning(f"Failed to blacklist token for user_id={user_id}: {e}")
+        logger.bind(user_id=user_id).info("auth.user_deletion_requested")
 
         # Revoke sessions BEFORE deleting the user, then perform the deletion
         # in the same transaction (roll back both together on failure).
@@ -257,7 +239,7 @@ class CustomUserViewSet(djoser_views.UserViewSet):
             revoke_all_sessions(user_id, event="account_deletion")
             self.perform_destroy(instance)
 
-        logger.info(f"User successfully deleted: user_id={user_id}")
+        logger.bind(user_id=user_id).info("auth.user_deleted")
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @extend_schema(
@@ -346,15 +328,14 @@ class CustomJWTTokenCreateView(TokenObtainPairView):
         (cross-domain, non-cookie clients) opt in with the
         ``X-Token-Delivery: bearer`` request header.
         """
-        username = request.data.get('username', 'unknown')
-        logger.info(f"JWT token creation attempt for username/email: {username}")
+        logger.info("auth.jwt_create_attempt")
 
         response = super().post(request, *args, **kwargs)
         if response.status_code != 200:
-            logger.warning(f"JWT token creation failed for username/email: {username}, status={response.status_code}")
+            logger.bind(status_code=response.status_code).warning("auth.jwt_create_failed")
             return response
 
-        logger.info(f"JWT token created successfully for username/email: {username}")
+        logger.info("auth.jwt_create_success")
         access = response.data.get('access')
         refresh = response.data.get('refresh')
         if access and refresh:
@@ -501,25 +482,25 @@ class CustomJWTLogoutView(APIView):
 
     def post(self, request):
         user_id = request.user.id
-        username = request.user.username
-        logger.info(f"JWT logout requested for user_id={user_id}, username={username}")
+        bound_logger = logger.bind(user_id=user_id)
+        bound_logger.info("auth.jwt_logout_requested")
 
         refresh_token = request.data.get('refresh') or request.COOKIES.get(
             _jwt_cfg()["AUTH_COOKIE_REFRESH"]
         )
 
         if not refresh_token:
-            logger.warning(f"JWT logout failed - no refresh token provided for user_id={user_id}")
+            bound_logger.warning("auth.jwt_logout_missing_refresh_token")
             raise AppAPIError(E.VALIDATION__MISSING_FIELD, status_code=400)
 
         try:
             token = RefreshToken(refresh_token)
             token.blacklist()
         except Exception as e:
-            logger.error(f"JWT logout error for user_id={user_id}: {e}")
+            bound_logger.bind(error=type(e).__name__).error("auth.jwt_logout_error")
             raise AppAPIError(E.AUTH__TOKEN_INVALID, status_code=400)
 
-        logger.info(f"JWT logout successful - token blacklisted for user_id={user_id}")
+        bound_logger.info("auth.jwt_logout_success")
         response = Response(status=status.HTTP_204_NO_CONTENT)
         _clear_auth_cookies(response)
         return response
